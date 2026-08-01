@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.2.0...v0.2.1) (2026-08-01)
+
+
+### Bug Fixes
+
+* drop the bogus card editor element ([5f440ed](https://github.com/johnbr/ha-ffl-yahoo/commit/5f440edd14cd832c670ccb3c1babb3d799f7f8b0))
+
 ## [0.2.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.1.0...v0.2.0) (2026-08-01)
 
 

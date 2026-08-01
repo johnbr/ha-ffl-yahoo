@@ -1,5 +1,5 @@
 /* Yahoo Fantasy Football cards for Home Assistant. */
-const CARD_VERSION = "0.2.0"; // x-release-please-version
+const CARD_VERSION = "0.2.1"; // x-release-please-version
 
 const MY_MATCHUP_TAG = "ffl-my-matchup-card";
 const LEAGUE_TAG = "ffl-league-scoreboard-card";
