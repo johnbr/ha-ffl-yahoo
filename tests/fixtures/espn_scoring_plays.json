@@ -1,0 +1,122 @@
+[
+  {
+    "event": "401772830",
+    "date": "20250907",
+    "type_id": "67",
+    "type": "Passing Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "ATL",
+    "text": "Bijan Robinson 50 Yd pass from Michael Penix Jr. (Younghoe Koo Kick)"
+  },
+  {
+    "event": "401772830",
+    "date": "20250907",
+    "type_id": "68",
+    "type": "Rushing Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "ATL",
+    "text": "Michael Penix Jr. 4 Yd Rush (Younghoe Koo Kick)"
+  },
+  {
+    "event": "401772723",
+    "date": "20250907",
+    "type_id": "59",
+    "type": "Field Goal Good",
+    "abbr": "FG",
+    "scoringType": "field-goal",
+    "team": "HOU",
+    "text": "Ka'imi Fairbairn 51 Yd Field Goal "
+  },
+  {
+    "event": "401772830",
+    "date": "20250907",
+    "type_id": "59",
+    "type": "Field Goal Good",
+    "abbr": "FG",
+    "scoringType": "field-goal",
+    "team": "TB",
+    "text": "Chase McLaughlin 48 Yd Field Goal"
+  },
+  {
+    "event": "401772733",
+    "date": "20250921",
+    "type_id": "36",
+    "type": "Interception Return Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "IND",
+    "text": "Kenny Moore II 32 Yd Interception Return (Spencer Shrader Kick)"
+  },
+  {
+    "event": "401772731",
+    "date": "20250921",
+    "type_id": "39",
+    "type": "Fumble Return Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "MIN",
+    "text": "Isaiah Rodgers 66 Yd Fumble Recovery (Will Reichard Kick)"
+  },
+  {
+    "event": "401772841",
+    "date": "20250921",
+    "type_id": "34",
+    "type": "Punt Return Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "WSH",
+    "text": "Jaylin Lane 90 Yd Punt Return (Matt Gay Kick)"
+  },
+  {
+    "event": "401772839",
+    "date": "20250921",
+    "type_id": "18",
+    "type": "Blocked Field Goal",
+    "abbr": "BFG",
+    "scoringType": "touchdown",
+    "team": "PHI",
+    "text": "Blocked Kick Recovered by Jordan Davis (PHI) Jordan Davis 61 Yd Touchown Return"
+  },
+  {
+    "event": "401772843",
+    "date": "20250921",
+    "type_id": "8",
+    "type": "Penalty",
+    "abbr": "PEN",
+    "scoringType": "safety",
+    "team": "ARI",
+    "text": "Defensive Holding in Endzone for Safety"
+  },
+  {
+    "event": "401772830",
+    "date": "20250907",
+    "type_id": "67",
+    "type": "Passing Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "TB",
+    "text": "Emeka Egbuka 25 Yd pass from Baker Mayfield (Chase McLaughlin PAT Failed)"
+  },
+  {
+    "event": "401772719",
+    "date": "20250907",
+    "type_id": "67",
+    "type": "Passing Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "MIA",
+    "text": "De'Von Achane 11 Yd pass from Tua Tagovailoa (Tua Tagovailoa Pass to Julian Hill for Two-Point Conversion)"
+  },
+  {
+    "event": "401772721",
+    "date": "20250907",
+    "type_id": "67",
+    "type": "Passing Touchdown",
+    "abbr": "TD",
+    "scoringType": "touchdown",
+    "team": "NYJ",
+    "text": "Garrett Wilson 33 Yd pass from Justin Fields (Two-Point Run Conversion Failed)"
+  }
+]
