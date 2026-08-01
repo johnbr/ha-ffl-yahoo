@@ -97,10 +97,8 @@ class FflBaseCard extends HTMLElement {
 }
 
 class FflMyMatchupCard extends FflBaseCard {
-  static getConfigElement() {
-    return document.createElement("hui-generic-entity-row");
-  }
-
+  // No getConfigElement yet — HA falls back to the YAML editor, which is
+  // correct until the ha-form editor lands with the real card options.
   static getStubConfig(hass) {
     return { entity: findFflEntity(hass) };
   }
