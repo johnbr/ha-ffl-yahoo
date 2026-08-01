@@ -4,8 +4,7 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundl
 
 > **Status: early scaffold.** The repository structure, CI and card-delivery pipeline are in
 > place; the Yahoo API client, coordinator and scoring-play engine are under active development.
-> Installing it today gives you a placeholder entity and two placeholder cards. See
-> [PLAN.md](PLAN.md) for the full design and milestone list.
+> Installing it today gives you a placeholder entity and two placeholder cards.
 
 ## Planned features
 

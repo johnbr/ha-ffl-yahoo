@@ -12,6 +12,7 @@ coverage.xml
 
 # Local working context, not in-repo
 CLAUDE.md
+PLAN.md
 
 # Local virtualenvs
 .venv/
