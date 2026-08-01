@@ -12,16 +12,11 @@ waiver pickup arriving with points already on the board.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
-
-COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "yahoo_fantasy_football"
-sys.path.insert(0, str(COMPONENT))
-
-from espn import match_play_to_player, parse_scoring_play  # noqa: E402
-from plays import (  # noqa: E402
+from yahoo_fantasy_football.espn import match_play_to_player, parse_scoring_play
+from yahoo_fantasy_football.plays import (
     LeagueSnapshot,
     PlayerSnapshot,
     PlayFeed,

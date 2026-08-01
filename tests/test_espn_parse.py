@@ -12,14 +12,10 @@ imports at all — so these run in CI with just pytest.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "custom_components" / "yahoo_fantasy_football"))
-
-from espn import (
+from yahoo_fantasy_football.espn import (
     ROLE_DEFENSIVE_TD,
     ROLE_FIELD_GOAL,
     ROLE_PASSING_TD,
