@@ -1,0 +1,6 @@
+# Files prettier should not reformat (preserves existing layout where
+# readability matters more than convention).
+custom_components/yahoo_fantasy_football/translations/
+*.lock
+.git/
+__pycache__/

@@ -1,0 +1,13 @@
+{
+  "domain": "yahoo_fantasy_football",
+  "name": "Yahoo Fantasy Football",
+  "codeowners": ["@johnbr"],
+  "config_flow": true,
+  "dependencies": ["http", "lovelace"],
+  "documentation": "https://github.com/johnbr/ha-ffl-yahoo",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/johnbr/ha-ffl-yahoo/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

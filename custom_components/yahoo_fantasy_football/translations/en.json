@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Yahoo Fantasy Football",
+        "description": "Enter the Yahoo league key for the league you want to track. You can read it out of your league URL: https://football.fantasysports.yahoo.com/f1/123456 is league key nfl.l.123456.",
+        "data": {
+          "league_key": "League key",
+          "name": "Display name"
+        }
+      }
+    },
+    "error": {
+      "invalid_league_key": "That does not look like a Yahoo league key. Expected something like nfl.l.123456."
+    },
+    "abort": {
+      "already_configured": "This league is already configured."
+    }
+  }
+}
