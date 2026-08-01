@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Set up Yahoo Fantasy Football",
-        "description": "Enter the Yahoo league key for the league you want to track. You can read it out of your league URL: https://football.fantasysports.yahoo.com/f1/123456 is league key nfl.l.123456.",
+        "description": "Enter the Yahoo league key for the league you want to track. It is the numeric league id shown on your league page, prefixed with the game code — for example nfl.l.123456.",
         "data": {
           "league_key": "League key",
           "name": "Display name"
