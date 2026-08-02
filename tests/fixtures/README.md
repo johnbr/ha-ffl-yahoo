@@ -42,7 +42,55 @@ Not yet captured, so not yet tested: kickoff-return touchdowns, a successful
 two-point **run** conversion, and a safety that credits a named defender. Add
 them when a capture turns one up rather than inventing the string.
 
-## Re-capturing
+## `yahoo_web_matchup_2025_w13.html` / `yahoo_web_scoreboard_2025_w13.html`
+
+Captured 2026-08-01 from Yahoo's **public web tier** — a real public league,
+fetched with **no cookies and no account**, which is the whole point: it proves
+the anonymous path works and pins the parser to markup Yahoo actually served.
+
+```
+https://football.fantasysports.yahoo.com/2025/f1/476807?week=13
+https://football.fantasysports.yahoo.com/2025/f1/476807/matchup?week=13&mid1=1
+```
+
+Both are **trimmed** from ~950 KB responses to the region the parser reads
+(team header through the end of the roster tables / the matchups container).
+Trimming is the one hand-edit allowed here, because the discarded part is Yahoo
+chrome, ads and analytics. It is also a hazard: the scoreboard fixture was cut
+too tightly on the first pass and contained only 6 of 10 teams, which failed as
+a *parser* bug until the fixture was re-cut. **If a count-based test fails,
+check the fixture's coverage before changing the parser.**
+
+### What these defend against
+
+| Case | What it defends against |
+|---|---|
+| `Vikings - DEF` / `Lions - DEF` rows | Team defenses are the **only** roster slot with no player link and no `data-ys-playerid`. They were silently dropped on the first pass — the failure mode is missing points, not an exception. |
+| The mirrored `#statTable1` layout | Both teams share one table, the right-hand side **reversed** (`[7..10]`). An index slip yields plausible-but-wrong numbers, so the totals row is cross-checked against the sum of starters. |
+| The playoff bracket on the scoreboard page | `yfa-matchup` blocks carry **weeks 16/17** scores on a week-13 page. Scanning the page for decimals silently reads the wrong week. |
+| The transactions module | Links team names, so an unbounded team-name scan picks up extra "teams". |
+| `A.J. Brown`, `Michael Pittman Jr.`, `Kenneth Walker III` | Punctuation and suffixes in the name cell, alongside a "Video Forecast" promo link that must not leak into the parsed name. |
+
+### Known gaps
+
+Everything here is a **completed** week. In-progress rows are unobserved — the
+live wording of the game note, whether the projection column updates mid-game,
+and whether Gamecast is reachable anonymously are all open. `game_state` returns
+`unknown` rather than guessing for exactly this reason. Re-capture during a live
+game and add the fixture; see the Gamecast capture protocol in `PLAN.md`.
+
+### Re-capturing
+
+Only works for a league whose privacy setting is **public** — a private league
+redirects to `login.yahoo.com`:
+
+```bash
+curl -s -A "Mozilla/5.0" \
+  "https://football.fantasysports.yahoo.com/2025/f1/476807/matchup?week=13&mid1=1" \
+  -o matchup.html
+```
+
+## Re-capturing (ESPN)
 
 ESPN needs no API key. Any past date works, so fixtures can be refreshed at any
 time of year:
