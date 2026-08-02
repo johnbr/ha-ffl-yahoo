@@ -3,15 +3,19 @@
     "step": {
       "user": {
         "title": "Set up Yahoo Fantasy Football",
-        "description": "Enter the Yahoo league key for the league you want to track. It is the numeric league id shown on your league page, prefixed with the game code — for example nfl.l.123456.",
+        "description": "Enter your league id, or paste the full address of your league page. The id is the number in the URL. Your league's privacy setting must be Public — a private league cannot be read without signing in. Leave the season blank for the current one, and set the team id only if you want a sensor for your own matchup.",
         "data": {
-          "league_key": "League key",
-          "name": "Display name"
+          "league_id": "League id or URL",
+          "name": "Display name",
+          "season": "Season year",
+          "team_id": "Your team id"
         }
       }
     },
     "error": {
-      "invalid_league_key": "That does not look like a Yahoo league key. Expected something like nfl.l.123456."
+      "invalid_league_id": "No league id found. Enter the number from your league URL, or paste the whole address.",
+      "league_private": "That league is private, so its scores cannot be read without signing in. Change the league's privacy setting to Public, or wait for Yahoo API support.",
+      "cannot_connect": "Could not reach Yahoo, or the league page could not be read. Check the id and try again."
     },
     "abort": {
       "already_configured": "This league is already configured."

@@ -9,6 +9,15 @@ PLATFORMS = ["sensor"]
 CONF_LEAGUE_KEY = "league_key"
 CONF_NAME = "name"
 
+# Public-web source. A Yahoo *API* league key looks like ``461.l.476807``; the
+# public web pages are addressed by the bare numeric league id plus, for an
+# archived season, the year. Kept separate from CONF_LEAGUE_KEY so both sources
+# can coexist on one entry once OAuth lands.
+CONF_LEAGUE_ID = "league_id"
+CONF_SEASON = "season"
+CONF_TEAM_ID = "team_id"
+"""Which team is 'mine' — drives the my-matchup card. Optional."""
+
 DEFAULT_NAME = "Yahoo Fantasy Football"
 
 # The bundled card ships inside this package directory and is copied to

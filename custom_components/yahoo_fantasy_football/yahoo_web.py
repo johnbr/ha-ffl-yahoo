@@ -144,6 +144,42 @@ def matchup_url(
     return f"{_BASE}{_prefix(season)}/{league_id}/matchup?week={week}&mid1={matchup_id}"
 
 
+# Accept either a bare id or a pasted URL — pasting the address bar is the
+# obvious thing for a user to do, and rejecting it for containing a scheme is
+# needless friction.
+#
+# The ``/f1/`` anchor is tried FIRST and is not optional in that pass. An
+# archived URL is ``/2025/f1/476807``, so a pattern with an optional prefix
+# happily matches the season year and returns 2025 as the league id.
+_LEAGUE_IN_URL_RE = re.compile(r"/f1/(\d{3,10})")
+_BARE_ID_RE = re.compile(r"\b(\d{3,10})\b")
+_SEASON_RE = re.compile(r"/(20\d{2})/f1/")
+
+
+def extract_league_id(raw: str) -> str | None:
+    """Pull the numeric league id out of an id or a pasted league URL."""
+    text = (raw or "").strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return text
+    m = _LEAGUE_IN_URL_RE.search(text)
+    if m:
+        return m.group(1)
+    m = _BARE_ID_RE.search(text)
+    return m.group(1) if m else None
+
+
+def extract_season(raw: str) -> int | None:
+    """A pasted archived-season URL carries the year: ``/2025/f1/476807``.
+
+    Only matches the season *path segment*, so the league id itself can never be
+    mistaken for a year.
+    """
+    m = _SEASON_RE.search(raw or "")
+    return int(m.group(1)) if m else None
+
+
 def is_login_redirect(url: str | None, body: str | None = None) -> bool:
     """True when Yahoo bounced us to sign-in — i.e. the league is **private**.
 
@@ -390,6 +426,26 @@ def parse_matchup(html: str, week: int) -> WebMatchup:
         ),
         players=players,
     )
+
+
+_WEEK_HEADING = re.compile(r"Week\s+(\d+)\s+Matchups", re.I)
+_WEEK_MODULE = re.compile(r'id="matchupweek".{0,600}?Week\s+(\d+)', re.S | re.I)
+
+
+def parse_current_week(html: str) -> int | None:
+    """Which week the page is showing, or None.
+
+    Requested without a ``?week=`` parameter, Yahoo serves the *current* week —
+    so this is how the integration discovers the week rather than deriving it
+    from a hardcoded season calendar that would drift and break in the
+    postseason. Returns None rather than guessing when the marker is absent
+    (the matchup page carries no such heading).
+    """
+    for pattern in (_WEEK_HEADING, _WEEK_MODULE):
+        m = pattern.search(html)
+        if m:
+            return int(m.group(1))
+    return None
 
 
 _MATCHUPS_START = "matchups-body"

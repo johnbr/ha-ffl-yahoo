@@ -18,6 +18,8 @@ from pathlib import Path
 import pytest
 from yahoo_fantasy_football.yahoo_web import (
     WebPlayer,
+    extract_league_id,
+    extract_season,
     is_login_redirect,
     matchup_url,
     parse_matchup,
@@ -257,3 +259,45 @@ def test_starters_survive_the_bridge_as_starters() -> None:
     snap = to_snapshot([PARSED], week=13, taken_at=0.0, league_id=476807)
     starters = [p for p in snap.players.values() if p.starter]
     assert len(starters) == 18, "9 per team"
+
+
+# ---------------------------------------------------------------------------
+# Config-flow input parsing
+# ---------------------------------------------------------------------------
+
+
+def test_a_bare_league_id_is_accepted() -> None:
+    assert extract_league_id("476807") == "476807"
+    assert extract_league_id("  476807  ") == "476807"
+
+
+def test_a_pasted_url_yields_the_league_id() -> None:
+    """Pasting the address bar is the obvious user action; it must work."""
+    for raw in (
+        "https://football.fantasysports.yahoo.com/f1/476807",
+        "https://football.fantasysports.yahoo.com/2025/f1/476807?week=13",
+        "football.fantasysports.yahoo.com/2025/f1/476807/matchup?week=13&mid1=1",
+    ):
+        assert extract_league_id(raw) == "476807", raw
+
+
+def test_junk_input_yields_no_league_id() -> None:
+    assert extract_league_id("") is None
+    assert extract_league_id("   ") is None
+    assert extract_league_id("not a league") is None
+
+
+def test_an_archived_url_yields_its_season() -> None:
+    assert extract_season("https://football.fantasysports.yahoo.com/2025/f1/476807") == 2025
+    assert extract_season("/2024/f1/476807/matchup?week=1") == 2024
+
+
+def test_a_current_season_url_has_no_year() -> None:
+    assert extract_season("https://football.fantasysports.yahoo.com/f1/476807") is None
+    assert extract_season("476807") is None
+
+
+def test_the_league_id_is_never_mistaken_for_a_season() -> None:
+    """A 7-digit id starting with 20 must not parse as a year."""
+    assert extract_season("2025999") is None
+    assert extract_league_id("2025999") == "2025999"

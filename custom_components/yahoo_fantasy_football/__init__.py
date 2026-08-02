@@ -146,8 +146,17 @@ async def _async_register_card(hass: HomeAssistant, card_url: str) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a league from a config entry."""
+    from .coordinator import YahooFantasyCoordinator
+
+    coordinator = YahooFantasyCoordinator(hass, entry)
+    await coordinator.async_load_history()
+    # Raises ConfigEntryNotReady on a transient failure, so HA retries setup;
+    # a private league surfaces as a permanent, explained failure instead.
+    await coordinator.async_config_entry_first_refresh()
+
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = dict(entry.data)
+    hass.data[DOMAIN][entry.entry_id] = {**entry.data, "coordinator": coordinator}
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
