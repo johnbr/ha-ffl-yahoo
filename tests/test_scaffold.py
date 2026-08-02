@@ -79,3 +79,24 @@ def test_config_flow_declared_and_translated() -> None:
     assert "user" in strings["config"]["step"]
     # translations/en.json must stay in sync with strings.json.
     assert _load(COMPONENT_DIR / "translations" / "en.json") == strings
+
+
+def test_websocket_command_names_agree_across_python_and_js() -> None:
+    """The card calls these by name; a rename on one side fails silently.
+
+    Nothing else in the build would catch it — Python lints clean, the JS
+    syntax-checks, and the only symptom is a popup that never loads.
+    """
+    py = (COMPONENT_DIR / "websocket.py").read_text(encoding="utf-8")
+    js = (COMPONENT_DIR / "yahoo-fantasy-football-cards.js").read_text(encoding="utf-8")
+
+    for command in ("matchup_detail", "play_history"):
+        assert f'{{DOMAIN}}/{command}"' in py, f"{command} not registered in websocket.py"
+        assert f"${{DOMAIN}}/{command}`" in js, f"{command} not called from the card"
+
+
+def test_the_card_bundle_is_loadable_outside_a_browser() -> None:
+    """Registration must stay guarded, or the Node card tests cannot run."""
+    js = (COMPONENT_DIR / "yahoo-fantasy-football-cards.js").read_text(encoding="utf-8")
+    assert 'if (typeof customElements !== "undefined")' in js
+    assert 'typeof module !== "undefined"' in js

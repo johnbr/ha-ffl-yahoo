@@ -147,6 +147,9 @@ async def _async_register_card(hass: HomeAssistant, card_url: str) -> None:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a league from a config entry."""
     from .coordinator import YahooFantasyCoordinator
+    from .websocket import async_register_commands
+
+    async_register_commands(hass)
 
     coordinator = YahooFantasyCoordinator(hass, entry)
     await coordinator.async_load_history()
