@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.4.0...v0.5.0) (2026-08-03)
+
+
+### Features
+
+* build both cards, the roster popup and the play history ([977bed0](https://github.com/johnbr/ha-ffl-yahoo/commit/977bed0944afed996236d4ab830c8646e706054a))
+* make the integration work end to end on the public web source ([5defa3a](https://github.com/johnbr/ha-ffl-yahoo/commit/5defa3afafc844530f9dab33ec4d716ec92c54bb))
+* parse Yahoo's public web tier ([d5096d4](https://github.com/johnbr/ha-ffl-yahoo/commit/d5096d45797ac63f6cb42ab0f6189603720dc971))
+
 ## [0.4.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.3.0...v0.4.0) (2026-08-01)
 
 
