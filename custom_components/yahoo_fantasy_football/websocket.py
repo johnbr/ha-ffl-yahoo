@@ -92,6 +92,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
                 vol.Coerce(int), vol.Range(min=1, max=MAX_HISTORY)
             ),
             vol.Optional("include_corrections", default=True): bool,
+            vol.Optional("starters_only", default=False): bool,
         }
     )
     @callback
@@ -109,6 +110,12 @@ def async_register_commands(hass: HomeAssistant) -> None:
             matchup_id=msg.get("matchup_id"),
             team_key=msg.get("team_key"),
             include_corrections=msg.get("include_corrections", True),
+            # Bench points never counted toward the score, so they were never
+            # part of this matchup's story. Note there is deliberately NO
+            # live-game filter here: a play expiring off the card (see
+            # ``matchup_rows``) is a display rule, and the history is the place
+            # that still remembers it.
+            starters_only=msg.get("starters_only", False),
         )
         connection.send_result(
             msg["id"],

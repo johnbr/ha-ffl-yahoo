@@ -88,6 +88,19 @@ class LeagueData:
     fetched_at: float = 0.0
     partial: bool = False
     """True when some matchup pages failed — scores are shown but incomplete."""
+    active_games: int = 0
+    """NFL games in progress. Zero on the HTML tier, which has no game feed."""
+    live_tick: str = ""
+    """Changes whenever a live game's clock or score moves — see ``live_signature``."""
+    plays_feeds: dict[str, str] = field(default_factory=dict)
+    """``{club abbreviation: plays-feed id}`` for games in progress."""
+    live_clubs: frozenset[str] | None = None
+    """NFL clubs currently playing, by abbreviation.
+
+    ``None`` means the games feed was unavailable, which is deliberately
+    distinct from an empty set (a real slate with nothing in progress) —
+    callers must not treat "we don't know" as "nothing is live".
+    """
 
     @property
     def team_count(self) -> int:

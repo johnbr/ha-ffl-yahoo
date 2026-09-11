@@ -3,19 +3,23 @@
     "step": {
       "user": {
         "title": "Set up Yahoo Fantasy Football",
-        "description": "Enter your league id, or paste the full address of your league page. The id is the number in the URL. Your league's privacy setting must be Public — a private league cannot be read without signing in. Leave the season blank for the current one, and set the team id only if you want a sensor for your own matchup.",
+        "description": "Enter your league id, or paste the full address of your league page — the id is the number in the URL. Private leagues work; no Yahoo account or sign-in is needed. Leave the display name blank to use the league's own name.",
         "data": {
           "league_id": "League id or URL",
-          "name": "Display name",
-          "season": "Season year",
-          "team_id": "Your team id"
+          "name": "Display name"
+        }
+      },
+      "team": {
+        "title": "Which team is yours?",
+        "description": "Pick your team in {league} to get a sensor for your own matchup. Choose none for the league scoreboard only.",
+        "data": {
+          "team_id": "Your team"
         }
       }
     },
     "error": {
       "invalid_league_id": "No league id found. Enter the number from your league URL, or paste the whole address.",
-      "league_private": "That league is private, so its scores cannot be read without signing in. Change the league's privacy setting to Public, or wait for Yahoo API support.",
-      "cannot_connect": "Could not reach Yahoo, or the league page could not be read. Check the id and try again."
+      "cannot_connect": "Could not reach Yahoo, or that league id returned nothing. Check the id and try again."
     },
     "abort": {
       "already_configured": "This league is already configured."

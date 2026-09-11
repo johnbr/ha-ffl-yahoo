@@ -1,7 +1,7 @@
 """Polling coordinator for a league.
 
 Deliberately thin. Every decision worth testing — what to fetch, how to degrade,
-what the entities see, how often to poll — lives in :mod:`web_client`,
+what the entities see, how often to poll — lives in :mod:`redzone_client`,
 :mod:`league_state` and :mod:`plays`, which are pure and unit-tested. This file
 is the Home Assistant plumbing around them, because HA machinery cannot be
 exercised in this repo's test harness.
@@ -10,6 +10,7 @@ exercised in this repo's test harness.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -28,18 +29,39 @@ from .const import (
     EVENT_SCORING_PLAY,
 )
 from .league_state import play_dict, poll_interval
-from .plays import PlayFeed, diff_snapshots
-from .web_client import USER_AGENT, LeagueData, LeagueIsPrivate, YahooWebClient, YahooWebError
-from .yahoo_web import to_snapshot
+from .plays import PlayFeed, ScoringEvent, diff_snapshots, match_relay_play
+from .redzone_client import USER_AGENT, RedzoneClient
+from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
+from .yahoo_redzone import parse_relay_plays, to_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30)
 STORAGE_VERSION = 1
 
+# How long an event keeps being re-matched against its game's play feed.
+#
+# Yahoo posts a play tersely first — "Dak Prescott complete for 29 yards" — and
+# fills in the receiver a moment later. Re-reading the feed for a few minutes
+# after an event is what lets the better wording replace the worse one on a
+# card that is already showing it. Long enough to catch the revision, short
+# enough that a Sunday's whole history is not re-read every 20 seconds.
+PLAY_REVISION_SECONDS = 300.0
+
+# Ceiling on play feeds fetched per refresh. One per live game with a scoring
+# event, and on the busiest Sunday afternoon that is still a handful — but the
+# cap is what guarantees it, since this is a scraper and the cost has to be
+# bounded by construction rather than by expectation.
+MAX_PLAY_FEEDS = 8
+
 
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
-    """Fetch a public league on an adaptive cadence and derive scoring plays."""
+    """Fetch a league on an adaptive cadence and derive scoring plays.
+
+    Reads Yahoo's anonymous GameChannel tier (:mod:`redzone_client`), which
+    serves private leagues as well as public ones and costs three requests per
+    poll regardless of league size.
+    """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
@@ -49,18 +71,14 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         session = async_get_clientsession(hass)
 
-        async def _fetch(url: str) -> tuple[str, str]:
-            # The final URL is what reveals a login bounce, so redirects are
-            # followed and the landing URL reported back.
+        async def _fetch(url: str) -> str:
             async with session.get(
-                url,
-                headers={"User-Agent": USER_AGENT},
-                timeout=REQUEST_TIMEOUT,
-                allow_redirects=True,
+                url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT
             ) as resp:
-                return await resp.text(), str(resp.url)
+                resp.raise_for_status()
+                return await resp.text()
 
-        self.client = YahooWebClient(_fetch, self.league_id, self.season)
+        self.client = RedzoneClient(_fetch, self.league_id)
         self.feed = PlayFeed()
         self._previous = None
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")
@@ -97,16 +115,18 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         try:
             data = await self.client.async_refresh_or_stale(now)
         except LeagueIsPrivate as err:
-            # Permanent: retrying cannot help, and the user needs to know why.
+            # This tier has no such condition, but the taxonomy is shared with
+            # the HTML source, so the branch stays rather than becoming a
+            # surprise traceback if that ever changes.
             raise UpdateFailed(str(err)) from err
         except YahooWebError as err:
             raise UpdateFailed(str(err)) from err
 
-        self._process_plays(data, now)
+        await self._process_plays(data, now)
         self.update_interval = _interval(data)
         return data
 
-    def _process_plays(self, data: LeagueData, now: float) -> None:
+    async def _process_plays(self, data: LeagueData, now: float) -> None:
         """Diff against the previous poll and publish anything new."""
         if not data.matchups:
             return
@@ -120,12 +140,77 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         events = diff_snapshots(self._previous, snapshot)
         self._previous = snapshot
+
+        # Events already on the card are re-matched too, not just new ones —
+        # that is the whole point of the revision window.
+        revisable = [
+            event
+            for event in self.feed.recent(50, include_corrections=True)
+            if now - event.timestamp <= PLAY_REVISION_SECONDS
+        ]
+        if events or revisable:
+            events = await self._describe(data, events, revisable, now)
         if not events:
             return
 
         for event in self.feed.add(events):
             self.hass.bus.async_fire(EVENT_SCORING_PLAY, play_dict(event))
         self.hass.async_create_task(self._async_save_history())
+
+    async def _describe(
+        self,
+        data: LeagueData,
+        events: list[ScoringEvent],
+        revisable: list[ScoringEvent],
+        now: float,
+    ) -> list[ScoringEvent]:
+        """Attach Yahoo's own play description to events, and refresh old ones.
+
+        New events are enriched BEFORE they are stored, so the text that goes
+        out on the event bus is the text the card will show — an automation
+        announcing "Nacua +1.60" when the card says "Sam Darnold passed to Puka
+        Nacua for 11 yard gain" would be the same play told two ways.
+
+        Every failure here is swallowed: a missing description is a cosmetic
+        loss, and losing the scoring event itself over one would not be.
+        """
+        wanted: dict[str, str] = {}
+        for event in [*events, *revisable]:
+            feed_id = data.plays_feeds.get(event.nfl_team or "")
+            if feed_id:
+                wanted[feed_id] = feed_id
+        if not wanted:
+            return events
+
+        try:
+            names = await self.client.async_players(now)
+        except Exception as err:  # cosmetic, never fatal
+            _LOGGER.debug("Could not read the player dictionary: %s", err)
+            return events
+
+        feeds: dict[str, list] = {}
+        for feed_id in list(wanted)[:MAX_PLAY_FEEDS]:
+            try:
+                feeds[feed_id] = parse_relay_plays(await self.client.async_plays(feed_id))
+            except Exception as err:  # cosmetic, never fatal
+                _LOGGER.debug("Could not read plays for game %s: %s", feed_id, err)
+
+        def described(event: ScoringEvent) -> ScoringEvent:
+            plays = feeds.get(data.plays_feeds.get(event.nfl_team or "", ""))
+            if not plays:
+                return event
+            match = match_relay_play(event, plays, names)
+            if match is None:
+                return event
+            return event if event.plays and event.plays[-1] == match else replace(
+                event, plays=(match,)
+            )
+
+        for event in revisable:
+            updated = described(event)
+            if updated is not event:
+                self.feed.revise(event.event_id, updated.plays)
+        return [described(event) for event in events]
 
     @property
     def league_data(self) -> LeagueData | None:

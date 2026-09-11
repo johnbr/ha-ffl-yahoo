@@ -12,12 +12,14 @@ waiver pickup arriving with points already on the board.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from yahoo_fantasy_football.espn import match_play_to_player, parse_scoring_play
 from yahoo_fantasy_football.plays import (
     LeagueSnapshot,
+    MatchedPlay,
     PlayerSnapshot,
     PlayFeed,
     abbreviate_name,
@@ -26,6 +28,7 @@ from yahoo_fantasy_football.plays import (
     dumps,
     enrich_events,
     loads,
+    match_relay_play,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -433,3 +436,173 @@ def test_stored_payload_is_json_serialisable() -> None:
 )
 def test_abbreviate_name(raw: str, expected: str) -> None:
     assert abbreviate_name(raw) == expected
+
+
+# ---------------------------------------------------------------------------
+# Stat deltas — what Yahoo itself prints under each matchup
+# ---------------------------------------------------------------------------
+
+
+def test_an_event_carries_what_changed_not_only_how_much():
+    before = snap(1, 100.0, player("p1", 13.67, name="Drake Maye",
+                                   stats={"completions": 11.0, "passingYards": 71.0}))
+    after = snap(1, 145.0, player("p1", 13.96, name="Drake Maye",
+                                  stats={"completions": 12.0, "passingYards": 84.0}))
+
+    (event,) = diff_snapshots(before, after)
+    assert event.stat_delta == "1 Comp, 13 Pass Yds"
+    assert describe(event) == "D. Maye 1 Comp, 13 Pass Yds"
+
+
+def test_a_bare_point_delta_is_the_fallback_without_stats():
+    """The HTML tier carries no stat lines; the banner still has to say something."""
+    before = snap(1, 100.0, player("p1", 10.0))
+    after = snap(1, 145.0, player("p1", 16.4))
+
+    (event,) = diff_snapshots(before, after)
+    assert event.stat_delta == ""
+    assert describe(event) == "P. Nacua +6.40"
+
+
+def test_a_real_play_description_still_wins():
+    """ESPN enrichment says more than either, so it stays the top tier."""
+    before = snap(1, 100.0, player("p1", 10.0, stats={"receptions": 2.0}))
+    after = snap(1, 145.0, player("p1", 16.4, stats={"receptions": 3.0}))
+
+    (event,) = diff_snapshots(before, after)
+    enriched = replace(event, plays=(MatchedPlay("Nacua 24 Yd pass from Stafford", "receiver", 1.0),))
+    assert describe(enriched) == "Nacua 24 Yd pass from Stafford"
+
+
+def test_a_correction_is_never_dressed_up_as_a_play():
+    before = snap(1, 100.0, player("p1", 5.4, stats={"rushingYards": 24.0}))
+    after = snap(1, 145.0, player("p1", 5.2, stats={"rushingYards": 22.0}))
+
+    (event,) = diff_snapshots(before, after)
+    assert event.correction
+    assert describe(event) == "P. Nacua -0.20 (stat correction)"
+
+
+def test_stat_delta_survives_a_restart():
+    """History is persisted through Store; the text must come back with it."""
+    before = snap(1, 100.0, player("p1", 13.67, stats={"completions": 11.0}))
+    after = snap(1, 145.0, player("p1", 13.96, stats={"completions": 12.0}))
+
+    feed = PlayFeed()
+    feed.add(diff_snapshots(before, after))
+    restored = loads(dumps(feed))
+
+    assert restored.last_play().stat_delta == "1 Comp"
+
+
+def test_history_written_before_stat_deltas_existed_still_loads():
+    legacy = (
+        '{"week": 1, "events": [{"event_id": "w1:p1:0.00->6.40", "week": 1,'
+        ' "timestamp": 1.0, "player_key": "p1", "player_name": "Puka Nacua",'
+        ' "team_key": "t1", "matchup_id": "m1", "nfl_team": "LAR", "position": "WR",'
+        ' "delta": 6.4, "old_points": 0.0, "new_points": 6.4, "starter": true,'
+        ' "correction": false, "plays": []}]}'
+    )
+    restored = loads(legacy)
+    assert restored.last_play().stat_delta == ""
+
+
+# ---------------------------------------------------------------------------
+# Yahoo's own play descriptions
+# ---------------------------------------------------------------------------
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+def _relay():
+    from yahoo_fantasy_football.yahoo_redzone import parse_relay_players, parse_relay_plays
+
+    return (
+        parse_relay_plays((FIXTURES_DIR / "yahoo_relay_plays_26_2026_w1.txt").read_text()),
+        parse_relay_players((FIXTURES_DIR / "yahoo_relay_players_2026_w1.txt").read_text()),
+    )
+
+
+def _scoring_event(player_id: str, **kw):
+    from yahoo_fantasy_football.plays import ScoringEvent
+
+    return ScoringEvent(
+        event_id=f"e:{player_id}",
+        week=1,
+        timestamp=100.0,
+        player_key=f"802904.p.{player_id}",
+        player_name="Whoever",
+        team_key="802904.t.1",
+        matchup_id="w1.m1",
+        nfl_team="Sea",
+        position="WR",
+        delta=1.3,
+        old_points=0.0,
+        new_points=1.3,
+        starter=True,
+        correction=False,
+        **kw,
+    )
+
+
+def test_a_play_is_matched_by_id_not_by_name() -> None:
+    """The feed writes people as [40041]; so does the event's player key."""
+    plays, names = _relay()
+    match = match_relay_play(_scoring_event("40041"), plays, names)
+
+    assert match is not None
+    assert "Jaxon Smith-Njigba" in match.text
+    assert match.confidence == 1.0
+
+
+def test_the_newest_qualifying_play_wins() -> None:
+    """Points cannot be split across plays, so the latest is the best guess."""
+    plays, names = _relay()
+    mine = [p for p in plays if "40041" in p.player_ids]
+    assert len(mine) > 1, "fixture must exercise the choice"
+
+    match = match_relay_play(_scoring_event("40041"), plays, names)
+    assert match.play_id == f"{mine[-1].game_key}.{mine[-1].sequence}"
+
+
+def test_a_player_who_did_nothing_gets_no_description() -> None:
+    plays, names = _relay()
+    assert match_relay_play(_scoring_event("99999999"), plays, names) is None
+
+
+def test_the_description_wins_over_the_stat_line() -> None:
+    """A real sentence beats "1 Rec, 13 Rec Yds" — that is the whole point."""
+    from yahoo_fantasy_football.plays import describe
+
+    plays, names = _relay()
+    event = _scoring_event("40041", stat_delta="1 Rec, 13 Rec Yds")
+    assert describe(event).endswith("1 Rec, 13 Rec Yds")
+
+    described = replace(event, plays=(match_relay_play(event, plays, names),))
+    assert "passed to Jaxon Smith-Njigba" in describe(described)
+
+
+def test_a_revision_replaces_the_text_in_place() -> None:
+    """Yahoo posts terse first, fuller a moment later."""
+    from yahoo_fantasy_football.plays import MatchedPlay, PlayFeed
+
+    feed = PlayFeed()
+    event = _scoring_event("40041")
+    feed.add([event])
+    terse = MatchedPlay(text="Sam Darnold complete for 13 yards", role="", confidence=1.0)
+    feed.revise(event.event_id, (terse,))
+    assert feed.last_play().plays[-1].text == terse.text
+
+    fuller = MatchedPlay(
+        text="Sam Darnold passed to Jaxon Smith-Njigba for 13 yard gain", role="", confidence=1.0
+    )
+    feed.revise(event.event_id, (fuller,))
+
+    assert len(feed) == 1, "a revision must not duplicate the event"
+    assert feed.last_play().plays[-1].text == fuller.text
+
+
+def test_revising_an_event_that_is_not_there_is_harmless() -> None:
+    from yahoo_fantasy_football.plays import PlayFeed
+
+    assert PlayFeed().revise("nope", ()) is None

@@ -26,10 +26,14 @@ DEFAULT_NAME = "Yahoo Fantasy Football"
 CARD_FILENAME = "yahoo-fantasy-football-cards.js"
 
 # Poll cadences, reassigned on every refresh once the coordinator lands.
-# Yahoo's own live scoring lags the play by roughly 30-60s, so polling faster
-# than LIVE buys nothing but rate-limit risk. Yahoo does not document its
-# limits and throttles per app id, so these stay deliberately conservative.
-SCAN_INTERVAL_LIVE_SECONDS = 45
+# Yahoo's own live scoring lags the play by roughly 30-60s; that is a floor
+# nothing here can beat, but the poll interval adds to it, so it is worth
+# keeping small. Yahoo does not document its rate limits and throttles per app
+# id, so these stay conservative — what makes 20s conservative is that a live
+# poll now costs ~8 KB, not ~186 KB: the 178 KB league seed is cached behind
+# its own TTL (see ``redzone_client.SEED_TTL_SECONDS``). Live polling is both
+# more than twice as fresh as the old 45s AND roughly a third of the traffic.
+SCAN_INTERVAL_LIVE_SECONDS = 20
 SCAN_INTERVAL_NEAR_GAME_SECONDS = 300
 SCAN_INTERVAL_IDLE_SECONDS = 1800
 

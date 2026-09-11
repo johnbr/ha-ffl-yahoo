@@ -73,6 +73,38 @@ class WebPlayer:
     """Raw NFL-game text as printed, e.g. ``Final W 26-7 @ Pit``."""
     team_side: int = 0
     """0 = left team, 1 = right team."""
+    stats: dict[str, float] = field(default_factory=dict, compare=False)
+    """Raw stat line, when the source has one. Empty from the HTML tier.
+
+    Excluded from equality on purpose: it is derived from the points, so it
+    cannot disagree with them, and leaving a dict out of the generated
+    ``__hash__`` keeps the frozen dataclass hashable.
+
+    :mod:`yahoo_redzone` fills this from Yahoo's relay feed, which is what lets
+    the play feed describe a change as ``6 Rush Yds`` rather than ``+0.60``.
+    """
+    nfl_team: str = ""
+    """NFL club abbreviation, e.g. ``NE``. Empty from the HTML tier."""
+    has_ball: bool = False
+    """This player's NFL club has possession, and the game is running."""
+    red_zone: bool = False
+    """Possession inside the opponent's 20 — the drive most likely to score."""
+    status: str = ""
+    """Injury designation as Yahoo publishes it: ``Q``, ``D``, ``O``, ``IR``..."""
+    live_projected: float | None = None
+    """Projection as of right now — see ``yahoo_redzone.live_projection``.
+
+    Equals :attr:`projected` before kickoff and the player's actual points once
+    their game is final; in between it is what the player is on pace for.
+    ``None`` from the HTML tier, which has no game clock to work from.
+    """
+    game_state_hint: str = ""
+    """An authoritative game state, when the source reports one directly.
+
+    The relay publishes a status letter per game; that beats inferring state
+    from English, so when it is present it wins over :attr:`game_state`'s
+    pattern matching.
+    """
 
     @property
     def starter(self) -> bool:
@@ -83,9 +115,11 @@ class WebPlayer:
         """``pre`` / ``in`` / ``post`` / ``bye`` / ``unknown``.
 
         Deliberately conservative: anything unrecognised reads ``unknown``
-        rather than being forced into a bucket, because the live wording has
-        not been observed yet.
+        rather than being forced into a bucket, because the HTML tier's live
+        wording was never observed against a game in progress.
         """
+        if self.game_state_hint:
+            return self.game_state_hint
         note = self.game_note
         if not note:
             return "unknown"
@@ -106,6 +140,15 @@ class WebTeam:
     name: str
     points: float | None = None
     projected: float | None = None
+    live_projected: float | None = None
+    """The starters' live projections, summed. Matches Yahoo's "Proj Pts"."""
+    remaining_var: float = 0.0
+    """Sum of the squares of the starters' still-to-come projections.
+
+    Carried on the team rather than recomputed because a win probability needs
+    both sides' spread, and by the time two teams are compared the per-player
+    numbers are long gone. See ``league_state.win_probability``.
+    """
 
 
 @dataclass(frozen=True)

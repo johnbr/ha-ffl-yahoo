@@ -7,6 +7,7 @@ API client, coordinator and scoring-play engine land in later milestones.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import shutil
 from pathlib import Path
@@ -30,6 +31,23 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 HACS_URL_BASE = f"/hacsfiles/{DOMAIN}/{CARD_FILENAME}"
 # Fallback served straight from this package directory when the copy fails.
 LEGACY_URL_BASE = f"/{DOMAIN}/{CARD_FILENAME}"
+
+
+def _card_digest(source: Path) -> str:
+    """Short content hash of the card bundle, for cache-busting.
+
+    The version alone is not enough: between releases the bundle changes many
+    times while ``manifest.json`` does not, so a ``?v=<version>`` URL is byte
+    identical and every browser serves the **cached, stale** card. That is
+    invisible from the server side — the file on disk is correct and the page
+    is wrong — and it costs a hard refresh to notice.
+
+    Hashing the content means the URL changes exactly when the card does.
+    """
+    try:
+        return hashlib.sha256(source.read_bytes()).hexdigest()[:8]
+    except OSError:
+        return ""
 
 
 def _sync_card_to_www_community(config_path, source: Path) -> Path | None:
@@ -66,6 +84,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     source = Path(__file__).parent / CARD_FILENAME
     target = await hass.async_add_executor_job(_sync_card_to_www_community, hass.config.path, source)
+    digest = await hass.async_add_executor_job(_card_digest, source)
 
     if target is not None:
         card_url_base = HACS_URL_BASE
@@ -83,7 +102,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             ]
         )
 
-    card_url = f"{card_url_base}?v={version}"
+    card_url = f"{card_url_base}?v={version}.{digest}" if digest else f"{card_url_base}?v={version}"
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["_card_url"] = card_url
 

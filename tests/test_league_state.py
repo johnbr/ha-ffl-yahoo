@@ -26,6 +26,7 @@ from yahoo_fantasy_football.league_state import (
     poll_interval,
     scoreboard_attributes,
     scoreboard_state,
+    win_probability,
 )
 from yahoo_fantasy_football.plays import PlayFeed, diff_snapshots
 from yahoo_fantasy_football.web_client import LeagueData, YahooWebClient
@@ -229,3 +230,244 @@ def test_an_unconfigured_or_missing_team_is_not_an_error() -> None:
     assert find_team(DATA, None) is None
     assert find_team(DATA, "99999") is None
     assert find_team(None, "1") is None
+
+
+# Per-matchup last play
+# ---------------------------------------------------------------------------
+
+
+def _event(event_id: str, matchup_id: str, player_name: str, delta: float, **kw):
+    from yahoo_fantasy_football.plays import ScoringEvent
+
+    return ScoringEvent(
+        event_id=event_id,
+        week=DATA.week,
+        timestamp=kw.pop("timestamp", 1.0),
+        player_key=f"p.{event_id}",
+        player_name=player_name,
+        team_key=kw.pop("team_key", "t.1"),
+        matchup_id=matchup_id,
+        nfl_team=kw.pop("nfl_team", "NE"),
+        position="WR",
+        delta=delta,
+        old_points=0.0,
+        new_points=delta,
+        starter=kw.pop("starter", True),
+        correction=delta < 0,
+        **kw,
+    )
+
+
+def _mid(index: int) -> str:
+    return f"w{DATA.week}.m{index}"
+
+
+def test_each_row_gets_its_own_last_play() -> None:
+    """Five matchups on one card means five answers to "what just happened"."""
+    feed = PlayFeed()
+    feed.add(
+        [
+            _event("e1", _mid(1), "A.J. Brown", 5.6),
+            _event("e2", _mid(2), "R. Stevenson", 1.6),
+            _event("e3", _mid(1), "Drake Maye", 0.5),
+        ]
+    )
+    rows = {r["matchup_id"]: r for r in matchup_rows(DATA, feed)}
+
+    assert rows[_mid(1)]["last_play"]["player"] == "Drake Maye", "most recent, not first"
+    assert rows[_mid(2)]["last_play"]["player"] == "R. Stevenson"
+
+
+def test_a_quiet_matchup_reports_no_play() -> None:
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(1), "A.J. Brown", 5.6)])
+    rows = {r["matchup_id"]: r for r in matchup_rows(DATA, feed)}
+
+    assert rows[_mid(2)]["last_play"] is None
+
+
+def test_rows_without_a_feed_still_render() -> None:
+    """``find_team`` asks for rows with no feed; it must not blow up."""
+    assert all(row["last_play"] is None for row in matchup_rows(DATA))
+
+
+def test_the_scoreboard_attributes_carry_the_per_row_plays() -> None:
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(3), "Puka Nacua", 6.4)])
+    attrs = scoreboard_attributes(DATA, feed, "476807")
+
+    row = next(r for r in attrs["matchups"] if r["matchup_id"] == _mid(3))
+    assert row["last_play"]["player"] == "Puka Nacua"
+    assert attrs["last_play"]["player"] == "Puka Nacua", "league banner still populated"
+
+
+def test_the_scoreboard_carries_the_league_name_for_the_card_header() -> None:
+    attrs = scoreboard_attributes(DATA, PlayFeed(), "476807", "Kush")
+    assert attrs["league_name"] == "Kush"
+    assert attrs["week"] == DATA.week
+
+
+def test_the_league_name_is_present_even_before_the_first_fetch() -> None:
+    """The header must not pop in a poll later than the rest of the card."""
+    attrs = scoreboard_attributes(None, PlayFeed(), "476807", "Kush")
+    assert attrs["league_name"] == "Kush"
+    assert attrs["week"] is None
+
+
+# ---------------------------------------------------------------------------
+# Bench plays, and which side of a row scored
+# ---------------------------------------------------------------------------
+
+
+def test_a_bench_players_points_never_reach_a_row() -> None:
+    """Bench points are real but do not count, so they must not read as scoring."""
+    feed = PlayFeed()
+    feed.add(
+        [
+            _event("e1", _mid(1), "A Starter", 5.6),
+            _event("e2", _mid(1), "A Benchwarmer", 9.9, starter=False),
+        ]
+    )
+    rows = {r["matchup_id"]: r for r in matchup_rows(DATA, feed)}
+
+    assert rows[_mid(1)]["last_play"]["player"] == "A Starter", "the bench play won"
+
+
+def test_a_bench_only_matchup_shows_no_play_at_all() -> None:
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(2), "A Benchwarmer", 9.9, starter=False)])
+    rows = {r["matchup_id"]: r for r in matchup_rows(DATA, feed)}
+
+    assert rows[_mid(2)]["last_play"] is None
+    attrs = scoreboard_attributes(DATA, feed, "476807")
+    assert attrs["last_play"] is None
+    assert attrs["recent_plays"] == []
+
+
+def test_a_play_says_which_side_of_the_row_scored_it() -> None:
+    home, away = DATA.standings[0]
+    feed = PlayFeed()
+    feed.add(
+        [
+            _event("e1", _mid(1), "Home Guy", 5.6, team_key=f"476807.t.{home.team_id}"),
+            _event("e2", _mid(2), "Away Guy", 5.6, team_key=f"476807.t.{DATA.standings[1][1].team_id}"),
+        ]
+    )
+    rows = {r["matchup_id"]: r for r in matchup_rows(DATA, feed)}
+
+    assert rows[_mid(1)]["last_play"]["side"] == "home"
+    assert rows[_mid(2)]["last_play"]["side"] == "away"
+    assert away  # the pair is what the row was built from
+
+
+def test_an_unrecognised_team_key_leaves_the_side_unset() -> None:
+    """Better an un-aligned play line than one pointed at the wrong team."""
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(1), "Ghost", 5.6, team_key="476807.t.999")])
+    rows = {r["matchup_id"]: r for r in matchup_rows(DATA, feed)}
+
+    assert rows[_mid(1)]["last_play"]["side"] is None
+
+
+def test_the_attributes_report_live_nfl_games() -> None:
+    feed = PlayFeed()
+    assert scoreboard_attributes(DATA, feed, "476807")["active_games"] == DATA.active_games
+    assert scoreboard_attributes(None, feed, "476807")["active_games"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Win probability
+# ---------------------------------------------------------------------------
+
+
+class _Side:
+    def __init__(self, live: float | None, var: float) -> None:
+        self.live_projected, self.remaining_var = live, var
+
+
+def test_the_favourite_is_the_team_projected_higher() -> None:
+    home = win_probability(_Side(140.0, 1800.0), _Side(128.0, 1750.0))
+    assert 0.5 < home < 1.0
+
+
+def test_it_lands_near_yahoos_published_number() -> None:
+    """Calibration check against a real matchup: Yahoo showed 41/59."""
+    tesla, herb = _Side(128.12, 1824.8), _Side(139.17, 1762.2)
+    assert win_probability(tesla, herb) == pytest.approx(0.41, abs=0.02)
+
+
+def test_a_dead_heat_is_a_coin_flip() -> None:
+    assert win_probability(_Side(130.0, 900.0), _Side(130.0, 900.0)) == 0.5
+
+
+def test_a_lead_with_nothing_left_to_play_is_certain() -> None:
+    """Every game final: there is no uncertainty left to model."""
+    assert win_probability(_Side(140.0, 0.0), _Side(128.0, 0.0)) == 1.0
+    assert win_probability(_Side(128.0, 0.0), _Side(140.0, 0.0)) == 0.0
+
+
+def test_a_bigger_lead_is_a_better_chance() -> None:
+    small = win_probability(_Side(132.0, 1800.0), _Side(130.0, 1800.0))
+    large = win_probability(_Side(160.0, 1800.0), _Side(130.0, 1800.0))
+    assert large > small
+
+
+def test_the_same_lead_is_safer_with_less_football_left() -> None:
+    early = win_probability(_Side(140.0, 1800.0), _Side(130.0, 1800.0))
+    late = win_probability(_Side(140.0, 200.0), _Side(130.0, 200.0))
+    assert late > early
+
+
+def test_no_projection_means_no_probability() -> None:
+    assert win_probability(_Side(None, 0.0), _Side(130.0, 900.0)) is None
+
+
+# ---------------------------------------------------------------------------
+# A play does not outlive its game
+# ---------------------------------------------------------------------------
+
+
+def _with_clubs(clubs):
+    """DATA is shared and frozen-ish; hand back a copy carrying live clubs."""
+    from dataclasses import replace
+
+    return replace(DATA, live_clubs=clubs)
+
+
+def test_a_play_from_a_finished_game_stops_being_shown() -> None:
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(1), "Done Guy", 5.6, nfl_team="NE")])
+    rows = {r["matchup_id"]: r for r in matchup_rows(_with_clubs(frozenset({"LAR"})), feed)}
+
+    assert rows[_mid(1)]["last_play"] is None
+
+
+def test_it_falls_back_to_the_newest_play_from_a_game_still_running() -> None:
+    """1pm games final, 4pm games live: show the 4pm play, not the stale one."""
+    feed = PlayFeed()
+    feed.add(
+        [
+            _event("e1", _mid(1), "Late Guy", 5.6, nfl_team="LAR"),
+            _event("e2", _mid(1), "Early Guy", 9.9, nfl_team="NE"),
+        ]
+    )
+    rows = {r["matchup_id"]: r for r in matchup_rows(_with_clubs(frozenset({"LAR"})), feed)}
+
+    assert rows[_mid(1)]["last_play"]["player"] == "Late Guy", "newest LIVE play, not newest"
+
+
+def test_an_unavailable_games_feed_does_not_blank_every_play() -> None:
+    """``None`` is "we don't know", which is not "nothing is live"."""
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(1), "Some Guy", 5.6, nfl_team="NE")])
+    rows = {r["matchup_id"]: r for r in matchup_rows(_with_clubs(None), feed)}
+
+    assert rows[_mid(1)]["last_play"]["player"] == "Some Guy"
+
+
+def test_a_slate_with_nothing_live_shows_no_plays() -> None:
+    feed = PlayFeed()
+    feed.add([_event("e1", _mid(1), "Some Guy", 5.6, nfl_team="NE")])
+    rows = {r["matchup_id"]: r for r in matchup_rows(_with_clubs(frozenset()), feed)}
+
+    assert rows[_mid(1)]["last_play"] is None

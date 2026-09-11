@@ -1,0 +1,4588 @@
+{
+ "service": {
+  "xml:lang": "en-US",
+  "user": {
+   "guid": false,
+   "nickName": false
+  },
+  "leagues": {
+   "999999": {
+    "id": "999999",
+    "gameCode": "nfl",
+    "editorialSportCode": "nfl",
+    "hasDrafted": true,
+    "lastUpdatedDate": "",
+    "weekFinalScored": false,
+    "teamIds": [],
+    "name": "Test League",
+    "irisGroupChatId": "",
+    "includeTodaysGames": true,
+    "scoringType": "head",
+    "usesFractionalPoints": true,
+    "usesNegativePoints": true,
+    "pointsPrecision": {
+     "min": 2,
+     "max": 2
+    },
+    "seasonOver": false,
+    "positions": [
+     "QB",
+     "RB",
+     "RB",
+     "WR",
+     "WR",
+     "TE",
+     "W/R",
+     "K",
+     "DEF"
+    ],
+    "positionsToTypes": {
+     "QB": "O",
+     "WR": "O",
+     "RB": "O",
+     "TE": "O",
+     "W/R": "O",
+     "K": "K",
+     "DEF": "DT"
+    },
+    "stats": [
+     {
+      "id": "2",
+      "modifier": 0.25,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "passing"
+     },
+     {
+      "id": "4",
+      "modifier": 0.04,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "passing"
+     },
+     {
+      "id": "5",
+      "modifier": 4,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "passing"
+     },
+     {
+      "id": "6",
+      "modifier": -2,
+      "isNegative": true,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "passing"
+     },
+     {
+      "id": "9",
+      "modifier": 0.1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "rushing"
+     },
+     {
+      "id": "10",
+      "modifier": 6,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "rushing"
+     },
+     {
+      "id": "11",
+      "modifier": 1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "receiving"
+     },
+     {
+      "id": "12",
+      "modifier": 0.1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "receiving"
+     },
+     {
+      "id": "13",
+      "modifier": 6,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "receiving"
+     },
+     {
+      "id": "15",
+      "modifier": 6,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "return"
+     },
+     {
+      "id": "16",
+      "modifier": 2,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "misc"
+     },
+     {
+      "id": "18",
+      "modifier": -2,
+      "isNegative": true,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fumbles"
+     },
+     {
+      "id": "57",
+      "modifier": 6,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "misc"
+     },
+     {
+      "id": "19",
+      "modifier": 3,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgs"
+     },
+     {
+      "id": "20",
+      "modifier": 3,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgs"
+     },
+     {
+      "id": "21",
+      "modifier": 3,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgs"
+     },
+     {
+      "id": "22",
+      "modifier": 4,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgs"
+     },
+     {
+      "id": "23",
+      "modifier": 5,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgs"
+     },
+     {
+      "id": "24",
+      "modifier": -1,
+      "isNegative": true,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgm"
+     },
+     {
+      "id": "25",
+      "modifier": -1,
+      "isNegative": true,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgm"
+     },
+     {
+      "id": "26",
+      "modifier": -1,
+      "isNegative": true,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "fgm"
+     },
+     {
+      "id": "29",
+      "modifier": 1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pat"
+     },
+     {
+      "id": "32",
+      "modifier": 1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "team_tackles"
+     },
+     {
+      "id": "33",
+      "modifier": 2,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "def_turnovers"
+     },
+     {
+      "id": "34",
+      "modifier": 2,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "def_turnovers"
+     },
+     {
+      "id": "35",
+      "modifier": 6,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "tds"
+     },
+     {
+      "id": "36",
+      "modifier": 3,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "team_tackles"
+     },
+     {
+      "id": "37",
+      "modifier": 2,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "misc"
+     },
+     {
+      "id": "48",
+      "modifier": 0.1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "return"
+     },
+     {
+      "id": "49",
+      "modifier": 6,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "return"
+     },
+     {
+      "id": "50",
+      "modifier": 10,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "51",
+      "modifier": 7,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "52",
+      "modifier": 4,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "53",
+      "modifier": 1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "54",
+      "modifier": 0,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "55",
+      "modifier": -1,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "56",
+      "modifier": -4,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "pts_allow",
+      "unquantifiable": true
+     },
+     {
+      "id": "82",
+      "modifier": 2,
+      "isNegative": false,
+      "isScoring": true,
+      "isDisplayScoringStat": true,
+      "displayOnStandings": true,
+      "displayOnMatchup": true,
+      "truncate": false,
+      "nonNegative": false,
+      "positionType": null,
+      "group": "misc"
+     }
+    ],
+    "divisions": null,
+    "teams": {
+     "1": {
+      "id": "1",
+      "name": "Gridiron Gang",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/1.png",
+      "imageUrlMedium": "https://example.invalid/logo/1.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "1": {
+        "id": "1",
+        "nickName": "manager1"
+       }
+      },
+      "players": [
+       {
+        "id": "40900",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "22.87"
+       },
+       {
+        "id": "40118",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "17.87"
+       },
+       {
+        "id": "33413",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.35"
+       },
+       {
+        "id": "40168",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "19.95"
+       },
+       {
+        "id": "31883",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.30"
+       },
+       {
+        "id": "41877",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.84"
+       },
+       {
+        "id": "40908",
+        "position": "W/R",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.26"
+       },
+       {
+        "id": "41823",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "O",
+        "projectedPoints": "0.00"
+       },
+       {
+        "id": "42626",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.71"
+       },
+       {
+        "id": "33538",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.29"
+       },
+       {
+        "id": "34047",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.76"
+       },
+       {
+        "id": "32704",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.74"
+       },
+       {
+        "id": "40819",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.64"
+       },
+       {
+        "id": "100034",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "14.36"
+       }
+      ],
+      "remainingGames": {
+       "1": {
+        "remaining_games": 8,
+        "live_games": 1,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 3,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "135.44"
+     },
+     "2": {
+      "id": "2",
+      "name": "Sunday Scaries",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/2.png",
+      "imageUrlMedium": "https://example.invalid/logo/2.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "2": {
+        "id": "2",
+        "nickName": "manager2"
+       }
+      },
+      "players": [
+       {
+        "id": "30123",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "20.35"
+       },
+       {
+        "id": "40059",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "23.20"
+       },
+       {
+        "id": "33508",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.12"
+       },
+       {
+        "id": "40084",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.07"
+       },
+       {
+        "id": "27581",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.70"
+       },
+       {
+        "id": "31056",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.33"
+       },
+       {
+        "id": "41922",
+        "position": "W/R",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.19"
+       },
+       {
+        "id": "40878",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "D",
+        "projectedPoints": "0.00"
+       },
+       {
+        "id": "40899",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "14.65"
+       },
+       {
+        "id": "40962",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.85"
+       },
+       {
+        "id": "28534",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.62"
+       },
+       {
+        "id": "34218",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "22.27"
+       },
+       {
+        "id": "33537",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.76"
+       },
+       {
+        "id": "100021",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "17.27"
+       }
+      ],
+      "remainingGames": {
+       "2": {
+        "remaining_games": 7,
+        "live_games": 1,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 7,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "133.99"
+     },
+     "3": {
+      "id": "3",
+      "name": "Pylon Patrol",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/3.png",
+      "imageUrlMedium": "https://example.invalid/logo/3.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "3": {
+        "id": "3",
+        "nickName": "manager3"
+       }
+      },
+      "players": [
+       {
+        "id": "32671",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "27.03"
+       },
+       {
+        "id": "40196",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "17.28"
+       },
+       {
+        "id": "33991",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.58"
+       },
+       {
+        "id": "40041",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "19.81"
+       },
+       {
+        "id": "40039",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "15.89"
+       },
+       {
+        "id": "40048",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.91"
+       },
+       {
+        "id": "31908",
+        "position": "W/R",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.60"
+       },
+       {
+        "id": "40234",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.04"
+       },
+       {
+        "id": "40971",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.42"
+       },
+       {
+        "id": "30197",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.96"
+       },
+       {
+        "id": "33100",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.85"
+       },
+       {
+        "id": "30971",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "22.37"
+       },
+       {
+        "id": "41093",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.38"
+       },
+       {
+        "id": "100013",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "26.46"
+       }
+      ],
+      "remainingGames": {
+       "3": {
+        "remaining_games": 7,
+        "live_games": 1,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 2,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "149.94"
+     },
+     "4": {
+      "id": "4",
+      "name": "Hail Mary Inc",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/4.png",
+      "imageUrlMedium": "https://example.invalid/logo/4.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "4": {
+        "id": "4",
+        "nickName": "manager4"
+       }
+      },
+      "players": [
+       {
+        "id": "30977",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "24.23"
+       },
+       {
+        "id": "29279",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.50"
+       },
+       {
+        "id": "41821",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.71"
+       },
+       {
+        "id": "33500",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "20.18"
+       },
+       {
+        "id": "41793",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.74"
+       },
+       {
+        "id": "34010",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.76"
+       },
+       {
+        "id": "41824",
+        "position": "W/R",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.89"
+       },
+       {
+        "id": "31896",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.91"
+       },
+       {
+        "id": "40063",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.40"
+       },
+       {
+        "id": "34008",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "10.69"
+       },
+       {
+        "id": "41845",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.25"
+       },
+       {
+        "id": "32696",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "21.56"
+       },
+       {
+        "id": "29792",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.26"
+       },
+       {
+        "id": "100007",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "16.00"
+       }
+      ],
+      "remainingGames": {
+       "4": {
+        "remaining_games": 9,
+        "live_games": 0,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 5,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "135.27"
+     },
+     "5": {
+      "id": "5",
+      "name": "Blitz Brigade",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/5.png",
+      "imageUrlMedium": "https://example.invalid/logo/5.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "5": {
+        "id": "5",
+        "nickName": "manager5"
+       }
+      },
+      "players": [
+       {
+        "id": "40881",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "23.04"
+       },
+       {
+        "id": "30972",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.14"
+       },
+       {
+        "id": "33996",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.49"
+       },
+       {
+        "id": "33398",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.52"
+       },
+       {
+        "id": "41804",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.37"
+       },
+       {
+        "id": "30259",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "9.23"
+       },
+       {
+        "id": "42625",
+        "position": "W/R",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "12.33"
+       },
+       {
+        "id": "41900",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.62"
+       },
+       {
+        "id": "33514",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.69"
+       },
+       {
+        "id": "40051",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.89"
+       },
+       {
+        "id": "41810",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "25.72"
+       },
+       {
+        "id": "31019",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.87"
+       },
+       {
+        "id": "41062",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.62"
+       },
+       {
+        "id": "100030",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "20.87"
+       }
+      ],
+      "remainingGames": {
+       "5": {
+        "remaining_games": 6,
+        "live_games": 1,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 9,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "129.61"
+     },
+     "6": {
+      "id": "6",
+      "name": "Zone Defense",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/6.png",
+      "imageUrlMedium": "https://example.invalid/logo/6.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "6": {
+        "id": "6",
+        "nickName": "manager6"
+       }
+      },
+      "players": [
+       {
+        "id": "32723",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "25.05"
+       },
+       {
+        "id": "34019",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.90"
+       },
+       {
+        "id": "40993",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.49"
+       },
+       {
+        "id": "32687",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "16.63"
+       },
+       {
+        "id": "33966",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.81"
+       },
+       {
+        "id": "33392",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.05"
+       },
+       {
+        "id": "32703",
+        "position": "W/R",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.54"
+       },
+       {
+        "id": "27535",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.86"
+       },
+       {
+        "id": "33389",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "22.12"
+       },
+       {
+        "id": "32725",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.56"
+       },
+       {
+        "id": "42655",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "7.28"
+       },
+       {
+        "id": "26686",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.66"
+       },
+       {
+        "id": "28378",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.59"
+       },
+       {
+        "id": "100023",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "20.72"
+       }
+      ],
+      "remainingGames": {
+       "6": {
+        "remaining_games": 8,
+        "live_games": 1,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 1,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "140.78"
+     },
+     "7": {
+      "id": "7",
+      "name": "Play Action",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/7.png",
+      "imageUrlMedium": "https://example.invalid/logo/7.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "7": {
+        "id": "7",
+        "nickName": "manager7"
+       }
+      },
+      "players": [
+       {
+        "id": "31002",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "24.17"
+       },
+       {
+        "id": "30121",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "19.51"
+       },
+       {
+        "id": "31905",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.02"
+       },
+       {
+        "id": "32692",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "17.79"
+       },
+       {
+        "id": "34007",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.78"
+       },
+       {
+        "id": "40102",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.27"
+       },
+       {
+        "id": "34447",
+        "position": "W/R",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.07"
+       },
+       {
+        "id": "31960",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.11"
+       },
+       {
+        "id": "31010",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.76"
+       },
+       {
+        "id": "29235",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "24.39"
+       },
+       {
+        "id": "29269",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.83"
+       },
+       {
+        "id": "42744",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "7.45"
+       },
+       {
+        "id": "41988",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.77"
+       },
+       {
+        "id": "100026",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "16.12"
+       }
+      ],
+      "remainingGames": {
+       "7": {
+        "remaining_games": 8,
+        "live_games": 1,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 4,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "138.50"
+     },
+     "8": {
+      "id": "8",
+      "name": "Fourth And Long",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/8.png",
+      "imageUrlMedium": "https://example.invalid/logo/8.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "8": {
+        "id": "8",
+        "nickName": "manager8"
+       }
+      },
+      "players": [
+       {
+        "id": "40896",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "21.52"
+       },
+       {
+        "id": "40055",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "21.00"
+       },
+       {
+        "id": "41807",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.82"
+       },
+       {
+        "id": "33394",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.96"
+       },
+       {
+        "id": "33965",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.83"
+       },
+       {
+        "id": "40064",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.20"
+       },
+       {
+        "id": "41791",
+        "position": "W/R",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "14.60"
+       },
+       {
+        "id": "40893",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.79"
+       },
+       {
+        "id": "40883",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.51"
+       },
+       {
+        "id": "42010",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "9.12"
+       },
+       {
+        "id": "40875",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "21.93"
+       },
+       {
+        "id": "33113",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.72"
+       },
+       {
+        "id": "28227",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.43"
+       },
+       {
+        "id": "100033",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "16.40"
+       }
+      ],
+      "remainingGames": {
+       "8": {
+        "remaining_games": 9,
+        "live_games": 0,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 10,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "136.76"
+     },
+     "9": {
+      "id": "9",
+      "name": "Red Zone Rangers",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/9.png",
+      "imageUrlMedium": "https://example.invalid/logo/9.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "9": {
+        "id": "9",
+        "nickName": "manager9"
+       }
+      },
+      "players": [
+       {
+        "id": "29369",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "23.65"
+       },
+       {
+        "id": "33423",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "16.00"
+       },
+       {
+        "id": "32705",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.69"
+       },
+       {
+        "id": "33393",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "21.38"
+       },
+       {
+        "id": "33963",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "16.47"
+       },
+       {
+        "id": "41799",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.64"
+       },
+       {
+        "id": "33989",
+        "position": "W/R",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.89"
+       },
+       {
+        "id": "40126",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.48"
+       },
+       {
+        "id": "40926",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "Q",
+        "projectedPoints": "10.96"
+       },
+       {
+        "id": "31833",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "23.74"
+       },
+       {
+        "id": "34085",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.45"
+       },
+       {
+        "id": "30295",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.87"
+       },
+       {
+        "id": "34344",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "8.16"
+       },
+       {
+        "id": "100024",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "21.87"
+       }
+      ],
+      "remainingGames": {
+       "9": {
+        "remaining_games": 9,
+        "live_games": 0,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 8,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "145.75"
+     },
+     "10": {
+      "id": "10",
+      "name": "Two Minute Drill",
+      "isOwned": false,
+      "imageUrl": "https://example.invalid/logo/10.png",
+      "imageUrlMedium": "https://example.invalid/logo/10.png",
+      "rank": "",
+      "wins": 0,
+      "losses": 0,
+      "ties": 0,
+      "divisionWins": null,
+      "divisionLosses": null,
+      "divisionTies": null,
+      "pf": 0,
+      "pfWeek": null,
+      "pa": 0,
+      "paWeek": null,
+      "streak": "-",
+      "managers": {
+       "10": {
+        "id": "10",
+        "nickName": "manager10"
+       }
+      },
+      "players": [
+       {
+        "id": "32676",
+        "position": "QB",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "24.17"
+       },
+       {
+        "id": "32711",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "17.57"
+       },
+       {
+        "id": "34120",
+        "position": "RB",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.95"
+       },
+       {
+        "id": "33477",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "15.85"
+       },
+       {
+        "id": "30994",
+        "position": "WR",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.50"
+       },
+       {
+        "id": "41795",
+        "position": "TE",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "12.72"
+       },
+       {
+        "id": "33967",
+        "position": "W/R",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "13.20"
+       },
+       {
+        "id": "42654",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "11.46"
+       },
+       {
+        "id": "40121",
+        "position": "BN",
+        "primaryPosition": "WR",
+        "eligiblePositionSlots": [
+         "W/R",
+         "WR"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "9.57"
+       },
+       {
+        "id": "34320",
+        "position": "BN",
+        "primaryPosition": "RB",
+        "eligiblePositionSlots": [
+         "RB",
+         "W/R"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "8.89"
+       },
+       {
+        "id": "34095",
+        "position": "BN",
+        "primaryPosition": "TE",
+        "eligiblePositionSlots": [
+         "TE"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "10.18"
+       },
+       {
+        "id": "9265",
+        "position": "BN",
+        "primaryPosition": "QB",
+        "eligiblePositionSlots": [
+         "QB"
+        ],
+        "positionType": "O",
+        "status": "",
+        "projectedPoints": "23.33"
+       },
+       {
+        "id": "31482",
+        "position": "K",
+        "primaryPosition": "K",
+        "eligiblePositionSlots": [
+         "K"
+        ],
+        "positionType": "K",
+        "status": "",
+        "projectedPoints": "7.03"
+       },
+       {
+        "id": "100014",
+        "position": "DEF",
+        "primaryPosition": null,
+        "eligiblePositionSlots": [
+         "DEF"
+        ],
+        "positionType": "DT",
+        "status": "",
+        "projectedPoints": "14.55"
+       }
+      ],
+      "remainingGames": {
+       "10": {
+        "remaining_games": 9,
+        "live_games": 0,
+        "completed_games": 0
+       }
+      },
+      "previousSeasonTeamRank": 6,
+      "seasonTotalPoints": 0,
+      "projectedPoints": "130.54"
+     }
+    },
+    "weekInfo": {
+     "week": 1,
+     "start": "2026-09-09",
+     "end": "2026-09-14"
+    },
+    "matchupGroups": [
+     {
+      "type": null,
+      "matchups": [
+       [
+        "1",
+        "10"
+       ],
+       [
+        "2",
+        "4"
+       ],
+       [
+        "3",
+        "8"
+       ],
+       [
+        "5",
+        "7"
+       ],
+       [
+        "6",
+        "9"
+       ]
+      ]
+     }
+    ],
+    "usesMedianScore": false,
+    "usesSecondOpponent": false
+   }
+  },
+  "players": {
+   "40900": {
+    "id": "40900",
+    "name": "Caleb Williams",
+    "firstName": "Caleb",
+    "lastName": "Williams",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Chi",
+    "teamId": "3",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08012025/40900.png"
+   },
+   "40118": {
+    "id": "40118",
+    "name": "De'Von Achane",
+    "firstName": "De'Von",
+    "lastName": "Achane",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Mia",
+    "teamId": "15",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/40118.2.png"
+   },
+   "33413": {
+    "id": "33413",
+    "name": "Travis Etienne Jr.",
+    "firstName": "Travis",
+    "lastName": "Etienne Jr.",
+    "position": "RB",
+    "positionType": "O",
+    "team": "NO",
+    "teamId": "18",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/03102026/33413.2.png"
+   },
+   "40168": {
+    "id": "40168",
+    "name": "Puka Nacua",
+    "firstName": "Puka",
+    "lastName": "Nacua",
+    "position": "WR",
+    "positionType": "O",
+    "team": "LAR",
+    "teamId": "14",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/40168.2.png"
+   },
+   "31883": {
+    "id": "31883",
+    "name": "A.J. Brown",
+    "firstName": "A.J.",
+    "lastName": "Brown",
+    "position": "WR",
+    "positionType": "O",
+    "team": "NE",
+    "teamId": "17",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/31883.1.png"
+   },
+   "41877": {
+    "id": "41877",
+    "name": "Harold Fannin Jr.",
+    "firstName": "Harold",
+    "lastName": "Fannin Jr.",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Cle",
+    "teamId": "5",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08062025/41877.png"
+   },
+   "40908": {
+    "id": "40908",
+    "name": "Ladd McConkey",
+    "firstName": "Ladd",
+    "lastName": "McConkey",
+    "position": "WR",
+    "positionType": "O",
+    "team": "LAC",
+    "teamId": "24",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09092026/40908.1.png"
+   },
+   "41823": {
+    "id": "41823",
+    "name": "TreVeyon Henderson",
+    "firstName": "TreVeyon",
+    "lastName": "Henderson",
+    "position": "RB",
+    "positionType": "O",
+    "team": "NE",
+    "teamId": "17",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/41823.1.png"
+   },
+   "42626": {
+    "id": "42626",
+    "name": "Carnell Tate",
+    "firstName": "Carnell",
+    "lastName": "Tate",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Ten",
+    "teamId": "10",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/42626.1.png"
+   },
+   "33538": {
+    "id": "33538",
+    "name": "Kenny Gainwell",
+    "firstName": "Kenny",
+    "lastName": "Gainwell",
+    "position": "RB",
+    "positionType": "O",
+    "team": "TB",
+    "teamId": "27",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08262026/33538.1.png"
+   },
+   "34047": {
+    "id": "34047",
+    "name": "Rachaad White",
+    "firstName": "Rachaad",
+    "lastName": "White",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Was",
+    "teamId": "28",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252026/34047.1.png"
+   },
+   "32704": {
+    "id": "32704",
+    "name": "Michael Pittman Jr.",
+    "firstName": "Michael",
+    "lastName": "Pittman Jr.",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Pit",
+    "teamId": "23",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/03132026/32704.1.png"
+   },
+   "40819": {
+    "id": "40819",
+    "name": "Brandon Aubrey",
+    "firstName": "Brandon",
+    "lastName": "Aubrey",
+    "position": "K",
+    "positionType": "K",
+    "team": "Dal",
+    "teamId": "6",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/40819.1.png"
+   },
+   "100034": {
+    "id": "100034",
+    "name": "Texans",
+    "firstName": "Texans",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Hou",
+    "teamId": "34",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/hou.gif"
+   },
+   "30123": {
+    "id": "30123",
+    "name": "Patrick Mahomes",
+    "firstName": "Patrick",
+    "lastName": "Mahomes",
+    "position": "QB",
+    "positionType": "O",
+    "team": "KC",
+    "teamId": "12",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/30123.png"
+   },
+   "40059": {
+    "id": "40059",
+    "name": "Jahmyr Gibbs",
+    "firstName": "Jahmyr",
+    "lastName": "Gibbs",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Det",
+    "teamId": "8",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/40059.1.png"
+   },
+   "33508": {
+    "id": "33508",
+    "name": "Rhamondre Stevenson",
+    "firstName": "Rhamondre",
+    "lastName": "Stevenson",
+    "position": "RB",
+    "positionType": "O",
+    "team": "NE",
+    "teamId": "17",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/33508.1.png"
+   },
+   "40084": {
+    "id": "40084",
+    "name": "Rashee Rice",
+    "firstName": "Rashee",
+    "lastName": "Rice",
+    "position": "WR",
+    "positionType": "O",
+    "team": "KC",
+    "teamId": "12",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/40084.png"
+   },
+   "27581": {
+    "id": "27581",
+    "name": "Davante Adams",
+    "firstName": "Davante",
+    "lastName": "Adams",
+    "position": "WR",
+    "positionType": "O",
+    "team": "LAR",
+    "teamId": "14",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252025/27581.png"
+   },
+   "31056": {
+    "id": "31056",
+    "name": "Mark Andrews",
+    "firstName": "Mark",
+    "lastName": "Andrews",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Bal",
+    "teamId": "33",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/31056.1.png"
+   },
+   "41922": {
+    "id": "41922",
+    "name": "Cam Skattebo",
+    "firstName": "Cam",
+    "lastName": "Skattebo",
+    "position": "RB",
+    "positionType": "O",
+    "team": "NYG",
+    "teamId": "19",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08202026/41922.1.png"
+   },
+   "40878": {
+    "id": "40878",
+    "name": "Brock Bowers",
+    "firstName": "Brock",
+    "lastName": "Bowers",
+    "position": "TE",
+    "positionType": "O",
+    "team": "LV",
+    "teamId": "13",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/40878.2.png"
+   },
+   "40899": {
+    "id": "40899",
+    "name": "Malik Nabers",
+    "firstName": "Malik",
+    "lastName": "Nabers",
+    "position": "WR",
+    "positionType": "O",
+    "team": "NYG",
+    "teamId": "19",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09092025/40899.png"
+   },
+   "40962": {
+    "id": "40962",
+    "name": "Blake Corum",
+    "firstName": "Blake",
+    "lastName": "Corum",
+    "position": "RB",
+    "positionType": "O",
+    "team": "LAR",
+    "teamId": "14",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252025/40962.png"
+   },
+   "28534": {
+    "id": "28534",
+    "name": "Stefon Diggs",
+    "firstName": "Stefon",
+    "lastName": "Diggs",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Was",
+    "teamId": "28",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09022026/28534.2.png"
+   },
+   "34218": {
+    "id": "34218",
+    "name": "Brock Purdy",
+    "firstName": "Brock",
+    "lastName": "Purdy",
+    "position": "QB",
+    "positionType": "O",
+    "team": "SF",
+    "teamId": "25",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/34218.1.png"
+   },
+   "33537": {
+    "id": "33537",
+    "name": "Evan McPherson",
+    "firstName": "Evan",
+    "lastName": "McPherson",
+    "position": "K",
+    "positionType": "K",
+    "team": "Cin",
+    "teamId": "4",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/33537.1.png"
+   },
+   "100021": {
+    "id": "100021",
+    "name": "Eagles",
+    "firstName": "Eagles",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Phi",
+    "teamId": "21",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/phi.gif"
+   },
+   "32671": {
+    "id": "32671",
+    "name": "Joe Burrow",
+    "firstName": "Joe",
+    "lastName": "Burrow",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Cin",
+    "teamId": "4",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/32671.1.png"
+   },
+   "40196": {
+    "id": "40196",
+    "name": "Chase Brown",
+    "firstName": "Chase",
+    "lastName": "Brown",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Cin",
+    "teamId": "4",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/40196.1.png"
+   },
+   "33991": {
+    "id": "33991",
+    "name": "Breece Hall",
+    "firstName": "Breece",
+    "lastName": "Hall",
+    "position": "RB",
+    "positionType": "O",
+    "team": "NYJ",
+    "teamId": "20",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08212026/33991.1.png"
+   },
+   "40041": {
+    "id": "40041",
+    "name": "Jaxon Smith-Njigba",
+    "firstName": "Jaxon",
+    "lastName": "Smith-Njigba",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Sea",
+    "teamId": "26",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08072026/40041.1.png"
+   },
+   "40039": {
+    "id": "40039",
+    "name": "Zay Flowers",
+    "firstName": "Zay",
+    "lastName": "Flowers",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Bal",
+    "teamId": "33",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/40039.1.png"
+   },
+   "40048": {
+    "id": "40048",
+    "name": "Dalton Kincaid",
+    "firstName": "Dalton",
+    "lastName": "Kincaid",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Buf",
+    "teamId": "2",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/40048.1.png"
+   },
+   "31908": {
+    "id": "31908",
+    "name": "Terry McLaurin",
+    "firstName": "Terry",
+    "lastName": "McLaurin",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Was",
+    "teamId": "28",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252026/31908.1.png"
+   },
+   "40234": {
+    "id": "40234",
+    "name": "Parker Washington",
+    "firstName": "Parker",
+    "lastName": "Washington",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Jax",
+    "teamId": "30",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08182026/40234.1.png"
+   },
+   "40971": {
+    "id": "40971",
+    "name": "MarShawn Lloyd",
+    "firstName": "MarShawn",
+    "lastName": "Lloyd",
+    "position": "RB",
+    "positionType": "O",
+    "team": "GB",
+    "teamId": "9",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/40971.3.png"
+   },
+   "30197": {
+    "id": "30197",
+    "name": "Chris Godwin Jr.",
+    "firstName": "Chris",
+    "lastName": "Godwin Jr.",
+    "position": "WR",
+    "positionType": "O",
+    "team": "TB",
+    "teamId": "27",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08282025/30197.png"
+   },
+   "33100": {
+    "id": "33100",
+    "name": "Rico Dowdle",
+    "firstName": "Rico",
+    "lastName": "Dowdle",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Pit",
+    "teamId": "23",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/33100.1.png"
+   },
+   "30971": {
+    "id": "30971",
+    "name": "Baker Mayfield",
+    "firstName": "Baker",
+    "lastName": "Mayfield",
+    "position": "QB",
+    "positionType": "O",
+    "team": "TB",
+    "teamId": "27",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08262026/30971.1.png"
+   },
+   "41093": {
+    "id": "41093",
+    "name": "Will Reichard",
+    "firstName": "Will",
+    "lastName": "Reichard",
+    "position": "K",
+    "positionType": "K",
+    "team": "Min",
+    "teamId": "16",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/41093.1.png"
+   },
+   "100013": {
+    "id": "100013",
+    "name": "Raiders",
+    "firstName": "Raiders",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "LV",
+    "teamId": "13",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/oak.gif"
+   },
+   "30977": {
+    "id": "30977",
+    "name": "Josh Allen",
+    "firstName": "Josh",
+    "lastName": "Allen",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Buf",
+    "teamId": "2",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/30977.1.png"
+   },
+   "29279": {
+    "id": "29279",
+    "name": "Derrick Henry",
+    "firstName": "Derrick",
+    "lastName": "Henry",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Bal",
+    "teamId": "33",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/29279.1.png"
+   },
+   "41821": {
+    "id": "41821",
+    "name": "Quinshon Judkins",
+    "firstName": "Quinshon",
+    "lastName": "Judkins",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Cle",
+    "teamId": "5",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08272025/41821.png"
+   },
+   "33500": {
+    "id": "33500",
+    "name": "Amon-Ra St. Brown",
+    "firstName": "Amon-Ra",
+    "lastName": "St. Brown",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Det",
+    "teamId": "8",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/07312025/33500.png"
+   },
+   "41793": {
+    "id": "41793",
+    "name": "Tetairoa McMillan",
+    "firstName": "Tetairoa",
+    "lastName": "McMillan",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Car",
+    "teamId": "29",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08062026/41793.1.png"
+   },
+   "34010": {
+    "id": "34010",
+    "name": "Trey McBride",
+    "firstName": "Trey",
+    "lastName": "McBride",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Ari",
+    "teamId": "22",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08052026/34010.1.png"
+   },
+   "41824": {
+    "id": "41824",
+    "name": "Luther Burden III",
+    "firstName": "Luther",
+    "lastName": "Burden III",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Chi",
+    "teamId": "3",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/41824.1.png"
+   },
+   "31896": {
+    "id": "31896",
+    "name": "DK Metcalf",
+    "firstName": "DK",
+    "lastName": "Metcalf",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Pit",
+    "teamId": "23",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/31896.1.png"
+   },
+   "40063": {
+    "id": "40063",
+    "name": "Jayden Reed",
+    "firstName": "Jayden",
+    "lastName": "Reed",
+    "position": "WR",
+    "positionType": "O",
+    "team": "GB",
+    "teamId": "9",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/40063.3.png"
+   },
+   "34008": {
+    "id": "34008",
+    "name": "Alec Pierce",
+    "firstName": "Alec",
+    "lastName": "Pierce",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Ind",
+    "teamId": "11",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/34008.1.png"
+   },
+   "41845": {
+    "id": "41845",
+    "name": "RJ Harvey",
+    "firstName": "RJ",
+    "lastName": "Harvey",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Den",
+    "teamId": "7",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/41845.1.png"
+   },
+   "32696": {
+    "id": "32696",
+    "name": "Jordan Love",
+    "firstName": "Jordan",
+    "lastName": "Love",
+    "position": "QB",
+    "positionType": "O",
+    "team": "GB",
+    "teamId": "9",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/32696.3.png"
+   },
+   "29792": {
+    "id": "29792",
+    "name": "Ka'imi Fairbairn",
+    "firstName": "Ka'imi",
+    "lastName": "Fairbairn",
+    "position": "K",
+    "positionType": "K",
+    "team": "Hou",
+    "teamId": "34",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192025/29792.png"
+   },
+   "100007": {
+    "id": "100007",
+    "name": "Broncos",
+    "firstName": "Broncos",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Den",
+    "teamId": "7",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/den.gif"
+   },
+   "40881": {
+    "id": "40881",
+    "name": "Drake Maye",
+    "firstName": "Drake",
+    "lastName": "Maye",
+    "position": "QB",
+    "positionType": "O",
+    "team": "NE",
+    "teamId": "17",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/40881.1.png"
+   },
+   "30972": {
+    "id": "30972",
+    "name": "Saquon Barkley",
+    "firstName": "Saquon",
+    "lastName": "Barkley",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Phi",
+    "teamId": "21",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08212026/30972.1.png"
+   },
+   "33996": {
+    "id": "33996",
+    "name": "Kenneth Walker III",
+    "firstName": "Kenneth",
+    "lastName": "Walker III",
+    "position": "RB",
+    "positionType": "O",
+    "team": "KC",
+    "teamId": "12",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/33996.png"
+   },
+   "33398": {
+    "id": "33398",
+    "name": "DeVonta Smith",
+    "firstName": "DeVonta",
+    "lastName": "Smith",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Phi",
+    "teamId": "21",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08212026/33398.1.png"
+   },
+   "41804": {
+    "id": "41804",
+    "name": "Emeka Egbuka",
+    "firstName": "Emeka",
+    "lastName": "Egbuka",
+    "position": "WR",
+    "positionType": "O",
+    "team": "TB",
+    "teamId": "27",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/41804.1.png"
+   },
+   "30259": {
+    "id": "30259",
+    "name": "George Kittle",
+    "firstName": "George",
+    "lastName": "Kittle",
+    "position": "TE",
+    "positionType": "O",
+    "team": "SF",
+    "teamId": "25",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/30259.1.png"
+   },
+   "42625": {
+    "id": "42625",
+    "name": "Jeremiyah Love",
+    "firstName": "Jeremiyah",
+    "lastName": "Love",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Ari",
+    "teamId": "22",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08052026/42625.1.png"
+   },
+   "41900": {
+    "id": "41900",
+    "name": "Bhayshul Tuten",
+    "firstName": "Bhayshul",
+    "lastName": "Tuten",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Jax",
+    "teamId": "30",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08182026/41900.1.png"
+   },
+   "33514": {
+    "id": "33514",
+    "name": "Chuba Hubbard",
+    "firstName": "Chuba",
+    "lastName": "Hubbard",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Car",
+    "teamId": "29",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08062026/33514.1.png"
+   },
+   "40051": {
+    "id": "40051",
+    "name": "Quentin Johnston",
+    "firstName": "Quentin",
+    "lastName": "Johnston",
+    "position": "WR",
+    "positionType": "O",
+    "team": "LAC",
+    "teamId": "24",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09092026/40051.1.png"
+   },
+   "41810": {
+    "id": "41810",
+    "name": "Jaxson Dart",
+    "firstName": "Jaxson",
+    "lastName": "Dart",
+    "position": "QB",
+    "positionType": "O",
+    "team": "NYG",
+    "teamId": "19",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08202026/41810.1.png"
+   },
+   "31019": {
+    "id": "31019",
+    "name": "Dallas Goedert",
+    "firstName": "Dallas",
+    "lastName": "Goedert",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Phi",
+    "teamId": "21",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08212026/31019.1.png"
+   },
+   "41062": {
+    "id": "41062",
+    "name": "Cam Little",
+    "firstName": "Cam",
+    "lastName": "Little",
+    "position": "K",
+    "positionType": "K",
+    "team": "Jax",
+    "teamId": "30",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08182026/41062.1.png"
+   },
+   "100030": {
+    "id": "100030",
+    "name": "Jaguars",
+    "firstName": "Jaguars",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Jax",
+    "teamId": "30",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/ipt/50x50w.3.gif"
+   },
+   "32723": {
+    "id": "32723",
+    "name": "Jalen Hurts",
+    "firstName": "Jalen",
+    "lastName": "Hurts",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Phi",
+    "teamId": "21",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08212026/32723.1.png"
+   },
+   "34019": {
+    "id": "34019",
+    "name": "James Cook III",
+    "firstName": "James",
+    "lastName": "Cook III",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Buf",
+    "teamId": "2",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08282024/34019.png"
+   },
+   "40993": {
+    "id": "40993",
+    "name": "Bucky Irving",
+    "firstName": "Bucky",
+    "lastName": "Irving",
+    "position": "RB",
+    "positionType": "O",
+    "team": "TB",
+    "teamId": "27",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/40993.1.png"
+   },
+   "32687": {
+    "id": "32687",
+    "name": "CeeDee Lamb",
+    "firstName": "CeeDee",
+    "lastName": "Lamb",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Dal",
+    "teamId": "6",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/32687.1.png"
+   },
+   "33966": {
+    "id": "33966",
+    "name": "Chris Olave",
+    "firstName": "Chris",
+    "lastName": "Olave",
+    "position": "WR",
+    "positionType": "O",
+    "team": "NO",
+    "teamId": "18",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08202026/33966.1.png"
+   },
+   "33392": {
+    "id": "33392",
+    "name": "Kyle Pitts Sr.",
+    "firstName": "Kyle",
+    "lastName": "Pitts Sr.",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Atl",
+    "teamId": "1",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252026/33392.1.png"
+   },
+   "32703": {
+    "id": "32703",
+    "name": "Tee Higgins",
+    "firstName": "Tee",
+    "lastName": "Higgins",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Cin",
+    "teamId": "4",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/32703.1.png"
+   },
+   "27535": {
+    "id": "27535",
+    "name": "Mike Evans",
+    "firstName": "Mike",
+    "lastName": "Evans",
+    "position": "WR",
+    "positionType": "O",
+    "team": "SF",
+    "teamId": "25",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/27535.1.png"
+   },
+   "33389": {
+    "id": "33389",
+    "name": "Trevor Lawrence",
+    "firstName": "Trevor",
+    "lastName": "Lawrence",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Jax",
+    "teamId": "30",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08182026/33389.1.png"
+   },
+   "32725": {
+    "id": "32725",
+    "name": "J.K. Dobbins",
+    "firstName": "J.K.",
+    "lastName": "Dobbins",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Den",
+    "teamId": "7",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/32725.1.png"
+   },
+   "42655": {
+    "id": "42655",
+    "name": "De'Zhaun Stribling",
+    "firstName": "De'Zhaun",
+    "lastName": "Stribling",
+    "position": "WR",
+    "positionType": "O",
+    "team": "SF",
+    "teamId": "25",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/42655.1.png"
+   },
+   "26686": {
+    "id": "26686",
+    "name": "Travis Kelce",
+    "firstName": "Travis",
+    "lastName": "Kelce",
+    "position": "TE",
+    "positionType": "O",
+    "team": "KC",
+    "teamId": "12",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/26686.png"
+   },
+   "28378": {
+    "id": "28378",
+    "name": "Jason Myers",
+    "firstName": "Jason",
+    "lastName": "Myers",
+    "position": "K",
+    "positionType": "K",
+    "team": "Sea",
+    "teamId": "26",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08072026/28378.1.png"
+   },
+   "100023": {
+    "id": "100023",
+    "name": "Steelers",
+    "firstName": "Steelers",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Pit",
+    "teamId": "23",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/pit.gif"
+   },
+   "31002": {
+    "id": "31002",
+    "name": "Lamar Jackson",
+    "firstName": "Lamar",
+    "lastName": "Jackson",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Bal",
+    "teamId": "33",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/31002.1.png"
+   },
+   "30121": {
+    "id": "30121",
+    "name": "Christian McCaffrey",
+    "firstName": "Christian",
+    "lastName": "McCaffrey",
+    "position": "RB",
+    "positionType": "O",
+    "team": "SF",
+    "teamId": "25",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/30121.1.png"
+   },
+   "31905": {
+    "id": "31905",
+    "name": "David Montgomery",
+    "firstName": "David",
+    "lastName": "Montgomery",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Hou",
+    "teamId": "34",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/31905.2.png"
+   },
+   "32692": {
+    "id": "32692",
+    "name": "Justin Jefferson",
+    "firstName": "Justin",
+    "lastName": "Jefferson",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Min",
+    "teamId": "16",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/32692.1.png"
+   },
+   "34007": {
+    "id": "34007",
+    "name": "George Pickens",
+    "firstName": "George",
+    "lastName": "Pickens",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Dal",
+    "teamId": "6",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08072025/34007.png"
+   },
+   "40102": {
+    "id": "40102",
+    "name": "Tucker Kraft",
+    "firstName": "Tucker",
+    "lastName": "Kraft",
+    "position": "TE",
+    "positionType": "O",
+    "team": "GB",
+    "teamId": "9",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/40102.3.png"
+   },
+   "34447": {
+    "id": "34447",
+    "name": "Jaylen Warren",
+    "firstName": "Jaylen",
+    "lastName": "Warren",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Pit",
+    "teamId": "23",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/34447.1.png"
+   },
+   "31960": {
+    "id": "31960",
+    "name": "Tony Pollard",
+    "firstName": "Tony",
+    "lastName": "Pollard",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Ten",
+    "teamId": "10",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252026/31960.1.png"
+   },
+   "31010": {
+    "id": "31010",
+    "name": "Courtland Sutton",
+    "firstName": "Courtland",
+    "lastName": "Sutton",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Den",
+    "teamId": "7",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/31010.1.png"
+   },
+   "29235": {
+    "id": "29235",
+    "name": "Jared Goff",
+    "firstName": "Jared",
+    "lastName": "Goff",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Det",
+    "teamId": "8",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/29235.1.png"
+   },
+   "29269": {
+    "id": "29269",
+    "name": "Hunter Henry",
+    "firstName": "Hunter",
+    "lastName": "Henry",
+    "position": "TE",
+    "positionType": "O",
+    "team": "NE",
+    "teamId": "17",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/29269.1.png"
+   },
+   "42744": {
+    "id": "42744",
+    "name": "Mike Washington Jr.",
+    "firstName": "Mike",
+    "lastName": "Washington Jr.",
+    "position": "RB",
+    "positionType": "O",
+    "team": "LV",
+    "teamId": "13",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08262026/42744.1.png"
+   },
+   "41988": {
+    "id": "41988",
+    "name": "Tyler Loop",
+    "firstName": "Tyler",
+    "lastName": "Loop",
+    "position": "K",
+    "positionType": "K",
+    "team": "Bal",
+    "teamId": "33",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/41988.1.png"
+   },
+   "100026": {
+    "id": "100026",
+    "name": "Seahawks",
+    "firstName": "Seahawks",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Sea",
+    "teamId": "26",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/sea.gif"
+   },
+   "40896": {
+    "id": "40896",
+    "name": "Jayden Daniels",
+    "firstName": "Jayden",
+    "lastName": "Daniels",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Was",
+    "teamId": "28",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252026/40896.1.png"
+   },
+   "40055": {
+    "id": "40055",
+    "name": "Bijan Robinson",
+    "firstName": "Bijan",
+    "lastName": "Robinson",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Atl",
+    "teamId": "1",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/40055.1.png"
+   },
+   "41807": {
+    "id": "41807",
+    "name": "Omarion Hampton",
+    "firstName": "Omarion",
+    "lastName": "Hampton",
+    "position": "RB",
+    "positionType": "O",
+    "team": "LAC",
+    "teamId": "24",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09092026/41807.1.png"
+   },
+   "33394": {
+    "id": "33394",
+    "name": "Jaylen Waddle",
+    "firstName": "Jaylen",
+    "lastName": "Waddle",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Den",
+    "teamId": "7",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/33394.1.png"
+   },
+   "33965": {
+    "id": "33965",
+    "name": "Garrett Wilson",
+    "firstName": "Garrett",
+    "lastName": "Wilson",
+    "position": "WR",
+    "positionType": "O",
+    "team": "NYJ",
+    "teamId": "20",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08212026/33965.1.png"
+   },
+   "40064": {
+    "id": "40064",
+    "name": "Sam LaPorta",
+    "firstName": "Sam",
+    "lastName": "LaPorta",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Det",
+    "teamId": "8",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/40064.1.png"
+   },
+   "41791": {
+    "id": "41791",
+    "name": "Ashton Jeanty",
+    "firstName": "Ashton",
+    "lastName": "Jeanty",
+    "position": "RB",
+    "positionType": "O",
+    "team": "LV",
+    "teamId": "13",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/07282025/41791.png"
+   },
+   "40893": {
+    "id": "40893",
+    "name": "Marvin Harrison Jr.",
+    "firstName": "Marvin",
+    "lastName": "Harrison Jr.",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Ari",
+    "teamId": "22",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08052026/40893.1.png"
+   },
+   "40883": {
+    "id": "40883",
+    "name": "Brian Thomas Jr.",
+    "firstName": "Brian",
+    "lastName": "Thomas Jr.",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Jax",
+    "teamId": "30",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08202025/40883.png"
+   },
+   "42010": {
+    "id": "42010",
+    "name": "Jacory Croskey-Merritt",
+    "firstName": "Jacory",
+    "lastName": "Croskey-Merritt",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Was",
+    "teamId": "28",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252026/42010.1.png"
+   },
+   "40875": {
+    "id": "40875",
+    "name": "Bo Nix",
+    "firstName": "Bo",
+    "lastName": "Nix",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Den",
+    "teamId": "7",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/40875.1.png"
+   },
+   "33113": {
+    "id": "33113",
+    "name": "Juwan Johnson",
+    "firstName": "Juwan",
+    "lastName": "Johnson",
+    "position": "TE",
+    "positionType": "O",
+    "team": "NO",
+    "teamId": "18",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08202026/33113.1.png"
+   },
+   "28227": {
+    "id": "28227",
+    "name": "Cairo Santos",
+    "firstName": "Cairo",
+    "lastName": "Santos",
+    "position": "K",
+    "positionType": "K",
+    "team": "Chi",
+    "teamId": "3",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/28227.1.png"
+   },
+   "100033": {
+    "id": "100033",
+    "name": "Ravens",
+    "firstName": "Ravens",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "Bal",
+    "teamId": "33",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/bal_2.gif"
+   },
+   "29369": {
+    "id": "29369",
+    "name": "Dak Prescott",
+    "firstName": "Dak",
+    "lastName": "Prescott",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Dal",
+    "teamId": "6",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/29369.1.png"
+   },
+   "33423": {
+    "id": "33423",
+    "name": "Javonte Williams",
+    "firstName": "Javonte",
+    "lastName": "Williams",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Dal",
+    "teamId": "6",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/33423.1.png"
+   },
+   "32705": {
+    "id": "32705",
+    "name": "D'Andre Swift",
+    "firstName": "D'Andre",
+    "lastName": "Swift",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Chi",
+    "teamId": "3",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/32705.1.png"
+   },
+   "33393": {
+    "id": "33393",
+    "name": "Ja'Marr Chase",
+    "firstName": "Ja'Marr",
+    "lastName": "Chase",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Cin",
+    "teamId": "4",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/33393.1.png"
+   },
+   "33963": {
+    "id": "33963",
+    "name": "Drake London",
+    "firstName": "Drake",
+    "lastName": "London",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Atl",
+    "teamId": "1",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/33963.1.png"
+   },
+   "41799": {
+    "id": "41799",
+    "name": "Tyler Warren",
+    "firstName": "Tyler",
+    "lastName": "Warren",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Ind",
+    "teamId": "11",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/41799.1.png"
+   },
+   "33989": {
+    "id": "33989",
+    "name": "Christian Watson",
+    "firstName": "Christian",
+    "lastName": "Watson",
+    "position": "WR",
+    "positionType": "O",
+    "team": "GB",
+    "teamId": "9",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/33989.3.png"
+   },
+   "40126": {
+    "id": "40126",
+    "name": "Josh Downs",
+    "firstName": "Josh",
+    "lastName": "Downs",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Ind",
+    "teamId": "11",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/40126.1.png"
+   },
+   "40926": {
+    "id": "40926",
+    "name": "Jonathon Brooks",
+    "firstName": "Jonathon",
+    "lastName": "Brooks",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Car",
+    "teamId": "29",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08062026/40926.1.png"
+   },
+   "31833": {
+    "id": "31833",
+    "name": "Kyler Murray",
+    "firstName": "Kyler",
+    "lastName": "Murray",
+    "position": "QB",
+    "positionType": "O",
+    "team": "Min",
+    "teamId": "16",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/31833.1.png"
+   },
+   "34085": {
+    "id": "34085",
+    "name": "Jake Ferguson",
+    "firstName": "Jake",
+    "lastName": "Ferguson",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Dal",
+    "teamId": "6",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/34085.1.png"
+   },
+   "30295": {
+    "id": "30295",
+    "name": "Aaron Jones Sr.",
+    "firstName": "Aaron",
+    "lastName": "Jones Sr.",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Min",
+    "teamId": "16",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08152025/30295.png"
+   },
+   "34344": {
+    "id": "34344",
+    "name": "Cameron Dicker",
+    "firstName": "Cameron",
+    "lastName": "Dicker",
+    "position": "K",
+    "positionType": "K",
+    "team": "LAC",
+    "teamId": "24",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": true,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09092026/34344.1.png"
+   },
+   "100024": {
+    "id": "100024",
+    "name": "Chargers",
+    "firstName": "Chargers",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "LAC",
+    "teamId": "24",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/sdg3.jpg"
+   },
+   "32676": {
+    "id": "32676",
+    "name": "Justin Herbert",
+    "firstName": "Justin",
+    "lastName": "Herbert",
+    "position": "QB",
+    "positionType": "O",
+    "team": "LAC",
+    "teamId": "24",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/09092026/32676.1.png"
+   },
+   "32711": {
+    "id": "32711",
+    "name": "Jonathan Taylor",
+    "firstName": "Jonathan",
+    "lastName": "Taylor",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Ind",
+    "teamId": "11",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/32711.1.png"
+   },
+   "34120": {
+    "id": "34120",
+    "name": "Kyren Williams",
+    "firstName": "Kyren",
+    "lastName": "Williams",
+    "position": "RB",
+    "positionType": "O",
+    "team": "LAR",
+    "teamId": "14",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08252025/34120.png"
+   },
+   "33477": {
+    "id": "33477",
+    "name": "Nico Collins",
+    "firstName": "Nico",
+    "lastName": "Collins",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Hou",
+    "teamId": "34",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08142026/33477.2.png"
+   },
+   "30994": {
+    "id": "30994",
+    "name": "DJ Moore",
+    "firstName": "DJ",
+    "lastName": "Moore",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Buf",
+    "teamId": "2",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/30994.1.png"
+   },
+   "41795": {
+    "id": "41795",
+    "name": "Colston Loveland",
+    "firstName": "Colston",
+    "lastName": "Loveland",
+    "position": "TE",
+    "positionType": "O",
+    "team": "Chi",
+    "teamId": "3",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08122026/41795.1.png"
+   },
+   "33967": {
+    "id": "33967",
+    "name": "Jameson Williams",
+    "firstName": "Jameson",
+    "lastName": "Williams",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Det",
+    "teamId": "8",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08132026/33967.1.png"
+   },
+   "42654": {
+    "id": "42654",
+    "name": "Jadarian Price",
+    "firstName": "Jadarian",
+    "lastName": "Price",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Sea",
+    "teamId": "26",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08112026/42654.1.png"
+   },
+   "40121": {
+    "id": "40121",
+    "name": "Michael Wilson",
+    "firstName": "Michael",
+    "lastName": "Wilson",
+    "position": "WR",
+    "positionType": "O",
+    "team": "Ari",
+    "teamId": "22",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08052026/40121.1.png"
+   },
+   "34320": {
+    "id": "34320",
+    "name": "Jordan Mason",
+    "firstName": "Jordan",
+    "lastName": "Mason",
+    "position": "RB",
+    "positionType": "O",
+    "team": "Min",
+    "teamId": "16",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/34320.1.png"
+   },
+   "34095": {
+    "id": "34095",
+    "name": "Isaiah Likely",
+    "firstName": "Isaiah",
+    "lastName": "Likely",
+    "position": "TE",
+    "positionType": "O",
+    "team": "NYG",
+    "teamId": "19",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08202026/34095.1.png"
+   },
+   "9265": {
+    "id": "9265",
+    "name": "Matthew Stafford",
+    "firstName": "Matthew",
+    "lastName": "Stafford",
+    "position": "QB",
+    "positionType": "O",
+    "team": "LAR",
+    "teamId": "14",
+    "hasPlayerNotes": true,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08192026/9265.2.png"
+   },
+   "31482": {
+    "id": "31482",
+    "name": "Eddy Pineiro",
+    "firstName": "Eddy",
+    "lastName": "Pineiro",
+    "position": "K",
+    "positionType": "K",
+    "team": "SF",
+    "teamId": "25",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/xe/i/us/sp/v/nfl_small_cutout/players_l/08242026/31482.1.png"
+   },
+   "100014": {
+    "id": "100014",
+    "name": "Rams",
+    "firstName": "Rams",
+    "lastName": "",
+    "position": "DEF",
+    "positionType": "DT",
+    "team": "LAR",
+    "teamId": "14",
+    "hasPlayerNotes": false,
+    "hasNewPlayerNotes": false,
+    "imageUrl": "https://s.yimg.com/lq/i/us/sp/v/nfl/teams/1/50x50w/stl.gif"
+   }
+  },
+  "injuryStatuses": {
+   "PUP-P": "Physically Unable to Perform (Preseason)",
+   "IR-R": "Injured Reserve - Designated for Return",
+   "IR": "Injured Reserve",
+   "PUP-R": "Physically Unable to Perform (Regular Season)",
+   "Q": "Questionable",
+   "NFI": "Non-Football Injury",
+   "CEL": "Reserve: Commissioner Exempt List",
+   "NFI-R": "Non-Football Injury (Reserve)",
+   "NFI-A": "Non-Football Injury (Active)",
+   "COVID-19": "Reserve: COVID-19",
+   "NA": "Inactive: Coach's Decision or Not on Roster",
+   "SUSP": "Suspended",
+   "EX": "Reserve: Exemption",
+   "O": "Out",
+   "RET": "Reserve: Retired",
+   "D": "Doubtful",
+   "DNR": "Reserve: Did Not Report"
+  },
+  "inactivePositions": [
+   "BN",
+   "--",
+   "IR"
+  ],
+  "groupLabels": {
+   "fantasy": [
+    "Fantasy",
+    "Fantasy"
+   ],
+   "passing": [
+    "Passing",
+    "Pass"
+   ],
+   "rushing": [
+    "Rushing",
+    "Rush"
+   ],
+   "receiving": [
+    "Receiving",
+    "Rec"
+   ],
+   "return": [
+    "Return",
+    "Ret"
+   ],
+   "fumbles": [
+    "Fumbles",
+    "Fum"
+   ],
+   "fgs": [
+    "Field Goals Made",
+    "FGS",
+    "FG Made"
+   ],
+   "fgm": [
+    "Field Goals Missed",
+    "FGM",
+    "FG Miss"
+   ],
+   "pat": [
+    "Point After TD",
+    "PAT",
+    "PAT"
+   ],
+   "tackles": [
+    "Tackles",
+    "Tack"
+   ],
+   "team_tackles": [
+    "Tackles",
+    "Tack"
+   ],
+   "team_offense": [
+    "Team Offense",
+    "Tm Off"
+   ],
+   "def_turnovers": [
+    "Turnovers",
+    "TO"
+   ],
+   "misc": [
+    "Miscellaneous",
+    "Misc",
+    "Misc"
+   ],
+   "pts_allow": [
+    "Points Allowed",
+    "Pts Allow"
+   ],
+   "yds_allow": [
+    "Yards Allowed",
+    "Yds Allow"
+   ],
+   "rankings": [
+    "Rankings",
+    "Rank"
+   ],
+   "actual_rank": [
+    "Actual Rankings",
+    "Actual"
+   ],
+   "projected_rank": [
+    "Projected Rankings",
+    "Projected",
+    "Projected"
+   ],
+   "bye": [
+    "Bye",
+    " "
+   ],
+   "percentstart": [
+    "Trends",
+    "Trends"
+   ],
+   "grade": [
+    "Grades",
+    "Grade"
+   ],
+   "tds": [
+    "Touchdowns",
+    "TD"
+   ],
+   "trends": [
+    "Trends",
+    "Trends"
+   ],
+   "action": [
+    "Action",
+    " "
+   ],
+   "opponent_week": [
+    "Opponents",
+    " "
+   ],
+   "buzz": [
+    "Buzz",
+    "Buzz"
+   ],
+   "none": [
+    " ",
+    " "
+   ],
+   "points": [
+    "Points",
+    "Pts"
+   ],
+   "player_matchup": [
+    "Matchup",
+    "Matchup"
+   ],
+   "game_day_calls": [
+    "Game Day Calls",
+    "Calls"
+   ],
+   "stats_promo": [
+    "Fantasy Stats",
+    "Fantasy Stats"
+   ],
+   "players": [
+    "Players",
+    "Players"
+   ],
+   "week": [
+    "This Week",
+    "Week"
+   ],
+   "season": [
+    "Season",
+    "Season"
+   ]
+  },
+  "fantasyToEditorialPlayers": {
+   "99001": {
+    "id": "99001",
+    "editorialPlayerId": "41787"
+   },
+   "99002": {
+    "id": "99002",
+    "editorialPlayerId": "41787"
+   }
+  }
+ }
+}

@@ -6,6 +6,16 @@ attributes, which are excluded from the recorder — a live scoreboard is a larg
 fast-changing blob that is meaningless as history and would blow past the
 recorder's attribute cap.
 
+Entity ids come from the entity **name**, which is Home Assistant's own rule:
+a league called "Kush" yields ``sensor.kush_scoreboard``. There is no
+``_attr_suggested_object_id`` override here because there cannot be one —
+``Entity.suggested_object_id`` is a read-only property computed from ``name``,
+so assigning ``_attr_suggested_object_id`` sets an attribute nothing ever
+reads. This module had exactly that dead line until 2026-09-09, and the README
+documented the ids it was supposed to produce, which never existed. Forcing an
+id needs ``async_generate_entity_id`` and a rename of anything already
+registered; the natural name is better anyway, and users can rename in the UI.
+
 Full rosters and the complete play history are deliberately *not* in attributes.
 Attributes are pushed to every connected client on every state change, so they
 carry only what the resting card renders; the rest is served on demand.
@@ -69,7 +79,6 @@ class YahooScoreboardSensor(_LeagueEntity):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_scoreboard"
         self._attr_name = f"{self._league_name} Scoreboard"
-        self._attr_suggested_object_id = f"ffl_{self._league_id}_scoreboard"
 
     @property
     def native_value(self) -> str:
@@ -78,7 +87,10 @@ class YahooScoreboardSensor(_LeagueEntity):
     @property
     def extra_state_attributes(self) -> dict:
         return scoreboard_attributes(
-            self.coordinator.league_data, self.coordinator.feed, self._league_id
+            self.coordinator.league_data,
+            self.coordinator.feed,
+            self._league_id,
+            self._league_name,
         )
 
 
@@ -98,7 +110,6 @@ class YahooMyTeamSensor(_LeagueEntity):
         self._team_id = str(entry.data.get(CONF_TEAM_ID, ""))
         self._attr_unique_id = f"{entry.entry_id}_my_team"
         self._attr_name = f"{self._league_name} My Team"
-        self._attr_suggested_object_id = f"ffl_{self._league_id}_my_team"
 
     @property
     def _found(self) -> dict | None:
@@ -113,9 +124,13 @@ class YahooMyTeamSensor(_LeagueEntity):
     def extra_state_attributes(self) -> dict:
         found = self._found
         if not found:
-            return {"team_id": self._team_id, "matchup_id": None}
+            return {"league_id": self._league_id, "team_id": self._team_id, "matchup_id": None}
         last = self.coordinator.feed.last_play(matchup_id=found["matchup_id"])
         return {
+            # The card pairs this sensor with its league's scoreboard by
+            # matching attributes, never by entity-id prefix — ids follow the
+            # league NAME, so a prefix match breaks on every league but one.
+            "league_id": self._league_id,
             "team_id": self._team_id,
             "matchup_id": found["matchup_id"],
             "team_name": found["me"]["name"],

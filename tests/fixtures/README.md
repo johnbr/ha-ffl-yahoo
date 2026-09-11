@@ -99,3 +99,68 @@ time of year:
 curl -s "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=401772839" \
   | python3 -c 'import json,sys; [print(repr(p["text"])) for p in json.load(sys.stdin)["scoringPlays"]]'
 ```
+
+## `yahoo_redzone_2026_w1.json` + `yahoo_relay_*_2026_w1.txt`
+
+Captured 2026-09-09 ~19:00 PT from Yahoo's **GameChannel** tier, anonymously —
+no cookies, no account, no OAuth — during the live week-1 opener (NE at SEA):
+
+```
+https://pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id={id}&format=json&player_image_type=17
+https://relay-stream.sports.yahoo.com/nfl/stats.txt
+https://relay-stream.sports.yahoo.com/nfl/games.txt
+https://relay-stream.sports.yahoo.com/nfl/plays-26.txt
+```
+
+This is the tier `sports.yahoo.com/nfl/gamechannel/` runs on. The source league
+is **private**, which is the point: the HTML tier above cannot read it at all.
+
+### The one hand-edit, and why
+
+The relay `.txt` captures are **verbatim** — they are public NFL data with no
+league in them. `yahoo_redzone_2026_w1.json` is verbatim in structure but has
+had four identifying fields substituted, because the capture is a real private
+league and this repo is public:
+
+| Field | Replaced with |
+|---|---|
+| `leagues.{id}` key and `id` | `999999` |
+| `leagues.*.name` | `Test League` |
+| `teams.*.name` | Ten generic names |
+| `teams.*.managers.*.nickName` | `manager<N>` |
+| `teams.*.imageUrl*` | `example.invalid` (Cloudinary URLs embed an account) |
+
+Nothing else was touched — every roster, projection, scoring modifier, stat and
+matchup is exactly as served. `test_yahoo_redzone.py` asserts the substitution
+held, so a re-capture that forgets it fails rather than leaking.
+
+### Why the asserted numbers are trustworthy
+
+They were cross-checked against Yahoo's **own StatTracker display** in the
+browser at the moment of capture, not derived from the same code that reads
+them:
+
+| Assertion | Yahoo showed |
+|---|---|
+| Drake Maye `12.74` | 12.74 |
+| A.J. Brown stat line `3 Rec, 26 Rec Yds` | identical string |
+| Seahawks D/ST `9.00` (7 pts allowed band 4.0 + 50 return yds 5.0) | 9.00 |
+| Three team totals `5.60` / `10.30` / `3.90` | identical |
+
+If these ever fail, the computed score has stopped matching what Yahoo shows
+its own users — which is the only definition of "correct" that matters here.
+
+### What each one defends against
+
+| Capture | What it pins |
+|---|---|
+| `yahoo_redzone_2026_w1.json` | A **D/ST has `primaryPosition: null`** — detecting a defence by that field scored every defence in the league at zero, silently. `positionType: "DT"` is the marker, and its stats live under an NFL team id, not the synthetic `100000+` fantasy id the roster carries. |
+| `yahoo_relay_stats_2026_w1.txt` | A player emits **one row per stat group** (`q` passing, `r` rushing, `w` receiving…), so a QB who ran must accumulate across rows rather than have one row win. Also carries a real shutout (`f\|17`), whose headline stat is the value zero. |
+| `yahoo_relay_games_2026_w1.txt` | One live game among sixteen scheduled — proves `pre`/`in` both parse, and that a game is reachable from **either** team's id. |
+| `yahoo_relay_plays_26_2026_w1.txt` | Full play-by-play with **player ids inline in the text** (`[40881] passed to [42717]…`), plus a scoring play, drive rows and the last-play row. Not yet consumed — captured because a live week-1 game cannot be re-captured later. |
+
+### Known gaps
+
+No capture yet of: a completed week (does `pfWeek` populate once games go
+final?), a bye week, a stat correction large enough to cross a defence band, or
+overtime. Add them when a capture turns one up rather than inventing the shape.

@@ -82,6 +82,13 @@ class PlayerSnapshot:
     position: str | None = None
     selected_position: str | None = None
     """Lineup slot this week — ``BN`` for bench, ``WR``/``QB``/... for starters."""
+    stats: dict[str, float] = field(default_factory=dict, compare=False)
+    """Raw stat line, when the source carries one.
+
+    Present from the GameChannel tier (:mod:`yahoo_redzone`), empty from the
+    HTML tier. When two consecutive snapshots both have it, the event can say
+    *what* happened rather than only how much it was worth.
+    """
 
     @property
     def starter(self) -> bool:
@@ -129,6 +136,13 @@ class ScoringEvent:
     starter: bool
     correction: bool
     plays: tuple[MatchedPlay, ...] = ()
+    stat_delta: str = ""
+    """What changed, in Yahoo's own phrasing — ``1 Comp, 13 Pass Yds``.
+
+    Empty when the source carries no stat line. This is the text Yahoo itself
+    prints under each matchup on GameChannel, and it is preferred over a bare
+    point delta by :func:`describe`.
+    """
 
     @property
     def enriched(self) -> bool:
@@ -210,6 +224,7 @@ def diff_snapshots(
                 new_points=round(now.points, 2),
                 starter=now.starter,
                 correction=delta < 0,
+                stat_delta=_stat_delta(before.stats, now.stats),
             )
         )
 
@@ -299,19 +314,83 @@ def abbreviate_name(name: str) -> str:
     return f"{parts[0][0]}. {' '.join(parts[1:])}"
 
 
+def _stat_delta(before: dict[str, float], after: dict[str, float]) -> str:
+    """What changed between two stat lines, or ``""`` if the source has none.
+
+    Imported lazily so this module keeps no import-time dependency on a
+    particular source — the HTML tier has no stat lines at all.
+    """
+    if not after and not before:
+        return ""
+    from .yahoo_redzone import describe_delta
+
+    return describe_delta(before or {}, after or {})
+
+
+def match_relay_play(event: ScoringEvent, plays: list[Any], names: dict[str, str]) -> MatchedPlay | None:
+    """The play in ``plays`` that this event's points most likely came from.
+
+    Matching is by Yahoo's own player id, not by name: the play feed writes
+    people as ``[42654]`` and the event's ``player_key`` ends in that same id,
+    so this is exact where the ESPN path had to fuzzy-match strings.
+
+    The NEWEST qualifying play wins. Within one poll interval a player may
+    appear in several plays and the points can only be attributed to one of
+    them; the most recent is both the best guess and the one a reader watching
+    live is asking about.
+
+    ``yahoo_redzone`` is imported lazily to keep this module free of any
+    particular source — the HTML tier has no play feed at all.
+    """
+    from .yahoo_redzone import humanize_play
+
+    player_id = event.player_key.rsplit(".p.", 1)[-1]
+    if not player_id:
+        return None
+    for play in reversed(plays):
+        if player_id not in play.player_ids:
+            continue
+        text = humanize_play(play.text, names)
+        if not text:
+            return None
+        try:
+            period = int(play.period)
+        except (TypeError, ValueError):
+            period = None
+        return MatchedPlay(
+            text=text,
+            role="",
+            confidence=1.0,
+            period=period,
+            clock=play.clock,
+            play_id=f"{play.game_key}.{play.sequence}",
+        )
+    return None
+
+
 def describe(event: ScoringEvent) -> str:
     """One-line banner text for an event.
 
-    Prefers the real play description when enrichment found one, since
-    "Nacua 24 Yd pass from Stafford" says more than "+6.4". The point delta is
-    rendered separately by the card, so it is not repeated here.
+    Three tiers, best first:
+
+    1. A real play description, when ESPN enrichment matched one — "Nacua
+       24 Yd pass from Stafford".
+    2. The stat delta from Yahoo's own live feed — "D. Maye 1 Comp, 13 Pass
+       Yds". This is the phrasing Yahoo prints under each matchup itself.
+    3. A bare point delta, which is all the HTML tier can support.
+
+    The point value is rendered separately by the card, so it is not repeated
+    here except in the last-resort form.
     """
+    who = abbreviate_name(event.player_name)
     if event.correction:
-        return f"{abbreviate_name(event.player_name)} {event.delta:+.2f} (stat correction)"
+        return f"{who} {event.delta:+.2f} (stat correction)"
     play = event.best_play
     if play is not None and play.text:
         return play.text
-    return f"{abbreviate_name(event.player_name)} {event.delta:+.2f}"
+    if event.stat_delta:
+        return f"{who} {event.stat_delta}"
+    return f"{who} {event.delta:+.2f}"
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +440,21 @@ class PlayFeed:
             added.append(event)
         return added
 
+    def revise(self, event_id: str, plays: tuple[MatchedPlay, ...]) -> ScoringEvent | None:
+        """Replace a stored event's attached plays, keeping its place in history.
+
+        Yahoo publishes a terse description first — "Dak Prescott complete for
+        29 yards" — and fills in the detail a moment later. Re-matching a
+        recent event against the current feed is how the better wording reaches
+        a card that is already showing the worse one.
+        """
+        for index, event in enumerate(self._events):
+            if event.event_id == event_id:
+                updated = replace(event, plays=tuple(plays))
+                self._events[index] = updated
+                return updated
+        return None
+
     def clear(self) -> None:
         self._events.clear()
         self._seen.clear()
@@ -372,11 +466,27 @@ class PlayFeed:
         matchup_id: str | None = None,
         team_key: str | None = None,
         include_corrections: bool = False,
+        starters_only: bool = False,
+        nfl_teams: frozenset[str] | None = None,
     ) -> list[ScoringEvent]:
-        """Most recent events first, newest at index 0."""
+        """Most recent events first, newest at index 0.
+
+        ``starters_only`` drops bench and IR players. Their points are real but
+        they do not count toward the fantasy score, so showing them beside a
+        matchup total reads as a scoring change that never happened.
+
+        ``nfl_teams`` restricts the result to players on those clubs — the
+        callers pass the clubs whose games are in progress, so a play cannot
+        outlive the game it happened in. ``None`` means no restriction, which
+        is what an unavailable games feed must fall back to.
+        """
         out: list[ScoringEvent] = []
         for event in reversed(self._events):
             if not include_corrections and event.correction:
+                continue
+            if starters_only and not event.starter:
+                continue
+            if nfl_teams is not None and (event.nfl_team or "") not in nfl_teams:
                 continue
             if matchup_id is not None and event.matchup_id != matchup_id:
                 continue
