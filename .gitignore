@@ -13,6 +13,10 @@ coverage.xml
 # Local working context, not in-repo
 CLAUDE.md
 PLAN.md
+NOTES-TODO.md
+.claude/
+# Reference screenshots of a real league — kept local rather than published
+notes-assets/
 
 # Local virtualenvs
 .venv/
