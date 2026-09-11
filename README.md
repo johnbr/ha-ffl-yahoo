@@ -2,38 +2,50 @@
 
 Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundled Lovelace cards.
 
-> **Status: early scaffold.** The repository structure, CI and card-delivery pipeline are in
-> place; the Yahoo API client, coordinator and scoring-play engine are under active development.
-> Installing it today gives you a placeholder entity and two placeholder cards.
+> **Status: working.** Running live against a real league since 2026-09-09. The data source, the
+> coordinator, the scoring-play engine and both cards are in place.
 
-## Planned features
+## Features
 
 - **Two cards.** One for your own matchup, one for every matchup in the league. Both show only the
   scores at rest; clicking a matchup opens a roster popup with each player's live points.
 - **Live team scores and projections.** Yahoo publishes a live projected total per team that moves
   during games — both cards show current points alongside the projection.
-- **Scoring-play banner.** A strip beneath each card showing the most recent scoring play, which
-  opens the full week's scoring history when clicked.
+- **Per-matchup scoring plays.** Under each matchup, the play that last moved *that* score,
+  aligned to the side of the team it scored for. Bench players are excluded, since their points
+  do not count. Clicking the line opens that matchup's full scoring history.
 - **Automation hooks.** Each scoring play fires on the Home Assistant event bus, and the options
   flow lets you attach any action sequence to "my player scored", "opponent scored" and
   "lead change".
 
-## Requirements and limitations
+## How it gets the data
 
-Worth knowing before you invest time in this:
+It reads Yahoo's **GameChannel** tier — the same anonymous endpoints
+`sports.yahoo.com/nfl/gamechannel/` runs on. **No Yahoo account, no OAuth, no API key, and no
+approval process.** Private leagues work; so do public ones.
 
-- **Yahoo API access is approval-gated.** Yahoo no longer issues Fantasy Sports API credentials
-  instantly — you apply at [sports.yahoo.com/developer/access](https://sports.yahoo.com/developer/access/)
-  and wait for approval. You will need your own Client ID and Secret.
-- **Yahoo has no play-by-play data.** The API exposes point *totals*, never events. Scoring plays are
-  synthesized by diffing player point totals between polls, which is exact to your league's scoring
-  settings and catches yardage and reception points, not just touchdowns. Optionally, real play
-  descriptions are matched in from ESPN's public NFL API.
+- `pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=…` — teams, rosters, matchups,
+  per-player projections, and your league's own scoring modifiers.
+- `relay-stream.sports.yahoo.com/nfl/{games,stats}.txt` — the live tier, refreshed every few seconds.
+
+One refresh is **three requests for the whole league**, whatever its size.
+
+### Worth knowing
+
+- **The points are computed, not read.** Yahoo publishes no live fantasy totals on this tier —
+  `pfWeek` stays null while games are in progress, and its own browser multiplies each player's live
+  stat line by the league's scoring modifiers. So does this. Verified to the cent against Yahoo's
+  StatTracker display.
+- **Scoring plays are synthesized by diffing consecutive polls,** which is exact to your league's
+  settings and catches yardage and reception points, not just touchdowns. Because the live feed
+  carries real stat lines, each play is described the way Yahoo describes it —
+  `D. Maye 1 Comp, 13 Pass Yds` — rather than as a bare point delta.
 - **"Real time" means 30–60 seconds.** That is how far Yahoo's own live scoring trails the play. No
   integration can beat it.
-- **Per-player projections are not available.** Yahoo exposes projected points per *team* only.
-- **Stat corrections happen.** Yahoo revises stats during and after games; these show as corrections
-  rather than as scoring plays.
+- **Stat corrections happen.** Yahoo revises stats during and after games; these are flagged as
+  corrections and never presented as scores.
+- **Real play-by-play exists but is not used yet.** `relay-stream.sports.yahoo.com/nfl/plays-<id>.txt`
+  carries full play text with Yahoo player ids inline. A capture is in `tests/fixtures/`.
 
 ## Installation
 
@@ -54,19 +66,25 @@ directory and restart.
 
 ## Configuration
 
-You will need your Yahoo league key. It is derived from your league URL — `https://football.fantasysports.yahoo.com/f1/123456`
-is league key `nfl.l.123456`.
+You need the numeric league id from your league URL — `802904` in
+`https://football.fantasysports.yahoo.com/f1/802904`. Paste either the number or the whole URL. The
+second step lists your league's real team names so you can pick your own; skip it and you get the
+league scoreboard without the my-matchup sensor.
 
 ## Cards
 
-```yaml
-type: custom:ffl-my-matchup-card
-entity: sensor.ffl_nfl_l_123456_scoreboard
-```
+**Entity ids come from the league name,** which is Home Assistant's own rule — a league called
+"Kush" produces `sensor.kush_scoreboard` and `sensor.kush_my_team`. Check
+Developer Tools → States if you are unsure, or rename them in the UI.
 
 ```yaml
 type: custom:ffl-league-scoreboard-card
-entity: sensor.ffl_nfl_l_123456_scoreboard
+entity: sensor.kush_scoreboard
+```
+
+```yaml
+type: custom:ffl-my-matchup-card
+entity: sensor.kush_my_team
 ```
 
 ## Development
