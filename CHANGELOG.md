@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.5.0...v0.6.0) (2026-09-11)
+
+
+### Features
+
+* read Yahoo's GameChannel relay tier for live projections and plays ([57abaec](https://github.com/johnbr/ha-ffl-yahoo/commit/57abaec79b3070acebd1d11d108a2796bbe00b0e))
+* rebuild the scoreboard card around live scoring and inline panels ([05dc44f](https://github.com/johnbr/ha-ffl-yahoo/commit/05dc44f956e41f8116836d1decc7fbf9c832a0d0))
+
 ## [0.5.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.4.0...v0.5.0) (2026-08-03)
 
 
