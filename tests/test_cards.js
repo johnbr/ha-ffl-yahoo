@@ -44,6 +44,8 @@ const {
   renderNflPlays,
   fmtKickoff,
   findNflGamesEntity,
+  renderFinalsToggle,
+  FflNflGamesCard,
 } = cards;
 
 const ROW = {
@@ -818,4 +820,61 @@ test("the games entity is found by its games array, not its id", () => {
   };
   assert.equal(findNflGamesEntity(hass), "sensor.anything_at_all");
   assert.equal(findNflGamesEntity({}), "");
+});
+
+/* ------------------------------------------------- finished games, folded */
+
+const SLATE = [
+  { ...GAME_LIVE, game_id: "live1", state: "in" },
+  { ...GAME_LIVE, game_id: "done1", state: "post", clock_text: "Final" },
+  { ...GAME_LIVE, game_id: "soon1", state: "pre", clock_text: "" },
+  { ...GAME_LIVE, game_id: "done2", state: "post", clock_text: "Final" },
+];
+
+function nflCard() {
+  const card = new FflNflGamesCard();
+  card.setConfig({ entity: "sensor.x" });
+  return card;
+}
+
+test("finished games sort below everything still worth watching", () => {
+  const { active, done } = nflCard()._split(SLATE);
+  assert.deepEqual(active.map((g) => g.game_id), ["live1", "soon1"]);
+  assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
+});
+
+test("the feed's kickoff order survives inside each group", () => {
+  // live1 before soon1 because it kicked off earlier — no second rule needed.
+  const { active } = nflCard()._split(SLATE);
+  assert.equal(active[0].game_id, "live1");
+});
+
+test("finished games start hidden while anything else is showing", () => {
+  const card = nflCard();
+  assert.equal(card._finalsOpen(2), false);
+});
+
+test("an all-final slate opens rather than hiding every game behind a click", () => {
+  const card = nflCard();
+  assert.equal(card._finalsOpen(0), true, "a card showing nothing is useless");
+});
+
+test("an explicit choice beats the default in both directions", () => {
+  const card = nflCard();
+  card._showFinal = true;
+  assert.equal(card._finalsOpen(5), true, "opened by hand, kept open");
+  card._showFinal = false;
+  assert.equal(card._finalsOpen(0), false, "closed by hand, kept shut on an all-final slate");
+});
+
+test("the finals toggle says how many and which way it points", () => {
+  const shut = renderFinalsToggle(8, false);
+  assert.ok(shut.includes("8 final"));
+  assert.ok(shut.includes('aria-expanded="false"'));
+  assert.ok(shut.includes("Show 8 finished games"));
+
+  const open = renderFinalsToggle(1, true);
+  assert.ok(open.includes("ffl-nfl-finals-open"));
+  assert.ok(open.includes('aria-expanded="true"'));
+  assert.ok(open.includes("Hide 1 finished game"), "singular reads properly");
 });

@@ -397,6 +397,24 @@ function renderNflGame(game, options = {}) {
     </div>`;
 }
 
+/**
+ * The "finished games" disclosure at the foot of the card.
+ *
+ * A caret here rather than a bare clickable line: unlike a matchup row, which
+ * is a whole card's worth of obviously-interactive content, this is one line of
+ * text and needs to say that it does something.
+ */
+function renderFinalsToggle(count, open) {
+  return `
+    <div class="ffl-nfl-finals${open ? " ffl-nfl-finals-open" : ""}"
+         role="button" tabindex="0" data-finals-toggle="1"
+         aria-expanded="${open ? "true" : "false"}"
+         aria-label="${open ? "Hide" : "Show"} ${count} finished game${count === 1 ? "" : "s"}">
+      <span class="ffl-nfl-finals-caret"></span>
+      <span>${count} final</span>
+    </div>`;
+}
+
 /** The expanded game's play list, newest first. */
 function renderNflPlays(plays) {
   if (!Array.isArray(plays) || !plays.length) {
@@ -891,12 +909,44 @@ class FflNflGamesCard extends FflBaseCard {
     return { entity: findNflGamesEntity(hass) };
   }
 
+  setConfig(config) {
+    super.setConfig(config);
+    // `null` means "not chosen yet", which is NOT the same as false — an
+    // unchosen card opens the finals only when there is nothing else to show,
+    // while an explicit false keeps them shut even on an all-final slate.
+    this._showFinal = null;
+  }
+
   getCardSize() {
     return 6;
   }
 
   _rows(st) {
     return Array.isArray(st.attributes.games) ? st.attributes.games : [];
+  }
+
+  /**
+   * Live and upcoming games first, finished ones last.
+   *
+   * Sorted here rather than in the sensor: the slate is served in kickoff
+   * order, which is the honest general-purpose shape, and "what is still worth
+   * watching" is a question about this card rather than about the data.
+   *
+   * Within each group the feed's kickoff order is preserved, so a live game
+   * sits above a scheduled one without needing a second rule — it kicked off
+   * earlier, which is exactly why it is live.
+   */
+  _split(rows) {
+    const done = [];
+    const active = [];
+    for (const game of rows) (game.state === "post" ? done : active).push(game);
+    return { active, done };
+  }
+
+  /** Are the finished games showing? Unchosen opens only on an empty slate. */
+  _finalsOpen(activeCount) {
+    if (this._showFinal === null || this._showFinal === undefined) return activeCount === 0;
+    return this._showFinal === true;
   }
 
   /** Scalar-only, like its sibling — never stringify the games array. */
@@ -913,6 +963,16 @@ class FflNflGamesCard extends FflBaseCard {
   }
 
   _onActivate(event) {
+    const finals = event.target.closest("[data-finals-toggle]");
+    if (finals) {
+      const st = this._stateObj();
+      const activeCount = st ? this._split(this._rows(st)).active.length : 0;
+      // Flip against what is actually showing, so the first click on an
+      // auto-opened list closes it rather than appearing to do nothing.
+      this._showFinal = !this._finalsOpen(activeCount);
+      this._invalidate();
+      return;
+    }
     const head = event.target.closest("[data-game-id]");
     if (!head) return;
     this._togglePanel(head.getAttribute("data-game-id"), "plays", {
@@ -956,6 +1016,17 @@ class FflNflGamesCard extends FflBaseCard {
     return found ? found.plays_id || "" : "";
   }
 
+  _renderGames(games) {
+    return games
+      .map((game) =>
+        renderNflGame(game, {
+          open: this._expandedId === String(game.game_id),
+          playsHtml: this._expandedId === String(game.game_id) ? this._detailHtml : "",
+        })
+      )
+      .join("");
+  }
+
   _paintBody(st, rows) {
     if (!rows.length) {
       this._paint(`<div class="ffl-placeholder">Waiting for the NFL schedule…</div>`);
@@ -968,15 +1039,13 @@ class FflNflGamesCard extends FflBaseCard {
         ${live ? `<span class="ffl-header-live">${live} live</span>` : ""}
         <span class="ffl-header-week">${rows.length} games</span>
       </div>`;
-    const body = rows
-      .map((game) =>
-        renderNflGame(game, {
-          open: this._expandedId === String(game.game_id),
-          playsHtml: this._expandedId === String(game.game_id) ? this._detailHtml : "",
-        })
-      )
-      .join("");
-    this._paint(`${header}<div class="ffl-nfl-games">${body}</div>`);
+
+    const { active, done } = this._split(rows);
+    const open = this._finalsOpen(active.length);
+    const finals = done.length
+      ? `${renderFinalsToggle(done.length, open)}${open ? this._renderGames(done) : ""}`
+      : "";
+    this._paint(`${header}<div class="ffl-nfl-games">${this._renderGames(active)}${finals}</div>`);
   }
 }
 
@@ -1144,6 +1213,25 @@ const CARD_CSS = `
     background: var(--divider-color); overflow: hidden;
   }
   .ffl-nfl-bar-fill { height: 100%; background: var(--primary-color); }
+  .ffl-nfl-finals {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 6px; margin-top: 2px; cursor: pointer; border-radius: 8px;
+    font-size: 0.75rem; color: var(--secondary-text-color);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .ffl-nfl-finals:hover, .ffl-nfl-finals:focus-visible {
+    background: var(--secondary-background-color); outline: none;
+  }
+  .ffl-nfl-finals-caret {
+    width: 0; height: 0;
+    border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid currentColor;
+    transition: transform 120ms ease-in-out;
+  }
+  .ffl-nfl-finals-open .ffl-nfl-finals-caret { transform: rotate(180deg); }
+  /* A finished game is still readable, just not competing with a live one. */
+  .ffl-nfl-finals-open ~ .ffl-nfl-game .ffl-nfl-abbr { color: var(--secondary-text-color); }
+
   .ffl-nfl-plays { padding: 2px 6px 10px; }
   .ffl-nfl-playlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
   .ffl-nfl-playlist li { display: flex; gap: 8px; font-size: 0.78rem; align-items: baseline; }
@@ -1380,8 +1468,10 @@ if (typeof module !== "undefined" && module.exports) {
     renderNflGame,
     renderNflTeam,
     renderNflPlays,
+    renderFinalsToggle,
     fmtKickoff,
     findFflEntity,
     findNflGamesEntity,
+    FflNflGamesCard,
   };
 }
