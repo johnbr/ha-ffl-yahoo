@@ -257,11 +257,13 @@ function renderWinBar(row) {
 }
 
 /**
- * Both live projections, under their own scores on the collapsed row.
+ * Both live projections, riding the MIDDLE track of the play line's row.
  *
- * Three spans so they land in the score grid's own tracks — the middle one is
- * an empty spacer under the dash, which is what keeps each number under the
- * score it belongs to rather than merely near it.
+ * They sat on their own line under the scores, which cost every matchup a
+ * third line to carry two numbers. The play line's row already had an empty
+ * centre track — it is where the chevron used to be — and that column is
+ * centred under the scores, so the projections read as belonging to them
+ * without occupying a row of their own.
  *
  * Coloured against the PRE-GAME projection: green ahead of it, red behind,
  * grey level. `trendClass` returns "" when either number is missing, which is
@@ -273,7 +275,20 @@ function renderRowProjections(home, away) {
   if (!h && !a) return "";
   const cell = (team, cls) =>
     cls ? `<span class="ffl-rowproj${cls}">${fmtPoints(team.live_projected)}</span>` : `<span></span>`;
-  return `${cell(home, h)}<span></span>${cell(away, a)}`;
+  return `<div class="ffl-rowprojs">${cell(home, h)}${cell(away, a)}</div>`;
+}
+
+/**
+ * The play line and the projections, sharing one row.
+ *
+ * Rendered only when there is something to put in it — a matchup with neither
+ * a scoring play nor a projection would otherwise get an empty padded strip.
+ */
+function renderRowFoot(row, playsOpen) {
+  const play = row.last_play ? renderRowPlay(row.last_play, row.matchup_id, playsOpen) : "";
+  const projections = renderRowProjections(row.home, row.away);
+  if (!play && !projections) return "";
+  return `<div class="ffl-row-foot">${play}${projections}</div>`;
 }
 
 function renderMatchupRow(row, options = {}) {
@@ -302,15 +317,10 @@ function renderMatchupRow(row, options = {}) {
           <span class="ffl-score${leader === home.team_id ? " ffl-leader" : ""}">${fmtPoints(home.points)}</span>
           <span class="ffl-vs">–</span>
           <span class="ffl-score${leader === away.team_id ? " ffl-leader" : ""}">${fmtPoints(away.points)}</span>
-          ${renderRowProjections(home, away)}
         </div>
         ${renderTeamSide(away, leader === away.team_id, "end")}
       </div>
-      ${
-        row.last_play
-          ? `<div class="ffl-row-foot">${renderRowPlay(row.last_play, row.matchup_id, playsOpen)}</div>`
-          : ""
-      }
+      ${renderRowFoot(row, playsOpen)}
       ${detail}
     </div>`;
 }
@@ -835,12 +845,11 @@ const CARD_CSS = `
     align-items: center; gap: 6px; padding: 0 6px 4px;
   }
   .ffl-row-play {
-    /* Row pinned explicitly. It is not load-bearing while the play is the only
-       child, but it was: a sibling with only a column set got displaced to a
-       second row whenever an AWAY play took column 3 and pushed grid's
-       placement cursor past it. Kept so adding one back cannot reintroduce
-       that, since the symptom appeared on half the cards and read as a data
-       problem rather than a layout one. */
+    /* Row pinned explicitly, and it matters: with the projections beside it,
+       an AWAY play takes column 3 and pushes grid's placement cursor past
+       column 2, so a sibling without its own row lands on a second line. That
+       showed up on exactly the matchups whose last score went right, which
+       read as a data problem rather than a layout one. */
     grid-column: 1; grid-row: 1;
     display: flex; align-items: baseline; gap: 6px;
     padding: 1px 4px; font-size: 0.8rem; color: var(--secondary-text-color);
@@ -928,13 +937,17 @@ const CARD_CSS = `
   .ffl-win-seg { background: var(--divider-color); border-radius: 3px; min-width: 2px; }
   .ffl-win-seg.ffl-win-fav { background: var(--success-color, #43a047); }
 
-  /* A grid, not a flex row, so the projections drop into the SAME three tracks
-     as the scores and each lands under its own number. Flex would only put
-     them near it. */
-  .ffl-scores {
-    display: grid; grid-template-columns: auto auto auto;
-    justify-items: center; align-items: baseline;
-    column-gap: 6px; row-gap: 1px; font-variant-numeric: tabular-nums;
+  .ffl-scores { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+
+  /* The projections take the foot's MIDDLE track — the one the chevron used to
+     hold — so they sit centred under the scores without costing a row. The
+     explicit grid-row is load-bearing again now that the play has a sibling:
+     an AWAY play takes column 3 and pushes grid's placement cursor past
+     column 2, which would drop these onto a second line and undo the point. */
+  .ffl-rowprojs {
+    grid-column: 2; grid-row: 1;
+    display: flex; align-items: baseline; gap: 10px;
+    font-variant-numeric: tabular-nums;
   }
   .ffl-rowproj { font-size: 0.72rem; font-weight: 600; line-height: 1.1; }
   .ffl-score { font-size: 1.15rem; color: var(--secondary-text-color); }

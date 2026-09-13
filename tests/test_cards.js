@@ -114,7 +114,7 @@ test("a collapsed row shows names and scores, and nothing else", () => {
   assert.ok(!html.includes("ffl-projs"), "no projection block on a collapsed row");
 });
 
-test("the collapsed row shows each live projection under its own score", () => {
+test("the collapsed row shows both live projections, coloured", () => {
   const html = renderMatchupRow({
     matchup_id: "w1.m1", index: 1,
     home: { team_id: "1", name: "Tesla", points: 76.14, projected: 122.73, live_projected: 133.93 },
@@ -126,9 +126,21 @@ test("the collapsed row shows each live projection under its own score", () => {
   // Above its pre-game number is green, below is red.
   assert.ok(html.includes("ffl-rowproj ffl-up"));
   assert.ok(html.includes("ffl-rowproj ffl-down"));
-  // Inside the score block, so the grid can align them under the scores.
-  const scores = html.slice(html.indexOf("ffl-scores"), html.indexOf("ffl-team-end"));
-  assert.ok(scores.includes("133.93") && scores.includes("121.40"));
+});
+
+test("the projections share the play line's row, not one of their own", () => {
+  // A row of their own cost every matchup a third line.
+  const html = renderMatchupRow({
+    matchup_id: "w1.m1", index: 1,
+    home: { team_id: "1", name: "Tesla", points: 76.14, projected: 122.73, live_projected: 133.93 },
+    away: { team_id: "10", name: "Herb", points: 107.1, projected: 130.66, live_projected: 121.4 },
+    leader: "10", win_prob: 0.25,
+    last_play: { text: "x", short_text: "J. Taylor 1 rush, 13 yds", delta: 1.3, side: "away" },
+  });
+  const foot = html.slice(html.indexOf("ffl-row-foot"));
+  assert.ok(foot.includes("ffl-rowprojs"), "projections belong to the foot");
+  assert.ok(foot.includes("J. Taylor"), "and so does the play");
+  assert.ok(!html.slice(html.indexOf("ffl-scores"), html.indexOf("ffl-row-foot")).includes("ffl-rowproj"));
 });
 
 test("a level projection is grey rather than green or red", () => {
@@ -224,14 +236,17 @@ test("the expanded history keeps Yahoo's full sentence", () => {
   assert.ok(html.includes("Tyler Shough passed to Travis Etienne Jr."));
 });
 
-test("the play line is pinned to its grid row", () => {
-  // Not load-bearing while the play is the foot's only child, but it was: a
-  // sibling with only a column set got displaced to a second row whenever an
-  // AWAY play took column 3 and pushed grid's cursor past it, making half the
-  // cards a line taller. Kept so adding a sibling back cannot revive it.
-  const at = CARD_CSS.indexOf(".ffl-row-play {");
-  assert.ok(at !== -1, ".ffl-row-play rule not found");
-  assert.match(CARD_CSS.slice(at, CARD_CSS.indexOf("}", at)), /grid-row:\s*1/);
+test("both foot children are pinned to one grid row", () => {
+  // Grid packs sparsely: an AWAY play takes column 3, pushing the cursor past
+  // column 2, so a sibling with only a column set wraps to a second row. That
+  // made every away-scoring matchup a line taller and read as a data problem.
+  const rule = (selector) => {
+    const at = CARD_CSS.indexOf(selector + " {");
+    assert.ok(at !== -1, `${selector} rule not found`);
+    return CARD_CSS.slice(at, CARD_CSS.indexOf("}", at));
+  };
+  assert.match(rule(".ffl-row-play"), /grid-row:\s*1/);
+  assert.match(rule(".ffl-rowprojs"), /grid-row:\s*1/);
 });
 
 test("the play sits on the scoring side's own track", () => {
@@ -524,9 +539,24 @@ test("there is no chevron; the row itself is the control", () => {
   assert.ok(html.includes('aria-expanded="false"'));
 });
 
-test("a matchup with no scoring play renders no foot at all", () => {
-  const html = renderMatchupRow({ ...ROW_A, last_play: null });
-  assert.ok(!html.includes("ffl-row-foot"), "an empty strip is wasted height");
+test("the foot is dropped only when it would be empty", () => {
+  // No play but a projection still needs the row.
+  const withProj = renderMatchupRow({
+    matchup_id: "w1.m1", index: 1,
+    home: { team_id: "1", name: "A", points: 1, projected: 120, live_projected: 130 },
+    away: { team_id: "2", name: "B", points: 2, projected: 120, live_projected: 110 },
+    leader: "2", last_play: null,
+  });
+  assert.ok(withProj.includes("ffl-row-foot"));
+
+  // Neither: an empty padded strip is wasted height.
+  const bare = renderMatchupRow({
+    matchup_id: "w1.m1", index: 1,
+    home: { team_id: "1", name: "A", points: 1 },
+    away: { team_id: "2", name: "B", points: 2 },
+    leader: "2", last_play: null,
+  });
+  assert.ok(!bare.includes("ffl-row-foot"));
 });
 
 test("the expanded wrapper is marked so the panel can be styled", () => {
