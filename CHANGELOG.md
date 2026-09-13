@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.6.0...v0.7.0) (2026-09-13)
+
+
+### Features
+
+* collapse each matchup row to one line and move projections behind it ([1324a39](https://github.com/johnbr/ha-ffl-yahoo/commit/1324a39ced434b22c5d7c700342329cc68d392d7))
+* show the compact player-side stat line on each matchup row ([0222a04](https://github.com/johnbr/ha-ffl-yahoo/commit/0222a04f01d17442d1882787e6b96dcb8cc50b30))
+
+
+### Bug Fixes
+
+* keep the chevron on the play's row when the away side scored ([5f4d806](https://github.com/johnbr/ha-ffl-yahoo/commit/5f4d806afb3146581366744dfef6eeb48575d8c2))
+* pin a play revision to its own play instead of re-picking the newest ([3fe992a](https://github.com/johnbr/ha-ffl-yahoo/commit/3fe992ac6b55fdc11c1c623bc8584dc4d170d16c))
+
+
+### Performance Improvements
+
+* halve live poll latency and stop serialising the relay fetches ([50ed13c](https://github.com/johnbr/ha-ffl-yahoo/commit/50ed13c7947d1683362f09e6a6ad1b02cf356c6f))
+
 ## [0.6.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.5.0...v0.6.0) (2026-09-11)
 
 
