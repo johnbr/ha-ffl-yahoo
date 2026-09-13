@@ -9,6 +9,7 @@ exercised in this repo's test harness.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import replace
 from datetime import timedelta
@@ -188,12 +189,24 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             _LOGGER.debug("Could not read the player dictionary: %s", err)
             return events
 
+        # Fetched concurrently: these are different games and nothing here
+        # depends on another's result, so paying eight round trips end to end
+        # would be latency added to the scores themselves — this runs inside
+        # the refresh the entity is waiting on.
+        ids = list(wanted)[:MAX_PLAY_FEEDS]
+        results = await asyncio.gather(
+            *(self.client.async_plays(feed_id) for feed_id in ids),
+            return_exceptions=True,
+        )
         feeds: dict[str, list] = {}
-        for feed_id in list(wanted)[:MAX_PLAY_FEEDS]:
+        for feed_id, result in zip(ids, results, strict=True):
+            if isinstance(result, BaseException):  # cosmetic, never fatal
+                _LOGGER.debug("Could not read plays for game %s: %s", feed_id, result)
+                continue
             try:
-                feeds[feed_id] = parse_relay_plays(await self.client.async_plays(feed_id))
+                feeds[feed_id] = parse_relay_plays(result)
             except Exception as err:  # cosmetic, never fatal
-                _LOGGER.debug("Could not read plays for game %s: %s", feed_id, err)
+                _LOGGER.debug("Could not parse plays for game %s: %s", feed_id, err)
 
         def described(event: ScoringEvent) -> ScoringEvent:
             plays = feeds.get(data.plays_feeds.get(event.nfl_team or "", ""))

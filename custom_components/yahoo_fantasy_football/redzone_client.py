@@ -33,6 +33,7 @@ correct response is to fetch less, not to evade harder.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
@@ -205,9 +206,15 @@ class RedzoneClient:
         ``now`` is supplied by the caller — nothing in this module reads a
         clock, which keeps refresh behaviour deterministic under test.
         """
-        seed = await self._seed_payload(now)
-        stats = await self._get_optional(relay_url("stats", self.sport))
-        games = await self._get_optional(relay_url("games", self.sport))
+        # Concurrent, not sequential: three independent endpoints, and this
+        # runs inside the refresh the card is waiting on, so serialising them
+        # was three round trips of pure latency on every live poll. The seed is
+        # usually a cache hit and returns without any IO at all.
+        seed, stats, games = await asyncio.gather(
+            self._seed_payload(now),
+            self._get_optional(relay_url("stats", self.sport)),
+            self._get_optional(relay_url("games", self.sport)),
+        )
 
         try:
             data = league_from_payloads(seed, stats, games, self.league_id, now)

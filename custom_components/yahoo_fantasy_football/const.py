@@ -29,11 +29,20 @@ CARD_FILENAME = "yahoo-fantasy-football-cards.js"
 # Yahoo's own live scoring lags the play by roughly 30-60s; that is a floor
 # nothing here can beat, but the poll interval adds to it, so it is worth
 # keeping small. Yahoo does not document its rate limits and throttles per app
-# id, so these stay conservative — what makes 20s conservative is that a live
-# poll now costs ~8 KB, not ~186 KB: the 178 KB league seed is cached behind
-# its own TTL (see ``redzone_client.SEED_TTL_SECONDS``). Live polling is both
-# more than twice as fresh as the old 45s AND roughly a third of the traffic.
-SCAN_INTERVAL_LIVE_SECONDS = 20
+# id, so these stay conservative — what makes this affordable is that a live
+# poll costs ~8 KB, not ~186 KB: the 178 KB league seed is cached behind its
+# own TTL (see ``redzone_client.SEED_TTL_SECONDS``).
+#
+# 10s is measured, not guessed. Sampling the relay during a live slate
+# (2026-09-13, eight concurrent games) showed the games feed changing every
+# ~7s on average — 17 data changes in 119s, with ``source_sequence_number``
+# advancing 18 over the same window, two independent signals agreeing. So the
+# source is the faster side and polling is what adds the delay: at 20s the
+# average wait was ~10s, at 10s it is ~5s.
+#
+# Going below ~7s would buy little and cost proportionally: the feed simply
+# has nothing new to say more often than that.
+SCAN_INTERVAL_LIVE_SECONDS = 10
 SCAN_INTERVAL_NEAR_GAME_SECONDS = 300
 SCAN_INTERVAL_IDLE_SECONDS = 1800
 
