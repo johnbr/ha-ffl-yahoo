@@ -818,7 +818,12 @@ const CARD_CSS = `
     align-items: center; gap: 6px; padding: 0 6px 4px;
   }
   .ffl-row-play {
-    grid-column: 1;
+    /* Both feet are pinned to row 1 explicitly. With only a column set, grid's
+       default sparse packing walks a cursor left to right: an AWAY play takes
+       column 3, which puts the cursor past column 2, so the chevron could no
+       longer fit behind it and wrapped to a second row — every matchup whose
+       last score went to the away side was a line taller than the rest. */
+    grid-column: 1; grid-row: 1;
     display: flex; align-items: baseline; gap: 6px;
     padding: 1px 4px; font-size: 0.8rem; color: var(--secondary-text-color);
     cursor: pointer; border-radius: 6px;
@@ -857,11 +862,11 @@ const CARD_CSS = `
     color: var(--secondary-text-color);
   }
 
-  /* The chevron is its own full-width strip under the row rather than a fourth
-     grid track, so it stays centred under the whole card and sits below the
-     play line instead of above it. */
+  /* The chevron sits in the MIDDLE track of the same row as the play, so it is
+     centred on the card whichever side the play is on — and on row 1
+     explicitly, or an away play would displace it downward (see above). */
   .ffl-row-toggle {
-    grid-column: 2;
+    grid-column: 2; grid-row: 1;
     display: flex; align-items: center; justify-content: center;
     padding: 4px 8px; cursor: pointer;
   }
@@ -1052,6 +1057,7 @@ if (typeof customElements !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CARD_VERSION,
+    CARD_CSS,
     escapeHtml,
     fmtPoints,
     fmtDelta,

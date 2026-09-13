@@ -27,6 +27,7 @@ const cards = require(
 );
 
 const {
+  CARD_CSS,
   escapeHtml,
   fmtPoints,
   fmtDelta,
@@ -183,6 +184,26 @@ test("the expanded history keeps Yahoo's full sentence", () => {
     },
   ]);
   assert.ok(html.includes("Tyler Shough passed to Travis Etienne Jr."));
+});
+
+test("both feet share one grid row whichever side scored", () => {
+  // Grid packs sparsely: an AWAY play takes column 3, putting the cursor past
+  // column 2, so a chevron with only a column set wrapped to a second row and
+  // made every away-scoring matchup a line taller. Both need an explicit row.
+  const rule = (selector) => {
+    const at = CARD_CSS.indexOf(selector + " {");
+    assert.ok(at !== -1, `${selector} rule not found`);
+    return CARD_CSS.slice(at, CARD_CSS.indexOf("}", at));
+  };
+  assert.match(rule(".ffl-row-play"), /grid-row:\s*1/);
+  assert.match(rule(".ffl-row-toggle"), /grid-row:\s*1/);
+});
+
+test("the play sits on the scoring side's own track", () => {
+  const away = renderRowPlay({ text: "x", short_text: "x", delta: 1, side: "away" }, "w1.m1");
+  const home = renderRowPlay({ text: "x", short_text: "x", delta: 1, side: "home" }, "w1.m1");
+  assert.ok(away.includes("ffl-play-away"));
+  assert.ok(home.includes("ffl-play-home"));
 });
 
 test("the play aligns to the side of the team that scored it", () => {
