@@ -132,20 +132,45 @@ function fetchPlayHistory(hass, leagueId, options = {}) {
 /* ------------------------------------------------------------- rendering */
 
 function renderTeamSide(team, isLeader, align) {
+  // Name only. The projections used to stack under it, which made every
+  // collapsed row three lines tall to carry two numbers that do not change
+  // between polls the way the score does. With a single child the row's
+  // `align-items: center` puts the name on the same line as the score.
   const cls = `ffl-team ffl-team-${align}${isLeader ? " ffl-leader" : ""}`;
-  // Both numbers, the way StatTracker prints "Orig Proj" over "Proj Pts": the
-  // live figure alone says where the team is heading but not whether that is
-  // better or worse than the morning's expectation, which is the whole point.
-  const live = hasLive(team.live_projected, team.projected)
-    ? `<div class="ffl-team-live${trendClass(team.live_projected, team.projected)}">proj ${fmtPoints(
-        team.live_projected
-      )}</div>`
-    : "";
   return `
     <div class="${cls}">
       <div class="ffl-team-name">${escapeHtml(team.name)}</div>
-      <div class="ffl-team-proj">${live ? "orig" : "proj"} ${fmtPoints(team.projected)}</div>
-      ${live}
+    </div>`;
+}
+
+/**
+ * Both teams' projections, for the expanded panel.
+ *
+ * Both numbers, the way StatTracker prints "Orig Proj" over "Proj Pts": the
+ * live figure alone says where a team is heading but not whether that is
+ * better or worse than the morning's expectation, which is the whole point.
+ *
+ * Three tracks, matching the row and the play line above it, so each side
+ * lands under its own team rather than floating.
+ */
+function renderProjections(row) {
+  const side = (team, align) => {
+    const live = hasLive(team.live_projected, team.projected)
+      ? `<div class="ffl-team-live${trendClass(team.live_projected, team.projected)}">proj ${fmtPoints(
+          team.live_projected
+        )}</div>`
+      : "";
+    return `
+      <div class="ffl-proj-side ffl-proj-${align}">
+        <div class="ffl-team-proj">${live ? "orig" : "proj"} ${fmtPoints(team.projected)}</div>
+        ${live}
+      </div>`;
+  };
+  return `
+    <div class="ffl-projs">
+      ${side(row.home, "start")}
+      <div></div>
+      ${side(row.away, "end")}
     </div>`;
 }
 
@@ -240,7 +265,7 @@ function renderMatchupRow(row, options = {}) {
   // The win bar belongs to the lineup, not to the play list: it is about where
   // the matchup is heading, which is what the lineup answers.
   const detail = expanded
-    ? `<div class="ffl-row-detail" id="${panelId}">${playsOpen ? "" : renderWinBar(row)}${
+    ? `<div class="ffl-row-detail" id="${panelId}">${playsOpen ? "" : renderProjections(row) + renderWinBar(row)}${
         options.detailHtml || `<div class="ffl-loading">${playsOpen ? "Loading plays…" : "Loading rosters…"}</div>`
       }</div>`
     : "";
@@ -772,7 +797,7 @@ const CARD_CSS = `
   .ffl-rows { display: flex; flex-direction: column; gap: 2px; }
   .ffl-row {
     display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
-    padding: 8px 6px; border-radius: 8px; cursor: pointer;
+    padding: 5px 6px; border-radius: 8px; cursor: pointer;
     border-bottom: 1px solid var(--divider-color);
   }
   /* The divider belongs to the WRAPPER, not the row — with a play line
@@ -782,7 +807,7 @@ const CARD_CSS = `
   .ffl-row-wrap { border-bottom: 1px solid var(--divider-color); }
   .ffl-rows .ffl-row-wrap:last-child { border-bottom: none; }
   .ffl-row:hover, .ffl-row:focus-visible { background: var(--secondary-background-color); outline: none; }
-  .ffl-single .ffl-row { padding: 12px 6px; }
+  .ffl-single .ffl-row { padding: 8px 6px; }
 
   /* Play line and chevron share ONE line so the card does not grow a strip per
      matchup. Three tracks, not flex: the chevron sits in the middle track and
@@ -856,6 +881,15 @@ const CARD_CSS = `
   .ffl-row-play.ffl-play-open { background: var(--secondary-background-color); }
 
   .ffl-row-detail { padding: 4px 2px 12px; }
+
+  /* Same three tracks as the row and the play line, so each side's numbers
+     land under their own team instead of floating mid-card. */
+  .ffl-projs {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start; gap: 8px; padding: 0 6px 6px;
+  }
+  .ffl-proj-start { text-align: start; }
+  .ffl-proj-end { text-align: end; }
 
   .ffl-team { min-width: 0; }
   .ffl-team-start { text-align: start; }

@@ -101,9 +101,22 @@ test("a hostile player name cannot inject markup", () => {
 
 /* ------------------------------------------------------------ score rows */
 
-test("a matchup row shows both scores and both projections", () => {
+test("a collapsed row shows names and scores, and nothing else", () => {
   const html = renderMatchupRow(ROW);
-  for (const expected of ["Tesla", "Your daddy", "180.67", "104.09", "138.49", "126.61"]) {
+  for (const expected of ["Tesla", "Your daddy", "180.67", "104.09"]) {
+    assert.ok(html.includes(expected), `missing ${expected}`);
+  }
+  // The projections cost two extra lines per matchup to carry numbers that
+  // barely move between polls. They belong to the expanded panel.
+  assert.ok(!html.includes("138.49"), "the home projection must not be on the row");
+  assert.ok(!html.includes("126.61"), "the away projection must not be on the row");
+  assert.ok(!html.includes("ffl-projs"), "no projection block on a collapsed row");
+});
+
+test("expanding a row reveals both projections", () => {
+  const html = renderMatchupRow(ROW, { expanded: true, detailHtml: "<div></div>" });
+  assert.ok(html.includes("ffl-projs"));
+  for (const expected of ["138.49", "126.61"]) {
     assert.ok(html.includes(expected), `missing ${expected}`);
   }
 });
@@ -468,7 +481,7 @@ test("a projection above the pre-game number is green, below is red, level is gr
   assert.equal(trendClass(null, 19.97), "");
 });
 
-test("a team shows the original projection and the live one beneath it", () => {
+test("an expanded team shows the original projection and the live one", () => {
   const html = renderMatchupRow({
     matchup_id: "w1.m1",
     index: 1,
@@ -477,7 +490,7 @@ test("a team shows the original projection and the live one beneath it", () => {
     leader: "10",
     last_play: null,
     win_prob: 0.39,
-  });
+  }, { expanded: true, detailHtml: "<div></div>" });
   assert.ok(html.includes("orig 135.35"), "the pre-game number keeps its place");
   assert.ok(html.includes("proj 123.15"));
   assert.ok(html.includes("ffl-team-live ffl-down"), "Tesla is below its projection");
@@ -493,7 +506,7 @@ test("before kickoff there is only one projection to show", () => {
     leader: null,
     last_play: null,
     win_prob: 0.52,
-  });
+  }, { expanded: true, detailHtml: "<div></div>" });
   assert.ok(html.includes("proj 135.35"));
   assert.ok(!html.includes("orig"), "an identical second line is noise");
 });
