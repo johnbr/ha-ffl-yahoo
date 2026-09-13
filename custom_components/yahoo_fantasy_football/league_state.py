@@ -16,7 +16,7 @@ from .const import (
     SCAN_INTERVAL_LIVE_SECONDS,
     SCAN_INTERVAL_NEAR_GAME_SECONDS,
 )
-from .plays import PlayFeed, ScoringEvent, describe
+from .plays import PlayFeed, ScoringEvent, describe, short_describe
 from .web_client import LeagueData
 
 # How many plays ride along in entity attributes. The full history is served on
@@ -210,6 +210,10 @@ def play_dict(event: ScoringEvent) -> dict[str, Any]:
     return {
         "event_id": event.event_id,
         "text": describe(event),
+        # The compact player-side form. Carried alongside rather than replacing
+        # ``text`` so the row can stay terse while the expanded play list keeps
+        # Yahoo's full sentence.
+        "short_text": short_describe(event),
         "stat_delta": event.stat_delta,
         "player": event.player_name,
         "team_key": event.team_key,

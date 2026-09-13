@@ -565,6 +565,46 @@ def test_the_newest_qualifying_play_wins() -> None:
     assert match.play_id == f"{mine[-1].game_key}.{mine[-1].sequence}"
 
 
+def test_the_short_form_is_player_first_and_drops_the_repeated_category() -> None:
+    """``1 Rec, 1 Rec Yds`` reads ``1 rec, 1 yd`` once the player is the subject."""
+    from yahoo_fantasy_football.plays import short_describe
+
+    event = replace(
+        _scoring_event("33413", stat_delta="1 Rec, 1 Rec Yds"),
+        player_name="Travis Etienne Jr.",
+    )
+    assert short_describe(event) == "T. Etienne Jr. 1 rec, 1 yd"
+
+
+def test_the_short_form_keeps_a_category_nothing_else_established() -> None:
+    """Alone, the yards must still say what they were for."""
+    from yahoo_fantasy_football.yahoo_redzone import shorten_stat_delta
+
+    assert shorten_stat_delta("3 Rush Yds") == "3 rush yds"
+    assert shorten_stat_delta("1 Rush, 3 Rush Yds") == "1 rush, 3 yds"
+
+
+def test_the_short_form_leaves_already_short_labels_alone() -> None:
+    from yahoo_fantasy_football.yahoo_redzone import shorten_stat_delta
+
+    assert shorten_stat_delta("1 FG") == "1 FG"
+    assert shorten_stat_delta("1 PAT") == "1 PAT"
+    assert shorten_stat_delta("1 Rec, 12 Rec Yds, 1 Rec TD") == "1 rec, 12 yds, 1 TD"
+
+
+def test_the_short_form_ignores_the_play_description() -> None:
+    """The long sentence is the expanded list's job, not the row's."""
+    from yahoo_fantasy_football.plays import describe, short_describe
+
+    plays, names = _relay()
+    event = _scoring_event("40041", stat_delta="1 Rec, 13 Rec Yds")
+    described = replace(event, plays=(match_relay_play(event, plays, names),))
+
+    assert "passed to" in describe(described)          # long form keeps the sentence
+    assert "passed to" not in short_describe(described)
+    assert short_describe(described).endswith("1 rec, 13 yds")
+
+
 def test_a_pinned_revision_keeps_its_own_play_instead_of_the_newest() -> None:
     """The 2026-09-13 live bug: revision must re-read, not re-pick.
 

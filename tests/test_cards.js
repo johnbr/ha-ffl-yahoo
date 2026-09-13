@@ -137,6 +137,41 @@ test("the play line shows the play text and its delta", () => {
   assert.ok(html.includes('data-matchup-id="w1.m1"'), "history must be scoped to this matchup");
 });
 
+test("the row shows the compact player form, not the full sentence", () => {
+  // On a matchup row the subject is the manager's player. The full sentence
+  // leads with a quarterback who may be on nobody's roster.
+  const html = renderRowPlay(
+    {
+      text: "Tyler Shough passed to Travis Etienne Jr. to the right for 1 yard gain",
+      short_text: "T. Etienne Jr. 1 rec, 1 yd",
+      delta: 1.1,
+      side: "home",
+    },
+    "w1.m1"
+  );
+  assert.ok(html.includes("T. Etienne Jr. 1 rec, 1 yd"));
+  assert.ok(!html.includes("Tyler Shough"));
+});
+
+test("the row falls back to the long text when there is no short form", () => {
+  // A payload from an older integration build must still render.
+  const html = renderRowPlay({ text: "Nacua 24 Yd TD", delta: 6.4, side: "home" }, "w1.m1");
+  assert.ok(html.includes("Nacua 24 Yd TD"));
+});
+
+test("the expanded history keeps Yahoo's full sentence", () => {
+  const html = renderHistory([
+    {
+      event_id: "e1",
+      player: "Travis Etienne Jr.",
+      text: "Tyler Shough passed to Travis Etienne Jr. to the right for 1 yard gain",
+      short_text: "T. Etienne Jr. 1 rec, 1 yd",
+      delta: 1.1,
+    },
+  ]);
+  assert.ok(html.includes("Tyler Shough passed to Travis Etienne Jr."));
+});
+
 test("the play aligns to the side of the team that scored it", () => {
   const home = renderRowPlay({ text: "T", delta: 6, side: "home" }, "m");
   const away = renderRowPlay({ text: "T", delta: 6, side: "away" }, "m");

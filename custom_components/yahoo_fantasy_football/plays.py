@@ -414,6 +414,29 @@ def describe(event: ScoringEvent) -> str:
     return f"{who} {event.delta:+.2f}"
 
 
+def short_describe(event: ScoringEvent) -> str:
+    """``T. Etienne Jr. 1 rec, 1 yd`` — the fantasy-side view of an event.
+
+    Deliberately SKIPS the play description that :func:`describe` prefers. On a
+    matchup row the question is what this manager's player just did, and the
+    full sentence answers a different one — "Tyler Shough passed to Travis
+    Etienne Jr. to the right for 1 yard gain" leads with a quarterback who may
+    be on nobody's roster, and costs a line wrap to say what "1 rec, 1 yd" says
+    in a corner.
+
+    The long form is not lost: it is what the expanded play list shows, and
+    what an NFL-games view would want, where the play itself is the subject.
+    """
+    who = abbreviate_name(event.player_name)
+    if event.correction:
+        return f"{who} {event.delta:+.2f} (stat correction)"
+    if event.stat_delta:
+        from .yahoo_redzone import shorten_stat_delta
+
+        return f"{who} {shorten_stat_delta(event.stat_delta)}"
+    return f"{who} {event.delta:+.2f}"
+
+
 # ---------------------------------------------------------------------------
 # History
 # ---------------------------------------------------------------------------

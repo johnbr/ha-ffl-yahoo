@@ -715,6 +715,60 @@ _STAT_LINE: tuple[tuple[str, str], ...] = (
 )
 
 
+# The compact, player-side rendering of a stat delta: ``1 Rec, 1 Rec Yds``
+# becomes ``1 rec, 1 yd``.
+#
+# Under a fantasy matchup the subject is the PLAYER, so a yardage label that
+# repeats its own category is noise — the count right before it already said
+# "rec". The category is only dropped when something earlier in the same line
+# actually established it: ``3 Rush Yds`` standing alone keeps "rush", because
+# nothing else says what those yards were for.
+#
+# Each entry is ``(category, standalone form, form once the category is known)``.
+# Labels absent from this table pass through untouched — "FG", "PAT", "Int" and
+# the defensive stats are already as short as they get.
+_SHORT_STAT: dict[str, tuple[str, str, str]] = {
+    "Comp": ("pass", "comp", "comp"),
+    "Pass Yds": ("pass", "pass yds", "yds"),
+    "Pass TD": ("pass", "pass TD", "TD"),
+    "Rush": ("rush", "rush", "rush"),
+    "Rush Yds": ("rush", "rush yds", "yds"),
+    "Rush TD": ("rush", "rush TD", "TD"),
+    "Rec": ("rec", "rec", "rec"),
+    "Rec Yds": ("rec", "rec yds", "yds"),
+    "Rec TD": ("rec", "rec TD", "TD"),
+    "Ret Yds": ("ret", "ret yds", "yds"),
+    "Ret TD": ("ret", "ret TD", "TD"),
+    "ST Ret Yds": ("ret", "ret yds", "yds"),
+    "ST Ret TD": ("ret", "ret TD", "TD"),
+}
+
+
+def shorten_stat_delta(text: str) -> str:
+    """``1 Rec, 1 Rec Yds`` -> ``1 rec, 1 yd``.
+
+    Operates on the rendered string rather than the stat dicts because that is
+    what a stored :class:`ScoringEvent` carries — history restored from disk
+    has the line and not the numbers behind it.
+    """
+    parts = [part.strip() for part in (text or "").split(",") if part.strip()]
+    seen: set[str] = set()
+    out: list[str] = []
+    for part in parts:
+        value, _, label = part.partition(" ")
+        entry = _SHORT_STAT.get(label)
+        if entry is None:
+            out.append(part)
+            continue
+        category, standalone, bare = entry
+        short = bare if category in seen else standalone
+        seen.add(category)
+        if short.endswith("yds") and value.lstrip("+-") == "1":
+            short = short[:-1]
+        out.append(f"{value} {short}")
+    return ", ".join(out)
+
+
 def stat_line(stats: dict[str, float]) -> str:
     """``3 Rec, 26 Rec Yds`` — Yahoo's own phrasing for a live stat line.
 

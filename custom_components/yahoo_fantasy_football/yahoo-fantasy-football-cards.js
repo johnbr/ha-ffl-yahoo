@@ -164,7 +164,11 @@ function renderTeamSide(team, isLeader, align) {
 function renderRowPlay(play, matchupId, open) {
   if (!play) return "";
   const side = play.side === "home" || play.side === "away" ? play.side : "unknown";
-  const text = `<span class="ffl-row-play-text">${escapeHtml(play.text)}</span>`;
+  // The compact player-side form on the row — "T. Etienne Jr. 1 rec, 1 yd".
+  // The full sentence is not lost, it is what the expanded play list shows;
+  // here it would lead with a quarterback nobody rosters and force a wrap.
+  // Falls back to `text` so a payload from an older integration still renders.
+  const text = `<span class="ffl-row-play-text">${escapeHtml(play.short_text || play.text)}</span>`;
   const delta = `<span class="ffl-row-play-delta">${escapeHtml(fmtDelta(play.delta))}</span>`;
   return `
     <div class="ffl-row-play ffl-play-${side}${play.correction ? " ffl-correction" : ""}${open ? " ffl-play-open" : ""}"
