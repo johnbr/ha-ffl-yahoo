@@ -199,7 +199,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             plays = feeds.get(data.plays_feeds.get(event.nfl_team or "", ""))
             if not plays:
                 return event
-            match = match_relay_play(event, plays, names)
+            # An event that already matched is re-read for BETTER WORDING of
+            # the same play, never re-picked — see ``match_relay_play``. A new
+            # event has nothing to pin to and takes the newest-wins path.
+            pin = event.plays[-1].play_id if event.plays else None
+            match = match_relay_play(event, plays, names, pin=pin)
             if match is None:
                 return event
             return event if event.plays and event.plays[-1] == match else replace(

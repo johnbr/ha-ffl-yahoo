@@ -327,17 +327,35 @@ def _stat_delta(before: dict[str, float], after: dict[str, float]) -> str:
     return describe_delta(before or {}, after or {})
 
 
-def match_relay_play(event: ScoringEvent, plays: list[Any], names: dict[str, str]) -> MatchedPlay | None:
+def match_relay_play(
+    event: ScoringEvent,
+    plays: list[Any],
+    names: dict[str, str],
+    pin: str | None = None,
+) -> MatchedPlay | None:
     """The play in ``plays`` that this event's points most likely came from.
 
     Matching is by Yahoo's own player id, not by name: the play feed writes
     people as ``[42654]`` and the event's ``player_key`` ends in that same id,
     so this is exact where the ESPN path had to fuzzy-match strings.
 
-    The NEWEST qualifying play wins. Within one poll interval a player may
-    appear in several plays and the points can only be attributed to one of
-    them; the most recent is both the best guess and the one a reader watching
-    live is asking about.
+    For a NEW event the newest qualifying play wins. Within one poll interval a
+    player may appear in several plays and the points can only be attributed to
+    one of them; the most recent is both the best guess and the one a reader
+    watching live is asking about.
+
+    ``pin`` is for re-reading an event that already matched. Yahoo revises a
+    play's WORDING in place — terse first, fuller a moment later — it does not
+    replace the play with a different one, so a revision must re-render that
+    same play rather than run the newest-wins pick again. Without the pin, an
+    event whose text was already correct is overwritten the moment its player
+    makes another play: a 10-yard rush ends up captioned with the touchdown
+    that came two minutes later, and two different events render one identical
+    sentence. Observed live 2026-09-13 on roughly a quarter of enriched events.
+
+    An unresolvable pin returns ``None`` so the caller keeps the text it has.
+    That is deliberate: a play ageing out of the feed is not a reason to
+    relabel the event with something newer and unrelated.
 
     ``yahoo_redzone`` is imported lazily to keep this module free of any
     particular source — the HTML tier has no play feed at all.
@@ -348,7 +366,10 @@ def match_relay_play(event: ScoringEvent, plays: list[Any], names: dict[str, str
     if not player_id:
         return None
     for play in reversed(plays):
-        if player_id not in play.player_ids:
+        if pin is not None:
+            if f"{play.game_key}.{play.sequence}" != pin:
+                continue
+        elif player_id not in play.player_ids:
             continue
         text = humanize_play(play.text, names)
         if not text:

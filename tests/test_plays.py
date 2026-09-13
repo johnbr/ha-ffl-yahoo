@@ -565,6 +565,41 @@ def test_the_newest_qualifying_play_wins() -> None:
     assert match.play_id == f"{mine[-1].game_key}.{mine[-1].sequence}"
 
 
+def test_a_pinned_revision_keeps_its_own_play_instead_of_the_newest() -> None:
+    """The 2026-09-13 live bug: revision must re-read, not re-pick.
+
+    An event matched to an EARLIER play must keep that play when it is read
+    again, even though a newer one by the same player now exists. Without the
+    pin the newest-wins rule relabelled a 10-yard rush with the touchdown that
+    came two minutes later, and two events rendered one identical sentence.
+    """
+    plays, names = _relay()
+    mine = [p for p in plays if "40041" in p.player_ids]
+    assert len(mine) > 1, "fixture must exercise the choice"
+
+    first = mine[0]
+    pinned = f"{first.game_key}.{first.sequence}"
+    event = _scoring_event("40041")
+
+    # Unpinned, this same call returns the NEWEST play — that is the contract
+    # for a new event, and what made the pin necessary for an old one.
+    assert match_relay_play(event, plays, names).play_id != pinned
+
+    match = match_relay_play(event, plays, names, pin=pinned)
+    assert match is not None
+    assert match.play_id == pinned
+
+
+def test_a_pin_that_no_longer_exists_keeps_the_existing_text() -> None:
+    """A play ageing out of the feed must not relabel the event.
+
+    Returning None leaves the caller's text alone, which is the safe half of
+    the trade: stale-but-right beats fresh-but-wrong.
+    """
+    plays, names = _relay()
+    assert match_relay_play(_scoring_event("40041"), plays, names, pin="nope.999") is None
+
+
 def test_a_player_who_did_nothing_gets_no_description() -> None:
     plays, names = _relay()
     assert match_relay_play(_scoring_event("99999999"), plays, names) is None
