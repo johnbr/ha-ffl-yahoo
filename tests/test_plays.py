@@ -160,12 +160,60 @@ def test_missing_points_are_skipped_not_treated_as_zero() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_negative_delta_is_flagged_as_a_correction() -> None:
+def test_a_negative_delta_with_no_stat_line_is_a_correction() -> None:
+    """The HTML tier carries no stats, so a drop can only be read as a revision."""
     before = snap(3, 100.0, player("p1", 18.9))
     after = snap(3, 145.0, player("p1", 18.6))
     (event,) = diff_snapshots(before, after)
     assert event.correction is True
     assert event.delta == pytest.approx(-0.3)
+
+
+def test_an_interception_is_a_play_not_a_correction() -> None:
+    """Herbert throwing a pick costs points and IS the news.
+
+    Flagging every point drop as a correction hid it: corrections are filtered
+    out of the card by default, so a real negative play silently vanished.
+    """
+    before = snap(3, 100.0, player("p1", 18.9, stats={"passingYards": 200.0}))
+    after = snap(
+        3, 145.0,
+        player("p1", 16.9, stats={"passingYards": 200.0, "passingInterceptions": 1.0}),
+    )
+    (event,) = diff_snapshots(before, after)
+    assert event.correction is False, "an interception is a play, not a data revision"
+    assert event.delta == pytest.approx(-2.0)
+    assert "Int" in event.stat_delta
+
+
+def test_a_rush_for_a_loss_is_a_play() -> None:
+    """Yards went down but an attempt went UP, so something happened."""
+    before = snap(3, 100.0, player("p1", 10.0, stats={"rushingAttempts": 5.0, "rushingYards": 40.0}))
+    after = snap(3, 145.0, player("p1", 9.7, stats={"rushingAttempts": 6.0, "rushingYards": 37.0}))
+    (event,) = diff_snapshots(before, after)
+    assert event.correction is False
+
+
+def test_a_stat_walked_back_is_still_a_correction() -> None:
+    """Nothing increased — Yahoo is unwinding something it already counted."""
+    before = snap(3, 100.0, player("p1", 18.9, stats={"receptions": 3.0, "receptionYards": 40.0}))
+    after = snap(3, 145.0, player("p1", 17.4, stats={"receptions": 2.0, "receptionYards": 25.0}))
+    (event,) = diff_snapshots(before, after)
+    assert event.correction is True
+
+
+def test_an_interception_reaches_the_card() -> None:
+    """The end-to-end symptom: it must survive the default correction filter."""
+    before = snap(3, 100.0, player("p1", 18.9, stats={"passingYards": 200.0}))
+    after = snap(
+        3, 145.0,
+        player("p1", 16.9, stats={"passingYards": 200.0, "passingInterceptions": 1.0}),
+    )
+    feed = PlayFeed()
+    feed.add(diff_snapshots(before, after))
+    last = feed.last_play()          # no include_corrections
+    assert last is not None, "the interception must not be filtered out as a correction"
+    assert last.delta == pytest.approx(-2.0)
 
 
 def test_corrections_are_described_as_corrections() -> None:

@@ -170,6 +170,30 @@ def _event_id(week: int, player_key: str, old: float, new: float) -> str:
     return f"w{week}:{player_key}:{old:.2f}->{new:.2f}"
 
 
+def _is_correction(delta: float, before: dict[str, float], after: dict[str, float]) -> bool:
+    """Whether a point DROP is Yahoo revising a stat, or the player doing something bad.
+
+    A negative delta is not automatically a correction, and treating it as one
+    hid real plays: an interception, a lost fumble, a sack taken, a rush for a
+    loss all cost points and all belong on the card. A quarterback throwing a
+    pick is exactly the kind of thing someone watching a matchup wants to see.
+
+    The tell is the direction of the STATS, not of the points. A real play ADDS
+    something — interceptions 0 -> 1, and even a rush for -3 yards still adds an
+    attempt — while a correction only ever walks numbers back, because it is
+    unwinding something already counted.
+
+    With no stat line to reason from (the HTML tier carries none) a drop stays a
+    correction, which is the conservative read: better a missing play than a
+    phantom one.
+    """
+    if delta >= 0:
+        return False
+    return not any(
+        after.get(name, 0.0) > before.get(name, 0.0) for name in set(after) | set(before)
+    )
+
+
 def diff_snapshots(
     previous: LeagueSnapshot | None,
     current: LeagueSnapshot,
@@ -223,7 +247,7 @@ def diff_snapshots(
                 old_points=round(before.points, 2),
                 new_points=round(now.points, 2),
                 starter=now.starter,
-                correction=delta < 0,
+                correction=_is_correction(delta, before.stats, now.stats),
                 stat_delta=_stat_delta(before.stats, now.stats),
             )
         )
