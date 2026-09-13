@@ -194,6 +194,52 @@ def test_a_rush_for_a_loss_is_a_play() -> None:
     assert event.correction is False
 
 
+def test_a_lost_fumble_is_a_play() -> None:
+    before = snap(3, 100.0, player("p1", 12.0, stats={"rushingAttempts": 4.0, "rushingYards": 30.0}))
+    after = snap(
+        3, 145.0,
+        player("p1", 10.0, stats={"rushingAttempts": 4.0, "rushingYards": 30.0,
+                                  "fumbles": 1.0, "fumblesLost": 1.0}),
+    )
+    (event,) = diff_snapshots(before, after)
+    assert event.correction is False
+    assert "Fum Lost" in event.stat_delta
+
+
+def test_a_sacked_quarterback_is_a_play() -> None:
+    """``sacked`` is carried per-QB by the relay, verified against the fixture."""
+    before = snap(3, 100.0, player("p1", 20.0, stats={"passingYards": 250.0, "sacked": 1.0}))
+    after = snap(3, 145.0, player("p1", 19.6, stats={"passingYards": 246.0, "sacked": 2.0}))
+    (event,) = diff_snapshots(before, after)
+    assert event.correction is False
+
+
+def test_every_negative_play_type_survives_the_correction_filter() -> None:
+    """One table covering what a manager actually wants to see go wrong.
+
+    Each of these costs points, and each adds a counter — which is the whole
+    basis for telling them apart from Yahoo walking a number back.
+    """
+    cases = {
+        "interception": ({"passingYards": 200.0}, {"passingYards": 200.0, "passingInterceptions": 1.0}),
+        "lost fumble": ({"receptions": 3.0}, {"receptions": 3.0, "fumblesLost": 1.0}),
+        "sack": ({"sacked": 0.0}, {"sacked": 1.0}),
+        "rush for a loss": ({"rushingAttempts": 3.0, "rushingYards": 20.0},
+                            {"rushingAttempts": 4.0, "rushingYards": 17.0}),
+        "reception for a loss": ({"receptions": 2.0, "receptionYards": 18.0},
+                                 {"receptions": 3.0, "receptionYards": 15.0}),
+    }
+    for label, (before_stats, after_stats) in cases.items():
+        before = snap(3, 100.0, player("p1", 20.0, stats=before_stats))
+        after = snap(3, 145.0, player("p1", 19.0, stats=after_stats))
+        (event,) = diff_snapshots(before, after)
+        assert event.correction is False, f"{label} must reach the card"
+
+        feed = PlayFeed()
+        feed.add([event])
+        assert feed.last_play() is not None, f"{label} was filtered out as a correction"
+
+
 def test_a_stat_walked_back_is_still_a_correction() -> None:
     """Nothing increased — Yahoo is unwinding something it already counted."""
     before = snap(3, 100.0, player("p1", 18.9, stats={"receptions": 3.0, "receptionYards": 40.0}))
