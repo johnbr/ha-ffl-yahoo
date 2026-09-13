@@ -114,6 +114,44 @@ test("a collapsed row shows names and scores, and nothing else", () => {
   assert.ok(!html.includes("ffl-projs"), "no projection block on a collapsed row");
 });
 
+test("the collapsed row shows each live projection under its own score", () => {
+  const html = renderMatchupRow({
+    matchup_id: "w1.m1", index: 1,
+    home: { team_id: "1", name: "Tesla", points: 76.14, projected: 122.73, live_projected: 133.93 },
+    away: { team_id: "10", name: "Herb", points: 107.1, projected: 130.66, live_projected: 121.4 },
+    leader: "10", last_play: null, win_prob: 0.25,
+  });
+  assert.ok(html.includes("133.93"), "home live projection on the row");
+  assert.ok(html.includes("121.40"), "away live projection on the row");
+  // Above its pre-game number is green, below is red.
+  assert.ok(html.includes("ffl-rowproj ffl-up"));
+  assert.ok(html.includes("ffl-rowproj ffl-down"));
+  // Inside the score block, so the grid can align them under the scores.
+  const scores = html.slice(html.indexOf("ffl-scores"), html.indexOf("ffl-team-end"));
+  assert.ok(scores.includes("133.93") && scores.includes("121.40"));
+});
+
+test("a level projection is grey rather than green or red", () => {
+  const html = renderMatchupRow({
+    matchup_id: "w1.m1", index: 1,
+    home: { team_id: "1", name: "A", points: 0, projected: 130.0, live_projected: 130.0 },
+    away: { team_id: "2", name: "B", points: 0, projected: 120.0, live_projected: 120.0 },
+    leader: null, last_play: null, win_prob: 0.5,
+  });
+  assert.ok(html.includes("ffl-rowproj ffl-flat"));
+  assert.ok(!html.includes("ffl-up") && !html.includes("ffl-down"));
+});
+
+test("a row with no projection at all shows no projection line", () => {
+  const html = renderMatchupRow({
+    matchup_id: "w1.m1", index: 1,
+    home: { team_id: "1", name: "A", points: 10 },
+    away: { team_id: "2", name: "B", points: 12 },
+    leader: "2", last_play: null,
+  });
+  assert.ok(!html.includes("ffl-rowproj"));
+});
+
 test("expanding a row reveals both projections", () => {
   const html = renderMatchupRow(ROW, { expanded: true, detailHtml: "<div></div>" });
   assert.ok(html.includes("ffl-projs"));
@@ -186,17 +224,14 @@ test("the expanded history keeps Yahoo's full sentence", () => {
   assert.ok(html.includes("Tyler Shough passed to Travis Etienne Jr."));
 });
 
-test("both feet share one grid row whichever side scored", () => {
-  // Grid packs sparsely: an AWAY play takes column 3, putting the cursor past
-  // column 2, so a chevron with only a column set wrapped to a second row and
-  // made every away-scoring matchup a line taller. Both need an explicit row.
-  const rule = (selector) => {
-    const at = CARD_CSS.indexOf(selector + " {");
-    assert.ok(at !== -1, `${selector} rule not found`);
-    return CARD_CSS.slice(at, CARD_CSS.indexOf("}", at));
-  };
-  assert.match(rule(".ffl-row-play"), /grid-row:\s*1/);
-  assert.match(rule(".ffl-row-toggle"), /grid-row:\s*1/);
+test("the play line is pinned to its grid row", () => {
+  // Not load-bearing while the play is the foot's only child, but it was: a
+  // sibling with only a column set got displaced to a second row whenever an
+  // AWAY play took column 3 and pushed grid's cursor past it, making half the
+  // cards a line taller. Kept so adding a sibling back cannot revive it.
+  const at = CARD_CSS.indexOf(".ffl-row-play {");
+  assert.ok(at !== -1, ".ffl-row-play rule not found");
+  assert.match(CARD_CSS.slice(at, CARD_CSS.indexOf("}", at)), /grid-row:\s*1/);
 });
 
 test("the play sits on the scoring side's own track", () => {
@@ -478,15 +513,23 @@ test("aria-controls points at the panel's real id", () => {
   assert.ok(!controls.includes("."), controls);
 });
 
-test("the chevron sits below the row, not inside it", () => {
+test("there is no chevron; the row itself is the control", () => {
   const html = renderMatchupRow(ROW_A);
-  assert.ok(html.includes("ffl-row-toggle"));
-  assert.ok(html.indexOf("ffl-chevron") > html.indexOf("ffl-team-end"));
-  // Still clickable: the toggle carries the same ids the row does.
-  assert.equal((html.match(/data-matchup-index="3"/g) || []).length, 2);
+  assert.ok(!html.includes("ffl-chevron"), "the arrow is gone");
+  assert.ok(!html.includes("ffl-row-toggle"));
+  // The click handler resolves via closest("[data-matchup-index]"), so the row
+  // carrying it is what keeps the whole card clickable without the arrow.
+  assert.ok(html.includes('data-matchup-index="3"'));
+  assert.ok(html.includes('role="button"'));
+  assert.ok(html.includes('aria-expanded="false"'));
 });
 
-test("the expanded wrapper is marked so the chevron can flip", () => {
+test("a matchup with no scoring play renders no foot at all", () => {
+  const html = renderMatchupRow({ ...ROW_A, last_play: null });
+  assert.ok(!html.includes("ffl-row-foot"), "an empty strip is wasted height");
+});
+
+test("the expanded wrapper is marked so the panel can be styled", () => {
   assert.match(renderMatchupRow(ROW_A, { expanded: true }), /ffl-row-wrap ffl-expanded/);
   assert.ok(!renderMatchupRow(ROW_A).includes("ffl-expanded"));
 });
@@ -619,8 +662,9 @@ test("the play line reports its own expanded state", () => {
   assert.ok(!shut.includes("ffl-play-open"));
 });
 
-test("the chevron does not claim to be open when the play list is", () => {
-  // It controls the lineup panel; a flipped chevron over a play list lies.
+test("the row does not claim to be open when the play list is", () => {
+  // The row's aria-expanded tracks the LINEUP panel; only the play line
+  // should report itself open when the play list is what is showing.
   const plays = renderMatchupRow(PANEL_ROW, { expanded: true, panel: "plays" });
   assert.match(plays, /ffl-plays-open/);
   assert.equal((plays.match(/aria-expanded="true"/g) || []).length, 1, "only the play line");

@@ -256,6 +256,26 @@ function renderWinBar(row) {
     </div>`;
 }
 
+/**
+ * Both live projections, under their own scores on the collapsed row.
+ *
+ * Three spans so they land in the score grid's own tracks — the middle one is
+ * an empty spacer under the dash, which is what keeps each number under the
+ * score it belongs to rather than merely near it.
+ *
+ * Coloured against the PRE-GAME projection: green ahead of it, red behind,
+ * grey level. `trendClass` returns "" when either number is missing, which is
+ * also how a team with no projection at all renders nothing.
+ */
+function renderRowProjections(home, away) {
+  const h = trendClass(home.live_projected, home.projected);
+  const a = trendClass(away.live_projected, away.projected);
+  if (!h && !a) return "";
+  const cell = (team, cls) =>
+    cls ? `<span class="ffl-rowproj${cls}">${fmtPoints(team.live_projected)}</span>` : `<span></span>`;
+  return `${cell(home, h)}<span></span>${cell(away, a)}`;
+}
+
 function renderMatchupRow(row, options = {}) {
   const { home, away, leader } = row;
   const expanded = options.expanded === true;
@@ -282,17 +302,15 @@ function renderMatchupRow(row, options = {}) {
           <span class="ffl-score${leader === home.team_id ? " ffl-leader" : ""}">${fmtPoints(home.points)}</span>
           <span class="ffl-vs">–</span>
           <span class="ffl-score${leader === away.team_id ? " ffl-leader" : ""}">${fmtPoints(away.points)}</span>
+          ${renderRowProjections(home, away)}
         </div>
         ${renderTeamSide(away, leader === away.team_id, "end")}
       </div>
-      <div class="ffl-row-foot">
-        ${renderRowPlay(row.last_play, row.matchup_id, playsOpen)}
-        <div class="ffl-row-toggle" aria-hidden="true"
-             data-matchup-index="${escapeHtml(row.index)}"
-             data-matchup-id="${escapeHtml(row.matchup_id)}">
-          <span class="ffl-chevron"></span>
-        </div>
-      </div>
+      ${
+        row.last_play
+          ? `<div class="ffl-row-foot">${renderRowPlay(row.last_play, row.matchup_id, playsOpen)}</div>`
+          : ""
+      }
       ${detail}
     </div>`;
 }
@@ -809,20 +827,20 @@ const CARD_CSS = `
   .ffl-row:hover, .ffl-row:focus-visible { background: var(--secondary-background-color); outline: none; }
   .ffl-single .ffl-row { padding: 8px 6px; }
 
-  /* Play line and chevron share ONE line so the card does not grow a strip per
-     matchup. Three tracks, not flex: the chevron sits in the middle track and
-     is therefore centred on the card whichever side the play is on (or when
-     there is no play at all), which a flex row cannot promise. */
+  /* Three tracks so the play line sits on its own scoring side — column 1 for
+     home, column 3 for away. The foot is not rendered at all when there is no
+     play, so a quiet matchup costs nothing. */
   .ffl-row-foot {
     display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center; gap: 6px; padding: 0 6px 4px;
   }
   .ffl-row-play {
-    /* Both feet are pinned to row 1 explicitly. With only a column set, grid's
-       default sparse packing walks a cursor left to right: an AWAY play takes
-       column 3, which puts the cursor past column 2, so the chevron could no
-       longer fit behind it and wrapped to a second row — every matchup whose
-       last score went to the away side was a line taller than the rest. */
+    /* Row pinned explicitly. It is not load-bearing while the play is the only
+       child, but it was: a sibling with only a column set got displaced to a
+       second row whenever an AWAY play took column 3 and pushed grid's
+       placement cursor past it. Kept so adding one back cannot reintroduce
+       that, since the symptom appeared on half the cards and read as a data
+       problem rather than a layout one. */
     grid-column: 1; grid-row: 1;
     display: flex; align-items: baseline; gap: 6px;
     padding: 1px 4px; font-size: 0.8rem; color: var(--secondary-text-color);
@@ -862,25 +880,6 @@ const CARD_CSS = `
     color: var(--secondary-text-color);
   }
 
-  /* The chevron sits in the MIDDLE track of the same row as the play, so it is
-     centred on the card whichever side the play is on — and on row 1
-     explicitly, or an away play would displace it downward (see above). */
-  .ffl-row-toggle {
-    grid-column: 2; grid-row: 1;
-    display: flex; align-items: center; justify-content: center;
-    padding: 4px 8px; cursor: pointer;
-  }
-  .ffl-row-toggle:hover .ffl-chevron { border-top-color: var(--primary-text-color); }
-  .ffl-chevron {
-    width: 0; height: 0;
-    border-left: 5px solid transparent; border-right: 5px solid transparent;
-    border-top: 6px solid var(--secondary-text-color);
-    transition: transform 120ms ease-in-out;
-  }
-  .ffl-expanded .ffl-chevron { transform: rotate(180deg); }
-  /* The chevron controls the LINEUP panel, so it must not read as open when
-     the play list is what is showing. */
-  .ffl-plays-open .ffl-chevron { transform: none; }
   .ffl-expanded > .ffl-row { background: var(--secondary-background-color); }
   .ffl-plays-open > .ffl-row { background: none; }
   .ffl-row-play.ffl-play-open { background: var(--secondary-background-color); }
@@ -929,7 +928,15 @@ const CARD_CSS = `
   .ffl-win-seg { background: var(--divider-color); border-radius: 3px; min-width: 2px; }
   .ffl-win-seg.ffl-win-fav { background: var(--success-color, #43a047); }
 
-  .ffl-scores { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+  /* A grid, not a flex row, so the projections drop into the SAME three tracks
+     as the scores and each lands under its own number. Flex would only put
+     them near it. */
+  .ffl-scores {
+    display: grid; grid-template-columns: auto auto auto;
+    justify-items: center; align-items: baseline;
+    column-gap: 6px; row-gap: 1px; font-variant-numeric: tabular-nums;
+  }
+  .ffl-rowproj { font-size: 0.72rem; font-weight: 600; line-height: 1.1; }
   .ffl-score { font-size: 1.15rem; color: var(--secondary-text-color); }
   .ffl-score.ffl-leader { color: var(--primary-text-color); font-weight: 700; }
   .ffl-vs { color: var(--secondary-text-color); font-size: 0.8rem; }
