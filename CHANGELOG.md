@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.7.0...v0.8.0) (2026-09-13)
+
+
+### Features
+
+* move the live projections onto the play line's row ([3669e33](https://github.com/johnbr/ha-ffl-yahoo/commit/3669e33972714f5c9a5139f07386b2737fdc4911))
+* put live projections under the scores and drop the expand arrow ([383704c](https://github.com/johnbr/ha-ffl-yahoo/commit/383704c1d3033fdc8d6d40ac53cd0844aa76984f))
+
+
+### Bug Fixes
+
+* stop filing interceptions and other negative plays as stat corrections ([f180a96](https://github.com/johnbr/ha-ffl-yahoo/commit/f180a96f9fc32e1cd916763b4ef905237cd0c6ea))
+
 ## [0.7.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.6.0...v0.7.0) (2026-09-13)
 
 
