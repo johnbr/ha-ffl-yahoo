@@ -40,6 +40,10 @@ const {
   renderRosters,
   renderPlayerBlock,
   renderHistory,
+  renderNflGame,
+  renderNflPlays,
+  fmtKickoff,
+  findNflGamesEntity,
 } = cards;
 
 const ROW = {
@@ -711,4 +715,107 @@ test("the win bar belongs to the lineup, not the play list", () => {
 test("each panel says what it is loading", () => {
   assert.match(renderMatchupRow(PANEL_ROW, { expanded: true, panel: "plays" }), /Loading plays/);
   assert.match(renderMatchupRow(PANEL_ROW, { expanded: true, panel: "roster" }), /Loading rosters/);
+});
+
+/* -------------------------------------------------------------- NFL games */
+
+const GAME_LIVE = {
+  game_id: "20260913016", plays_id: "16", state: "in",
+  clock_text: "Q3 6:24", situation: "2nd & 7", start_time: 1789000000, elapsed: 0.61,
+  away: { team_id: "9", abbr: "NO", score: 17, has_ball: true, red_zone: true },
+  home: { team_id: "16", abbr: "Det", score: 24, has_ball: false, red_zone: false },
+};
+
+test("a live game shows score, clock, situation and a progress bar", () => {
+  const html = renderNflGame(GAME_LIVE);
+  for (const bit of ["NO", "Det", "17", "24", "Q3 6:24", "2nd &amp; 7"]) {
+    assert.ok(html.includes(bit), `missing ${bit}`);
+  }
+  assert.ok(html.includes("ffl-nfl-bar-fill"));
+  assert.ok(html.includes("61.0%"), "the bar reflects elapsed time");
+});
+
+/** The two team blocks, away first — slicing on the abbreviation alone would
+ *  match the aria-label, which names both sides before either block. */
+function teamBlocks(html) {
+  const teams = html.slice(html.indexOf("ffl-nfl-teams"), html.indexOf("ffl-nfl-status"));
+  const parts = teams.split('<div class="ffl-nfl-team');
+  assert.equal(parts.length, 3, "expected exactly two team blocks");
+  return { away: parts[1], home: parts[2] };
+}
+
+test("possession and red zone attach to the team, not the game", () => {
+  const { away, home } = teamBlocks(renderNflGame(GAME_LIVE));
+  assert.ok(away.includes("ffl-poss"), "the ball belongs to the side holding it");
+  assert.ok(away.includes("ffl-rz"));
+  assert.ok(!home.includes("ffl-poss"), "the side without the ball gets no glyph");
+  assert.ok(!home.includes("ffl-rz"));
+});
+
+test("the leading side is the one marked", () => {
+  const html = renderNflGame(GAME_LIVE);
+  const { away, home } = teamBlocks(html);
+  // Detroit leads 24-17.
+  assert.ok(home.includes("ffl-nfl-lead"));
+  assert.ok(!away.includes("ffl-nfl-lead"));
+  assert.equal((html.match(/ffl-nfl-lead/g) || []).length, 1, "exactly one leader");
+});
+
+test("a tied game marks neither side as leading", () => {
+  const tied = { ...GAME_LIVE, away: { ...GAME_LIVE.away, score: 21 }, home: { ...GAME_LIVE.home, score: 21 } };
+  assert.ok(!renderNflGame(tied).includes("ffl-nfl-lead"));
+});
+
+test("a game that has not kicked off shows its start time, never a blank", () => {
+  const html = renderNflGame({ ...GAME_LIVE, state: "pre", clock_text: "", situation: "", elapsed: 0 });
+  const status = html.slice(html.indexOf("ffl-nfl-status"));
+  assert.ok(!/ffl-nfl-clock[^>]*>\s*</.test(status), "the clock slot must say something");
+});
+
+test("an unparseable kickoff falls back rather than printing Invalid Date", () => {
+  assert.equal(fmtKickoff(null), "");
+  assert.equal(fmtKickoff(0), "");
+  assert.equal(fmtKickoff("nonsense"), "");
+  assert.ok(fmtKickoff(1789000000).length > 0);
+});
+
+test("a finished game says Final and fills the bar", () => {
+  const html = renderNflGame({ ...GAME_LIVE, state: "post", clock_text: "Final", situation: "", elapsed: 1 });
+  assert.ok(html.includes("Final"));
+  assert.ok(html.includes("100.0%"));
+  assert.ok(!html.includes("ffl-nfl-live"), "a final game is not live");
+});
+
+test("a game is only expanded when it is the open one", () => {
+  assert.ok(!renderNflGame(GAME_LIVE).includes("ffl-nfl-plays"));
+  const open = renderNflGame(GAME_LIVE, { open: true, playsHtml: "<b>x</b>" });
+  assert.ok(open.includes("ffl-nfl-plays"));
+  assert.ok(open.includes('aria-expanded="true"'));
+});
+
+test("the play list reads newest first and survives an empty feed", () => {
+  assert.ok(renderNflPlays([]).includes("No plays yet"));
+  const html = renderNflPlays([
+    { play_id: "16.90", text: "Newest thing", period: "3", clock: "6:24" },
+    { play_id: "16.89", text: "Older thing", period: "3", clock: "7:01" },
+  ]);
+  assert.ok(html.indexOf("Newest thing") < html.indexOf("Older thing"));
+  assert.ok(html.includes("Q3"));
+});
+
+test("a hostile play description cannot inject markup into the games card", () => {
+  const html = renderNflPlays([{ text: `<img onerror=alert(1)>`, period: "1", clock: "1:00" }]);
+  assert.ok(!html.includes("<img"));
+  assert.ok(html.includes("&lt;img"));
+});
+
+test("the games entity is found by its games array, not its id", () => {
+  const hass = {
+    states: {
+      "sensor.unrelated": { attributes: { league_id: "1", matchups: [] } },
+      "sensor.anything_at_all": { attributes: { league_id: "1", games: [] } },
+    },
+  };
+  assert.equal(findNflGamesEntity(hass), "sensor.anything_at_all");
+  assert.equal(findNflGamesEntity({}), "");
 });

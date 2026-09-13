@@ -471,3 +471,121 @@ def test_a_slate_with_nothing_live_shows_no_plays() -> None:
     rows = {r["matchup_id"]: r for r in matchup_rows(_with_clubs(frozenset()), feed)}
 
     assert rows[_mid(1)]["last_play"] is None
+
+
+# ---------------------------------------------------------------------------
+# The NFL slate payload
+# ---------------------------------------------------------------------------
+
+
+def _slate():
+    """A real LeagueData built from the captured relay, for the games card."""
+    from yahoo_fantasy_football.yahoo_redzone import league_from_payloads
+
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+
+    return league_from_payloads(
+        (fixtures / "yahoo_redzone_2026_w1.json").read_text(),
+        (fixtures / "yahoo_relay_stats_2026_w1.txt").read_text(),
+        (fixtures / "yahoo_relay_games_2026_w1.txt").read_text(),
+        "999999",
+        now=1000.0,
+    )
+
+
+def test_nfl_game_rows_cover_the_whole_slate() -> None:
+    from yahoo_fantasy_football.league_state import nfl_game_rows
+
+    rows = nfl_game_rows(_slate())
+    assert rows, "the slate must not be empty"
+    assert len({r["game_id"] for r in rows}) == len(rows), "one row per game"
+    for row in rows:
+        assert row["away"]["abbr"], "clubs render as names, never numeric ids"
+        assert row["home"]["abbr"]
+        assert row["state"] in {"pre", "in", "post", "unknown"}
+
+
+def _game_row(status: str, **over):
+    """A synthetic ``g|`` row.
+
+    The captured fixture holds only a live game and fifteen scheduled ones —
+    no final — so the finished-game path needs building rather than sampling.
+    Column order is GAME_ROW's; see yahoo_redzone.
+    """
+    from yahoo_fantasy_football.yahoo_redzone import GameState
+
+    cells = ["g", "2026091301", "17", "26", status, "0",
+             over.get("period", "4"), over.get("clock", "0:00"),
+             "21", "24", "1789000000",
+             over.get("down", "0"), over.get("distance", "0"), "50", "0"]
+    return GameState(cells)
+
+
+def test_a_finished_game_says_final_and_reads_as_complete() -> None:
+    from yahoo_fantasy_football.league_state import _clock_text, _elapsed_fraction, _situation
+
+    game = _game_row("F")
+    assert game.state == "post"
+    assert _clock_text(game) == "Final"
+    assert _elapsed_fraction(game) == 1.0
+    assert _situation(game) == "", "a finished game has no down and distance"
+
+
+def test_a_live_game_reads_its_quarter_and_down() -> None:
+    from yahoo_fantasy_football.league_state import _clock_text, _situation
+
+    game = _game_row("P", period="3", clock="6:24", down="2", distance="7")
+    assert _clock_text(game) == "Q3 6:24"
+    assert _situation(game) == "2nd & 7"
+
+
+def test_overtime_is_not_printed_as_a_quarter_number() -> None:
+    from yahoo_fantasy_football.league_state import _clock_text
+
+    assert _clock_text(_game_row("P", period="5", clock="8:11")) == "OT 8:11"
+
+
+def test_goal_to_go_says_goal_rather_than_a_distance() -> None:
+    from yahoo_fantasy_football.league_state import _situation
+
+    assert _situation(_game_row("P", down="1", distance="0")) == "1st & goal"
+
+
+def test_a_scheduled_game_carries_its_kickoff_and_no_clock() -> None:
+    from yahoo_fantasy_football.league_state import nfl_game_rows
+
+    rows = [r for r in nfl_game_rows(_slate()) if r["state"] == "pre"]
+    assert rows, "the fixture must contain a scheduled game"
+    for row in rows:
+        assert row["clock_text"] == "", "the card formats kickoff in the viewer's zone"
+        assert isinstance(row["start_time"], int) and row["start_time"] > 0
+        assert row["elapsed"] == 0.0
+
+
+def test_down_and_distance_only_appears_on_a_live_game() -> None:
+    from yahoo_fantasy_football.league_state import nfl_game_rows
+
+    for row in nfl_game_rows(_slate()):
+        if row["state"] != "in":
+            assert row["situation"] == ""
+
+
+def test_the_slate_state_is_the_live_count() -> None:
+    from yahoo_fantasy_football.league_state import nfl_games_attributes, nfl_games_state
+
+    data = _slate()
+    assert nfl_games_state(data) == str(data.active_games)
+    assert nfl_games_state(None) == "unknown"
+
+    attrs = nfl_games_attributes(data, "999999")
+    assert attrs["league_id"] == "999999"
+    assert attrs["total_games"] == len(attrs["games"])
+
+
+def test_the_slate_payload_carries_no_play_lists() -> None:
+    """~20 KB per game; they load on demand. See nfl_game_rows."""
+    from yahoo_fantasy_football.league_state import nfl_game_rows
+
+    for row in nfl_game_rows(_slate()):
+        assert "plays" not in row
+        assert row["plays_id"], "but each row must say where to fetch them"

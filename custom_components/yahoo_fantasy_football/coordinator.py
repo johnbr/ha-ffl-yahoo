@@ -55,6 +55,14 @@ PLAY_REVISION_SECONDS = 300.0
 # bounded by construction rather than by expectation.
 MAX_PLAY_FEEDS = 8
 
+# How long an on-demand NFL play list is reused before being refetched.
+#
+# A game's plays feed is ~20 KB, so the games CARD cannot have them pushed to
+# it — a full Sunday would be a quarter of a megabyte per poll to render one
+# line per game. They are fetched only when a reader expands a game, and this
+# TTL keeps a card that repaints on every 10s poll from refetching each time.
+NFL_PLAYS_TTL_SECONDS = 25.0
+
 
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
     """Fetch a league on an adaptive cadence and derive scoring plays.
@@ -83,6 +91,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self.feed = PlayFeed()
         self._previous = None
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")
+        # {plays_id: (fetched_at, rows)} for the games card's on-demand lists.
+        self._nfl_plays: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
         super().__init__(
             hass,
@@ -228,6 +238,47 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             if updated is not event:
                 self.feed.revise(event.event_id, updated.plays)
         return [described(event) for event in events]
+
+    async def async_game_plays(self, plays_id: str, limit: int = 12) -> list[dict[str, Any]]:
+        """Recent plays for ONE NFL game, newest first, fetched on demand.
+
+        Lives here rather than in :mod:`websocket` because it reaches upstream
+        and caches, and that module's whole contract is that it does neither.
+
+        Returns ``[]`` rather than raising: an unreadable feed should leave the
+        expanded game empty, not fail the card.
+        """
+        if not plays_id:
+            return []
+        now = dt_util.utcnow().timestamp()
+        cached = self._nfl_plays.get(plays_id)
+        if cached and now - cached[0] < NFL_PLAYS_TTL_SECONDS:
+            return cached[1][:limit]
+
+        try:
+            names = await self.client.async_players(now)
+            plays = parse_relay_plays(await self.client.async_plays(plays_id))
+        except Exception as err:  # a missing feed is not worth failing over
+            _LOGGER.debug("Could not read plays for NFL game %s: %s", plays_id, err)
+            return cached[1][:limit] if cached else []
+
+        from .yahoo_redzone import humanize_play
+
+        rows: list[dict[str, Any]] = []
+        for play in reversed(plays):  # newest first, the way a reader scans
+            text = humanize_play(play.text, names)
+            if not text:
+                continue
+            rows.append(
+                {
+                    "play_id": f"{play.game_key}.{play.sequence}",
+                    "text": text,
+                    "period": play.period,
+                    "clock": play.clock,
+                }
+            )
+        self._nfl_plays[plays_id] = (now, rows)
+        return rows[:limit]
 
     @property
     def league_data(self) -> LeagueData | None:

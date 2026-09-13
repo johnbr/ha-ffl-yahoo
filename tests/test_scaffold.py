@@ -90,7 +90,7 @@ def test_websocket_command_names_agree_across_python_and_js() -> None:
     py = (COMPONENT_DIR / "websocket.py").read_text(encoding="utf-8")
     js = (COMPONENT_DIR / "yahoo-fantasy-football-cards.js").read_text(encoding="utf-8")
 
-    for command in ("matchup_detail", "play_history"):
+    for command in ("matchup_detail", "play_history", "nfl_plays"):
         assert f'{{DOMAIN}}/{command}"' in py, f"{command} not registered in websocket.py"
         assert f"${{DOMAIN}}/{command}`" in js, f"{command} not called from the card"
 

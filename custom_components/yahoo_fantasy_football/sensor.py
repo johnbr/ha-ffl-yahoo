@@ -33,7 +33,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_LEAGUE_ID, CONF_NAME, CONF_TEAM_ID, DEFAULT_NAME, DOMAIN
 from .coordinator import YahooFantasyCoordinator
-from .league_state import find_team, play_dict, scoreboard_attributes, scoreboard_state
+from .league_state import (
+    find_team,
+    nfl_games_attributes,
+    nfl_games_state,
+    play_dict,
+    scoreboard_attributes,
+    scoreboard_state,
+)
 
 
 async def async_setup_entry(
@@ -44,7 +51,10 @@ async def async_setup_entry(
     """Set up the league's sensors."""
     coordinator: YahooFantasyCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    entities: list[SensorEntity] = [YahooScoreboardSensor(coordinator, entry)]
+    entities: list[SensorEntity] = [
+        YahooScoreboardSensor(coordinator, entry),
+        YahooNflGamesSensor(coordinator, entry),
+    ]
     if entry.data.get(CONF_TEAM_ID):
         entities.append(YahooMyTeamSensor(coordinator, entry))
     async_add_entities(entities)
@@ -92,6 +102,34 @@ class YahooScoreboardSensor(_LeagueEntity):
             self._league_id,
             self._league_name,
         )
+
+
+class YahooNflGamesSensor(_LeagueEntity):
+    """The week's real NFL slate, independent of anyone's roster.
+
+    The relay's games feed covers the whole week whether or not a rostered
+    player is involved, so this reports the league-wide picture that the
+    fantasy scoreboard can only see through its own players.
+
+    Its **state** is the number of games in progress — a handful of changes a
+    day, which is what belongs in the recorder. The slate rides in attributes
+    with the rest of the live payload.
+    """
+
+    _attr_icon = "mdi:scoreboard"
+
+    def __init__(self, coordinator: YahooFantasyCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_nfl_games"
+        self._attr_name = f"{self._league_name} NFL Games"
+
+    @property
+    def native_value(self) -> str:
+        return nfl_games_state(self.coordinator.league_data)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return nfl_games_attributes(self.coordinator.league_data, self._league_id)
 
 
 class YahooMyTeamSensor(_LeagueEntity):

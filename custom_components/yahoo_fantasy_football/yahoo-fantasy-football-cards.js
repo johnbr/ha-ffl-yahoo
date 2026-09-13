@@ -3,8 +3,10 @@ const CARD_VERSION = "0.8.0"; // x-release-please-version
 
 const MY_MATCHUP_TAG = "ffl-my-matchup-card";
 const LEAGUE_TAG = "ffl-league-scoreboard-card";
+const NFL_GAMES_TAG = "ffl-nfl-games-card";
 const MY_MATCHUP_EDITOR = "ffl-my-matchup-card-editor";
 const LEAGUE_EDITOR = "ffl-league-scoreboard-card-editor";
+const NFL_GAMES_EDITOR = "ffl-nfl-games-card-editor";
 const DOCS_URL = "https://github.com/johnbr/ha-ffl-yahoo";
 const STYLE_CLASS = "ffl-card-style";
 const DOMAIN = "yahoo_fantasy_football";
@@ -98,6 +100,34 @@ function findFflEntity(hass) {
   return match || "";
 }
 
+/** The NFL-games sensor: the one carrying a `games` array. */
+function findNflGamesEntity(hass) {
+  if (!hass || !hass.states) return "";
+  const match = Object.keys(hass.states).find((id) => {
+    const a = hass.states[id].attributes || {};
+    return id.startsWith("sensor.") && a.league_id && Array.isArray(a.games);
+  });
+  return match || "";
+}
+
+/**
+ * Kickoff time in the VIEWER's timezone.
+ *
+ * The feed sends an epoch, which is the right thing to ship — a dashboard on a
+ * phone in another timezone should read local, and only the browser knows what
+ * local is. Returns "" for a missing or unparseable value so the caller can
+ * fall back rather than print "Invalid Date".
+ */
+function fmtKickoff(epoch) {
+  const seconds = Number(epoch);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  try {
+    return new Date(seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch (err) {
+    return "";
+  }
+}
+
 /* -------------------------------------------------------------- websocket */
 
 function callWS(hass, message) {
@@ -105,6 +135,15 @@ function callWS(hass, message) {
     return Promise.reject(new Error("Home Assistant connection unavailable"));
   }
   return hass.callWS(message);
+}
+
+function fetchNflPlays(hass, leagueId, playsId, limit) {
+  return callWS(hass, {
+    type: `${DOMAIN}/nfl_plays`,
+    league_id: leagueId,
+    plays_id: String(playsId),
+    limit: limit || 12,
+  });
 }
 
 function fetchMatchupDetail(hass, leagueId, matchupIndex) {
@@ -289,6 +328,94 @@ function renderRowFoot(row, playsOpen) {
   const projections = renderRowProjections(row.home, row.away);
   if (!play && !projections) return "";
   return `<div class="ffl-row-foot">${play}${projections}</div>`;
+}
+
+/* ------------------------------------------------------------- NFL games */
+
+/**
+ * One club's line inside a game: abbreviation, possession, red zone, score.
+ *
+ * The possession glyph and the RZ badge sit with the TEAM rather than in the
+ * game's status column, because "who has the ball" is a fact about a side and
+ * putting it anywhere else makes the reader work out which one it means.
+ */
+function renderNflTeam(side, isLeader) {
+  const ball = side.has_ball ? `<span class="ffl-poss" aria-label="has the ball">🏈</span>` : "";
+  const rz = side.red_zone ? `<span class="ffl-rz" aria-label="in the red zone">RZ</span>` : "";
+  const score = side.score === null || side.score === undefined ? "" : String(side.score);
+  return `
+    <div class="ffl-nfl-team${isLeader ? " ffl-nfl-lead" : ""}">
+      <span class="ffl-nfl-abbr">${escapeHtml(side.abbr || side.team_id || "")}</span>
+      ${ball}${rz}
+      <span class="ffl-nfl-score">${escapeHtml(score)}</span>
+    </div>`;
+}
+
+/**
+ * One NFL game.
+ *
+ * A game that has not kicked off shows its start time instead of a clock —
+ * that is the only thing there is to say about it, and a blank would read as
+ * missing data rather than as "not yet".
+ */
+function renderNflGame(game, options = {}) {
+  const open = options.open === true;
+  const away = game.away || {};
+  const home = game.home || {};
+  const awayLead = Number(away.score) > Number(home.score);
+  const homeLead = Number(home.score) > Number(away.score);
+
+  const clock =
+    game.state === "pre" ? fmtKickoff(game.start_time) || "Scheduled" : game.clock_text || "";
+  const situation = game.situation ? `<div class="ffl-nfl-situation">${escapeHtml(game.situation)}</div>` : "";
+  const elapsed = Number(game.elapsed);
+  const bar = Number.isFinite(elapsed)
+    ? `<div class="ffl-nfl-bar"><div class="ffl-nfl-bar-fill" style="width:${(elapsed * 100).toFixed(1)}%"></div></div>`
+    : "";
+  const panel = open
+    ? `<div class="ffl-nfl-plays">${options.playsHtml || `<div class="ffl-loading">Loading plays…</div>`}</div>`
+    : "";
+
+  return `
+    <div class="ffl-nfl-game${open ? " ffl-nfl-open" : ""}${game.state === "in" ? " ffl-nfl-live" : ""}">
+      <div class="ffl-nfl-head" role="button" tabindex="0"
+           data-game-id="${escapeHtml(game.game_id)}"
+           data-plays-id="${escapeHtml(game.plays_id || "")}"
+           aria-expanded="${open ? "true" : "false"}"
+           aria-label="${escapeHtml(`${away.abbr || ""} ${away.score ?? ""} at ${home.abbr || ""} ${home.score ?? ""}`)}">
+        <div class="ffl-nfl-teams">
+          ${renderNflTeam(away, awayLead)}
+          ${renderNflTeam(home, homeLead)}
+        </div>
+        <div class="ffl-nfl-status">
+          <div class="ffl-nfl-clock${game.state === "in" ? " ffl-nfl-clock-live" : ""}">${escapeHtml(clock)}</div>
+          ${situation}
+        </div>
+        ${bar}
+      </div>
+      ${panel}
+    </div>`;
+}
+
+/** The expanded game's play list, newest first. */
+function renderNflPlays(plays) {
+  if (!Array.isArray(plays) || !plays.length) {
+    return `<div class="ffl-empty">No plays yet.</div>`;
+  }
+  return `
+    <ul class="ffl-nfl-playlist">
+      ${plays
+        .map(
+          (p) => `
+        <li>
+          <span class="ffl-nfl-play-when">${escapeHtml(
+            [p.period ? `Q${p.period}` : "", p.clock || ""].filter(Boolean).join(" ")
+          )}</span>
+          <span class="ffl-nfl-play-text">${escapeHtml(p.text || "")}</span>
+        </li>`
+        )
+        .join("")}
+    </ul>`;
 }
 
 function renderMatchupRow(row, options = {}) {
@@ -753,6 +880,106 @@ class FflMyMatchupCard extends FflBaseCard {
 
 /* ----------------------------------------------------------- ha-form editor */
 
+/* --------------------------------------------------------- NFL games card */
+
+class FflNflGamesCard extends FflBaseCard {
+  static getConfigElement() {
+    return document.createElement(NFL_GAMES_EDITOR);
+  }
+
+  static getStubConfig(hass) {
+    return { entity: findNflGamesEntity(hass) };
+  }
+
+  getCardSize() {
+    return 6;
+  }
+
+  _rows(st) {
+    return Array.isArray(st.attributes.games) ? st.attributes.games : [];
+  }
+
+  /** Scalar-only, like its sibling — never stringify the games array. */
+  _dataFingerprint(st, rows) {
+    const parts = [this.constructor.name, st.state, st.attributes.live_tick, rows.length];
+    for (const g of rows) {
+      const a = g.away || {};
+      const h = g.home || {};
+      parts.push(g.game_id, g.state, g.clock_text, g.situation, g.elapsed);
+      parts.push(a.score, h.score, a.has_ball ? 1 : 0, h.has_ball ? 1 : 0);
+      parts.push(a.red_zone ? 1 : 0, h.red_zone ? 1 : 0);
+    }
+    return parts.join("|");
+  }
+
+  _onActivate(event) {
+    const head = event.target.closest("[data-game-id]");
+    if (!head) return;
+    this._togglePanel(head.getAttribute("data-game-id"), "plays", {
+      playsId: head.getAttribute("data-plays-id"),
+    });
+  }
+
+  /**
+   * Fetch one game's plays.
+   *
+   * Overrides the matchup loaders wholesale: this card's panel is a different
+   * payload from a different command, and the only thing worth sharing is the
+   * token guard that discards a response for a panel the reader already closed.
+   */
+  _loadPanel(gameId, panel, options = {}) {
+    const st = this._stateObj();
+    const playsId = options.playsId || this._playsIdFor(gameId);
+    if (!st || !playsId) {
+      this._detailHtml = `<div class="ffl-empty">No play feed for this game.</div>`;
+      this._invalidate();
+      return;
+    }
+    const token = ++this._detailToken;
+    fetchNflPlays(this._hass, this._leagueId(st), playsId)
+      .then((res) => {
+        if (!this._stillOpen(token, gameId, panel)) return;
+        this._detailHtml = renderNflPlays(res && res.plays);
+        this._invalidate();
+      })
+      .catch((err) => {
+        if (!this._stillOpen(token, gameId, panel)) return;
+        this._detailHtml = `<div class="ffl-error">${escapeHtml(String(err && err.message ? err.message : err))}</div>`;
+        this._invalidate();
+      });
+  }
+
+  _playsIdFor(gameId) {
+    const st = this._stateObj();
+    if (!st) return "";
+    const found = this._rows(st).find((g) => String(g.game_id) === String(gameId));
+    return found ? found.plays_id || "" : "";
+  }
+
+  _paintBody(st, rows) {
+    if (!rows.length) {
+      this._paint(`<div class="ffl-placeholder">Waiting for the NFL schedule…</div>`);
+      return;
+    }
+    const live = Number(st.attributes.active_games) || 0;
+    const header = `
+      <div class="ffl-header">
+        <span class="ffl-header-name">${escapeHtml(this.config.title || "NFL Games")}</span>
+        ${live ? `<span class="ffl-header-live">${live} live</span>` : ""}
+        <span class="ffl-header-week">${rows.length} games</span>
+      </div>`;
+    const body = rows
+      .map((game) =>
+        renderNflGame(game, {
+          open: this._expandedId === String(game.game_id),
+          playsHtml: this._expandedId === String(game.game_id) ? this._detailHtml : "",
+        })
+      )
+      .join("");
+    this._paint(`${header}<div class="ffl-nfl-games">${body}</div>`);
+  }
+}
+
 class FflBaseEditor extends HTMLElement {
   setConfig(config) {
     this._config = { ...(config || {}) };
@@ -802,6 +1029,12 @@ const ENTITY_SELECTOR = {
 };
 
 class FflLeagueEditor extends FflBaseEditor {
+  _schema() {
+    return [ENTITY_SELECTOR, { name: "title", selector: { text: {} } }];
+  }
+}
+
+class FflNflGamesEditor extends FflBaseEditor {
   _schema() {
     return [ENTITY_SELECTOR, { name: "title", selector: { text: {} } }];
   }
@@ -868,6 +1101,57 @@ const CARD_CSS = `
   .ffl-play-unknown .ffl-row-play-text { flex: 1 1 auto; }
   .ffl-row-play-delta { flex: none; font-variant-numeric: tabular-nums; color: var(--primary-color); }
   .ffl-row-play.ffl-correction .ffl-row-play-delta { color: var(--error-color); }
+
+  /* ---- NFL games ---- */
+  .ffl-nfl-games { display: flex; flex-direction: column; gap: 2px; }
+  .ffl-nfl-game { border-bottom: 1px solid var(--divider-color); }
+  .ffl-nfl-games .ffl-nfl-game:last-child { border-bottom: none; }
+  /* Two columns: the clubs stack on the left, the clock and situation read
+     down the right. The progress bar spans both because it is about the game,
+     not about either side of it. */
+  .ffl-nfl-head {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center; gap: 8px;
+    padding: 6px; border-radius: 8px; cursor: pointer;
+  }
+  .ffl-nfl-head:hover, .ffl-nfl-head:focus-visible {
+    background: var(--secondary-background-color); outline: none;
+  }
+  .ffl-nfl-teams { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .ffl-nfl-team {
+    display: flex; align-items: baseline; gap: 6px; min-width: 0;
+    color: var(--secondary-text-color);
+  }
+  /* Only the side that is ahead gets full contrast, so a glance finds the
+     leader without reading either number. */
+  .ffl-nfl-team.ffl-nfl-lead { color: var(--primary-text-color); font-weight: 700; }
+  .ffl-nfl-abbr { font-size: 0.9rem; letter-spacing: .02em; }
+  .ffl-nfl-score {
+    margin-inline-start: auto; font-size: 0.95rem; font-variant-numeric: tabular-nums;
+  }
+  .ffl-poss { font-size: 0.7rem; line-height: 1; }
+  .ffl-rz {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: .04em;
+    color: var(--error-color, #db4437); border: 1px solid currentColor;
+    border-radius: 4px; padding: 0 3px;
+  }
+  .ffl-nfl-status { text-align: end; flex: none; }
+  .ffl-nfl-clock { font-size: 0.78rem; color: var(--secondary-text-color); white-space: nowrap; }
+  .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 600; }
+  .ffl-nfl-situation { font-size: 0.7rem; color: var(--secondary-text-color); white-space: nowrap; }
+  .ffl-nfl-bar {
+    grid-column: 1 / -1; height: 2px; border-radius: 2px;
+    background: var(--divider-color); overflow: hidden;
+  }
+  .ffl-nfl-bar-fill { height: 100%; background: var(--primary-color); }
+  .ffl-nfl-plays { padding: 2px 6px 10px; }
+  .ffl-nfl-playlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ffl-nfl-playlist li { display: flex; gap: 8px; font-size: 0.78rem; align-items: baseline; }
+  .ffl-nfl-play-when {
+    flex: none; min-width: 4.2em; color: var(--secondary-text-color);
+    font-variant-numeric: tabular-nums;
+  }
+  .ffl-nfl-play-text { min-width: 0; color: var(--primary-text-color); }
 
   .ffl-header {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -1056,13 +1340,16 @@ const CARD_CSS = `
 if (typeof customElements !== "undefined") {
   customElements.define(MY_MATCHUP_TAG, FflMyMatchupCard);
   customElements.define(LEAGUE_TAG, FflLeagueScoreboardCard);
+  customElements.define(NFL_GAMES_TAG, FflNflGamesCard);
   customElements.define(MY_MATCHUP_EDITOR, FflMyMatchupEditor);
   customElements.define(LEAGUE_EDITOR, FflLeagueEditor);
+  customElements.define(NFL_GAMES_EDITOR, FflNflGamesEditor);
 
   window.customCards = window.customCards || [];
   for (const entry of [
     { type: MY_MATCHUP_TAG, name: "Fantasy Football — My Matchup", description: "Your Yahoo fantasy matchup." },
     { type: LEAGUE_TAG, name: "Fantasy Football — League Scoreboard", description: "Every matchup in your league." },
+    { type: NFL_GAMES_TAG, name: "Fantasy Football — NFL Games", description: "The real NFL slate, live." },
   ]) {
     if (!window.customCards.find((c) => c.type === entry.type)) {
       window.customCards.push({ ...entry, preview: true, documentationURL: DOCS_URL });
@@ -1090,6 +1377,11 @@ if (typeof module !== "undefined" && module.exports) {
     renderRosters,
     renderPlayerBlock,
     renderHistory,
+    renderNflGame,
+    renderNflTeam,
+    renderNflPlays,
+    fmtKickoff,
     findFflEntity,
+    findNflGamesEntity,
   };
 }

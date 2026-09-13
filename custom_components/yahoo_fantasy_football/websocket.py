@@ -9,6 +9,12 @@ These commands read straight from coordinator memory. They never touch Yahoo, so
 opening a popup costs nothing upstream and works fine while rate-limited or
 serving stale data.
 
+The one exception is ``nfl_plays``, which fetches a single game's play feed on
+demand. That feed is ~20 KB per game, far too much to push to every client on
+every poll, so the cost is paid only when a reader actually expands a game. The
+fetch and its TTL cache live in the coordinator, keeping this module's own
+handlers free of network code.
+
 Cards address a league by ``league_id`` (which they already have, from the
 scoreboard entity's attributes) rather than by config-entry id, which the
 frontend cannot obtain reliably.
@@ -125,7 +131,38 @@ def async_register_commands(hass: HomeAssistant) -> None:
             },
         )
 
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): f"{DOMAIN}/nfl_plays",
+            vol.Required("league_id"): str,
+            vol.Required("plays_id"): str,
+            vol.Optional("limit", default=12): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=50)
+            ),
+        }
+    )
+    @websocket_api.async_response
+    async def handle_nfl_plays(
+        hass: HomeAssistant, connection: Any, msg: dict[str, Any]
+    ) -> None:
+        """Recent plays for one NFL game — the games card's expanded panel.
+
+        ``async_response`` rather than ``callback``: unlike its neighbours this
+        one may go to the network, and the coordinator caches so a card
+        repainting on every poll does not refetch.
+        """
+        coordinator = _find_coordinator(hass, msg["league_id"])
+        if coordinator is None:
+            connection.send_error(msg["id"], "not_found", "No such league configured")
+            return
+
+        plays = await coordinator.async_game_plays(
+            str(msg["plays_id"]), int(msg.get("limit", 12))
+        )
+        connection.send_result(msg["id"], {"plays_id": str(msg["plays_id"]), "plays": plays})
+
     websocket_api.async_register_command(hass, handle_matchup_detail)
     websocket_api.async_register_command(hass, handle_play_history)
+    websocket_api.async_register_command(hass, handle_nfl_plays)
     hass.data[DOMAIN][_REGISTERED] = True
     _LOGGER.debug("Registered %s WebSocket commands", DOMAIN)

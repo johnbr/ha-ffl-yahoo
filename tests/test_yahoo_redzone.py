@@ -522,3 +522,51 @@ def test_a_clause_naming_a_stranger_is_dropped_whole(plays_text: str) -> None:
 def test_only_live_games_offer_a_play_feed(games_text: str) -> None:
     feeds = plays_feeds(parse_relay_games(games_text))
     assert feeds == {"NE": "26", "Sea": "26"}, feeds
+
+
+# ---------------------------------------------------------------------------
+# The NFL slate, per game
+# ---------------------------------------------------------------------------
+
+
+def test_games_in_order_returns_each_game_once() -> None:
+    """The per-team dict holds every game twice; a slate wants it once."""
+    from yahoo_fantasy_football.yahoo_redzone import games_in_order, parse_relay_games
+
+    games = parse_relay_games((FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text())
+    slate = games_in_order(games)
+
+    ids = [g.game_id for g in slate]
+    assert len(ids) == len(set(ids)), "each game exactly once"
+    assert len(slate) * 2 >= len(games), "and no game dropped on the way"
+
+
+def test_games_in_order_keeps_games_no_rostered_player_touches() -> None:
+    """The whole point of a league-wide view — see NOTES #13."""
+    from yahoo_fantasy_football.yahoo_redzone import games_in_order, parse_relay_games
+
+    games = parse_relay_games((FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text())
+    slate = games_in_order(games)
+    # Every distinct game id in the raw feed survives into the slate.
+    raw = {
+        line.split("|")[1]
+        for line in (FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text().splitlines()
+        if line.startswith("g|")
+    }
+    assert {g.game_id for g in slate} == raw
+
+
+def test_games_in_order_is_stable_across_calls() -> None:
+    """A list that reshuffles under a reader is worse than an arbitrary one."""
+    from yahoo_fantasy_football.yahoo_redzone import games_in_order, parse_relay_games
+
+    games = parse_relay_games((FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text())
+    assert [g.game_id for g in games_in_order(games)] == [g.game_id for g in games_in_order(games)]
+
+
+def test_games_in_order_sorts_by_kickoff() -> None:
+    from yahoo_fantasy_football.yahoo_redzone import games_in_order, parse_relay_games
+
+    games = parse_relay_games((FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text())
+    starts = [int(g.start_time) for g in games_in_order(games) if str(g.start_time).isdigit()]
+    assert starts == sorted(starts)

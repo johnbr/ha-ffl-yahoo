@@ -665,6 +665,31 @@ def parse_relay_games(text: str) -> dict[str, GameState]:
     return games
 
 
+def games_in_order(games: dict[str, GameState]) -> list[GameState]:
+    """The week's slate, one entry per GAME, in kickoff order.
+
+    :func:`parse_relay_games` keys per TEAM because every fantasy lookup starts
+    from a player's club, which means each game appears twice. An NFL-games view
+    asks the opposite question — "what is happening across the league" — so it
+    needs each game once, including the games no rostered player touches.
+
+    Sorted by kickoff then id so the order is stable across polls; a list that
+    reshuffles under a reader is worse than one in an arbitrary but fixed order.
+    """
+    unique: dict[str, GameState] = {}
+    for game in games.values():
+        unique[game.game_id] = game
+
+    def key(game: GameState) -> tuple[int, str]:
+        try:
+            start = int(game.start_time)
+        except (TypeError, ValueError):
+            start = 0
+        return (start, str(game.game_id))
+
+    return sorted(unique.values(), key=key)
+
+
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
@@ -964,6 +989,7 @@ def league_from_payloads(
         # as "no game is live", and must not silently blank every play line.
         live_clubs=live_clubs(games) if games else None,
         plays_feeds=plays_feeds(games),
+        nfl_games=games_in_order(games),
     )
 
 

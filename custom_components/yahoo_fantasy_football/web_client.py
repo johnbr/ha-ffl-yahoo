@@ -94,6 +94,12 @@ class LeagueData:
     """Changes whenever a live game's clock or score moves — see ``live_signature``."""
     plays_feeds: dict[str, str] = field(default_factory=dict)
     """``{club abbreviation: plays-feed id}`` for games in progress."""
+    nfl_games: list = field(default_factory=list)
+    """The week's NFL slate, one entry per game, kickoff order.
+
+    Carries ``GameState`` objects rather than dicts — shaping for the frontend
+    is :mod:`league_state`'s job. Empty on the HTML tier, which has no feed.
+    """
     live_clubs: frozenset[str] | None = None
     """NFL clubs currently playing, by abbreviation.
 

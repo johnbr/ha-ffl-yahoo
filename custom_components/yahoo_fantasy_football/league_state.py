@@ -227,6 +227,137 @@ def play_dict(event: ScoringEvent) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# The NFL slate
+# ---------------------------------------------------------------------------
+
+
+def _clock_text(game: Any) -> str:
+    """What to print where the clock goes: kickoff, quarter, or Final.
+
+    Three states a reader cares about, and they want different things: a game
+    that has not started is asking "when", one in progress is asking "how far
+    in", and a finished one only needs saying so.
+    """
+    state = getattr(game, "state", "unknown")
+    if state == "post":
+        return "Final"
+    if state == "pre":
+        return ""  # the card formats the kickoff time in the viewer's zone
+    period = str(getattr(game, "period", "") or "")
+    clock = str(getattr(game, "clock", "") or "")
+    if not period:
+        return clock
+    quarter = f"Q{period}" if period.isdigit() and int(period) <= 4 else "OT"
+    return f"{quarter} {clock}".strip()
+
+
+def _situation(game: Any) -> str:
+    """``2nd & 7`` — down and distance, empty unless a live game has them.
+
+    Deliberately not the ball spot: yards-to-goal is what drives the red-zone
+    flag, and printing "at the 18" beside a red-zone badge says it twice.
+    """
+    if getattr(game, "state", "") != "in":
+        return ""
+    try:
+        down = int(getattr(game, "down", 0) or 0)
+        distance = int(getattr(game, "distance", 0) or 0)
+    except (TypeError, ValueError):
+        return ""
+    if not down:
+        return ""
+    ordinal = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}.get(down, f"{down}th")
+    if distance <= 0:
+        return f"{ordinal} & goal"
+    return f"{ordinal} & {distance}"
+
+
+def _elapsed_fraction(game: Any) -> float | None:
+    """How far through the game we are, 0.0-1.0, for the progress bar."""
+    from .yahoo_redzone import remaining_fraction
+
+    state = getattr(game, "state", "unknown")
+    if state == "post":
+        return 1.0
+    if state != "in":
+        return 0.0
+    remaining = remaining_fraction(game)
+    if remaining is None:
+        return None
+    return round(max(0.0, min(1.0, 1.0 - remaining)), 4)
+
+
+def _nfl_side(game: Any, club: str, score: Any) -> dict[str, Any]:
+    from .yahoo_redzone import team_abbr
+
+    return {
+        "team_id": str(club),
+        "abbr": team_abbr(club),
+        "score": _int_or_none(score),
+        "has_ball": bool(game.has_ball(club)) if hasattr(game, "has_ball") else False,
+        "red_zone": bool(game.in_red_zone(club)) if hasattr(game, "in_red_zone") else False,
+    }
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def nfl_game_rows(data: LeagueData | None) -> list[dict[str, Any]]:
+    """The week's NFL games, as the games card renders them.
+
+    Small enough to ride in attributes — sixteen games of scalars, against the
+    rosters that are deliberately kept out. The per-game PLAY list is not here:
+    each game's feed is ~20 KB, so a full Sunday would be a quarter of a
+    megabyte per poll to show one line per game. Those load on demand when a
+    game is expanded, which is the same trade the matchup rosters already make.
+    """
+    if data is None:
+        return []
+    rows: list[dict[str, Any]] = []
+    for game in data.nfl_games:
+        rows.append(
+            {
+                "game_id": str(game.game_id),
+                "plays_id": str(getattr(game, "plays_id", "") or ""),
+                "state": getattr(game, "state", "unknown"),
+                "clock_text": _clock_text(game),
+                "situation": _situation(game),
+                "start_time": _int_or_none(getattr(game, "start_time", None)),
+                "elapsed": _elapsed_fraction(game),
+                "away": _nfl_side(game, game.away, getattr(game, "away_score", None)),
+                "home": _nfl_side(game, game.home, getattr(game, "home_score", None)),
+            }
+        )
+    return rows
+
+
+def nfl_games_state(data: LeagueData | None) -> str:
+    """Low-churn state: how many games are in progress.
+
+    The slate itself belongs in attributes; the recorder only wants a number
+    that changes a handful of times a day.
+    """
+    if data is None:
+        return "unknown"
+    return str(data.active_games)
+
+
+def nfl_games_attributes(data: LeagueData | None, league_id: str) -> dict[str, Any]:
+    rows = nfl_game_rows(data)
+    return {
+        "league_id": league_id,
+        "games": rows,
+        "active_games": data.active_games if data else 0,
+        "live_tick": data.live_tick if data else "",
+        "total_games": len(rows),
+    }
+
+
 def scoreboard_attributes(
     data: LeagueData | None,
     feed: PlayFeed,
