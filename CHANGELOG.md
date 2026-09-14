@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.8.0...v0.9.0) (2026-09-14)
+
+
+### Features
+
+* add an NFL games card showing the real slate ([1244700](https://github.com/johnbr/ha-ffl-yahoo/commit/124470030d2ad98fe4e5212e32a07e014da52587))
+* fold finished NFL games behind a toggle at the foot of the card ([ae214c7](https://github.com/johnbr/ha-ffl-yahoo/commit/ae214c7834ef3124bb16b7fca9130967b13bcba1))
+* show each NFL game's last play and the ball's yard line ([d627dcb](https://github.com/johnbr/ha-ffl-yahoo/commit/d627dcbe22538783c6bf59c7595c2e8b2b39b826))
+
+
+### Bug Fixes
+
+* refresh NFL last plays when a play runs, not when a TTL lapses ([553ea12](https://github.com/johnbr/ha-ffl-yahoo/commit/553ea124fa95f78352be8ebc16c18c301603eacc))
+
 ## [0.8.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.7.0...v0.8.0) (2026-09-13)
 
 
