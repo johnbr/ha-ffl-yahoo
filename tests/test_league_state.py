@@ -539,6 +539,22 @@ def test_a_live_game_reads_its_quarter_and_down() -> None:
     assert _situation(game) == "2nd & 7"
 
 
+def test_a_stopped_second_quarter_clock_is_called_halftime() -> None:
+    """The feed has no half-time state — it just stops the clock at 0:00."""
+    from yahoo_fantasy_football.league_state import _clock_text
+
+    assert _clock_text(_game_row("P", period="2", clock="0:00")) == "Halftime"
+
+
+def test_only_the_second_quarter_ending_is_half_time() -> None:
+    from yahoo_fantasy_football.league_state import _clock_text
+
+    assert _clock_text(_game_row("P", period="1", clock="0:00")) == "Q1 0:00"
+    assert _clock_text(_game_row("P", period="3", clock="0:00")) == "Q3 0:00"
+    # And a live second quarter is still a quarter.
+    assert _clock_text(_game_row("P", period="2", clock="2:00")) == "Q2 2:00"
+
+
 def test_overtime_is_not_printed_as_a_quarter_number() -> None:
     from yahoo_fantasy_football.league_state import _clock_text
 
@@ -586,6 +602,26 @@ def test_a_spot_the_feed_cannot_mean_is_not_printed() -> None:
     assert _spot("0", "17") == ""
     assert _spot("100", "17") == ""
     assert _spot("42", "") == "", "no ball carrier, no side of the field"
+    # "0" is the feed's nobody, and it is a TRUTHY string — it rendered as a
+    # club abbreviation ("0 45") at half time until this was pinned.
+    assert _spot("45", "0") == ""
+    assert _spot("45", "99") == "", "a club not in this game cannot hold the ball"
+
+
+def test_half_time_drops_the_stale_situation_with_the_spot() -> None:
+    """Observed live: at half time the feed keeps down, distance and a spot.
+
+    Possession goes to "0", which is what makes the whole situation unreadable
+    — and is what the card must key on rather than trusting the rest.
+    """
+    from yahoo_fantasy_football.league_state import _ball_spot, _clock_text, _situation
+    from yahoo_fantasy_football.yahoo_redzone import GameState
+
+    half = GameState(["g", "1", "17", "26", "P", "0", "2", "0:00",
+                      "7", "14", "1789000000", "1", "10", "45", "0"])
+    assert _clock_text(half) == "Halftime"
+    assert _ball_spot(half) == ""
+    assert _situation(half) == ""
 
 
 def test_down_and_distance_is_dropped_when_the_spot_is_gone() -> None:
@@ -597,12 +633,14 @@ def test_down_and_distance_is_dropped_when_the_spot_is_gone() -> None:
     from yahoo_fantasy_football.league_state import _situation
     from yahoo_fantasy_football.yahoo_redzone import GameState
 
+    # Club 17 is the away side of this row; the ball has to belong to a club
+    # actually in the game or there is no side of the field to name.
     stale = GameState(["g", "1", "17", "26", "P", "0", "1", "6:40",
-                       "0", "7", "1789000000", "1", "3", "0", "19"])
+                       "0", "7", "1789000000", "1", "3", "0", "17"])
     assert _situation(stale) == "", "a play that has ended must not be captioned"
 
     live = GameState(["g", "1", "17", "26", "P", "0", "1", "6:40",
-                      "0", "7", "1789000000", "1", "3", "44", "19"])
+                      "0", "7", "1789000000", "1", "3", "44", "17"])
     assert _situation(live) == "1st & 3"
 
 

@@ -246,6 +246,12 @@ def _clock_text(game: Any) -> str:
         return ""  # the card formats the kickoff time in the viewer's zone
     period = str(getattr(game, "period", "") or "")
     clock = str(getattr(game, "clock", "") or "")
+    # A game sitting on 0:00 in the second quarter is at half time, and saying
+    # so is both shorter and what a reader is actually asking. The feed has no
+    # separate state for it — it just stops the clock — so this is the only
+    # place it can be named.
+    if period == "2" and clock.strip() in {"0:00", "00:00"}:
+        return "Halftime"
     if not period:
         return clock
     quarter = f"Q{period}" if period.isdigit() and int(period) <= 4 else "OT"
@@ -279,8 +285,13 @@ def _ball_spot(game: Any) -> str:
 
     from .yahoo_redzone import team_abbr
 
+    # Must be one of the two clubs actually playing. The feed parks this at
+    # "0" when nobody has the ball — at half time, between quarters, on a
+    # kickoff — and "0" is a truthy string, so a bare emptiness check let it
+    # through and rendered a yard line owned by club "0". Observed live at
+    # half time on 2026-09-13 as "0 45".
     with_ball = str(getattr(game, "team_with_ball", "") or "")
-    if not with_ball:
+    if with_ball not in {str(game.away), str(game.home)}:
         return ""
     if to_goal > 50:
         # Still in their own half: count up from their own goal line.

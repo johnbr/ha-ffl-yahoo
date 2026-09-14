@@ -33,7 +33,7 @@ from .league_state import play_dict, poll_interval
 from .plays import PlayFeed, ScoringEvent, diff_snapshots, match_relay_play
 from .redzone_client import USER_AGENT, RedzoneClient
 from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
-from .yahoo_redzone import parse_relay_plays, to_snapshot
+from .yahoo_redzone import parse_relay_plays, play_signature, to_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,15 +61,13 @@ MAX_PLAY_FEEDS = 8
 # it — a full Sunday would be a quarter of a megabyte per poll to render one
 # line per game. They are fetched only when a reader expands a game, and this
 # TTL keeps a card that repaints on every 10s poll from refetching each time.
-# Raised from 25s when the games card started showing a last play for every
-# live game rather than only for one a reader had expanded. One cache serves
-# both, so the TTL is what bounds the cost of the always-on line:
+# Backstop only. The always-on last play does NOT wait for this — it refetches
+# as soon as the games feed says a play has run (see ``play_signature``), which
+# is the same 10s poll the scores arrive on. A pure TTL made the games card
+# visibly lag the fantasy one, which updates on every poll, by a play or two.
 #
-#   ~20 KB a game x 13 live games on a Sunday = ~260 KB a refresh.
-#   At 45s that is ~21 MB/hr; on the 10s poll it would have been ~93 MB/hr.
-#
-# A play lands every 30-40s of real time, so 45s rarely skips one, and the
-# expanded list is at most this stale before the next poll refreshes it.
+# This remains as the floor for a game whose signature is somehow stuck, and as
+# the cache for a reader who has expanded a game.
 NFL_PLAYS_TTL_SECONDS = 45.0
 
 # Ceiling on last-play feeds per refresh. Sixteen is the whole week's slate, so
@@ -108,6 +106,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._nfl_plays: dict[str, tuple[float, list[dict[str, Any]]]] = {}
         # {plays_id: newest play text} for live games, refreshed every poll.
         self._nfl_last_plays: dict[str, str] = {}
+        # {plays_id: last play-changing state seen} — the cheap feed's tell.
+        self._nfl_signatures: dict[str, str] = {}
 
         super().__init__(
             hass,
@@ -165,24 +165,39 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         cosmetic where a failed refresh would blank the scores.
         """
         live = [
-            str(game.plays_id)
+            game
             for game in getattr(data, "nfl_games", [])
             if getattr(game, "state", "") == "in" and getattr(game, "plays_id", "")
-        ]
+        ][:MAX_NFL_LAST_PLAY_FEEDS]
         if not live:
             self._nfl_last_plays = {}
+            self._nfl_signatures = {}
+            return
+
+        # The 2.6 KB games feed already told us which games ran a play. Only
+        # those are worth spending 20 KB on, and they are worth it IMMEDIATELY
+        # rather than whenever a TTL happens to lapse.
+        wanted = []
+        for game in live:
+            plays_id = str(game.plays_id)
+            signature = play_signature(game)
+            if self._nfl_signatures.get(plays_id) != signature:
+                self._nfl_signatures[plays_id] = signature
+                wanted.append(plays_id)
+
+        keep = {str(game.plays_id) for game in live}
+        self._nfl_last_plays = {k: v for k, v in self._nfl_last_plays.items() if k in keep}
+        if not wanted:
             return
 
         results = await asyncio.gather(
-            *(self.async_game_plays(plays_id, 1) for plays_id in live[:MAX_NFL_LAST_PLAY_FEEDS]),
+            *(self.async_game_plays(plays_id, 1, force=True) for plays_id in wanted),
             return_exceptions=True,
         )
-        latest: dict[str, str] = {}
-        for plays_id, result in zip(live, results, strict=False):
+        for plays_id, result in zip(wanted, results, strict=True):
             if isinstance(result, BaseException) or not result:
                 continue
-            latest[plays_id] = result[0].get("text", "")
-        self._nfl_last_plays = latest
+            self._nfl_last_plays[plays_id] = result[0].get("text", "")
 
     @property
     def nfl_last_plays(self) -> dict[str, str]:
@@ -291,7 +306,9 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 self.feed.revise(event.event_id, updated.plays)
         return [described(event) for event in events]
 
-    async def async_game_plays(self, plays_id: str, limit: int = 12) -> list[dict[str, Any]]:
+    async def async_game_plays(
+        self, plays_id: str, limit: int = 12, force: bool = False
+    ) -> list[dict[str, Any]]:
         """Recent plays for ONE NFL game, newest first, fetched on demand.
 
         Lives here rather than in :mod:`websocket` because it reaches upstream
@@ -304,7 +321,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             return []
         now = dt_util.utcnow().timestamp()
         cached = self._nfl_plays.get(plays_id)
-        if cached and now - cached[0] < NFL_PLAYS_TTL_SECONDS:
+        if cached and not force and now - cached[0] < NFL_PLAYS_TTL_SECONDS:
             return cached[1][:limit]
 
         try:
