@@ -723,18 +723,41 @@ test("each panel says what it is loading", () => {
 
 const GAME_LIVE = {
   game_id: "20260913016", plays_id: "16", state: "in",
-  clock_text: "Q3 6:24", situation: "2nd & 7", start_time: 1789000000, elapsed: 0.61,
+  clock_text: "Q3 6:24", situation: "2nd & 7", ball_on: "Det 20", start_time: 1789000000,
+  last_play: "Alvin Kamara rushed to the left for 4 yard gain",
   away: { team_id: "9", abbr: "NO", score: 17, has_ball: true, red_zone: true },
   home: { team_id: "16", abbr: "Det", score: 24, has_ball: false, red_zone: false },
 };
 
-test("a live game shows score, clock, situation and a progress bar", () => {
+test("a live game shows score, clock, situation and the ball spot", () => {
   const html = renderNflGame(GAME_LIVE);
-  for (const bit of ["NO", "Det", "17", "24", "Q3 6:24", "2nd &amp; 7"]) {
+  for (const bit of ["NO", "Det", "17", "24", "Q3 6:24"]) {
     assert.ok(html.includes(bit), `missing ${bit}`);
   }
-  assert.ok(html.includes("ffl-nfl-bar-fill"));
-  assert.ok(html.includes("61.0%"), "the bar reflects elapsed time");
+  // One phrase, the way a broadcast says it — not two adjacent facts.
+  assert.ok(html.includes("2nd &amp; 7, Det 20"), "down-and-distance reads with the spot");
+});
+
+test("the last play is always shown, not only when expanded", () => {
+  const html = renderNflGame(GAME_LIVE);
+  assert.ok(html.includes("ffl-nfl-last"));
+  assert.ok(html.includes("Alvin Kamara rushed to the left for 4 yard gain"));
+  assert.ok(!html.includes("ffl-nfl-plays"), "and without opening the panel");
+});
+
+test("a game with no last play yet renders no empty line for it", () => {
+  const html = renderNflGame({ ...GAME_LIVE, last_play: "" });
+  assert.ok(!html.includes("ffl-nfl-last"));
+});
+
+test("the ball spot alone still reads when there is no down and distance", () => {
+  const html = renderNflGame({ ...GAME_LIVE, situation: "", ball_on: "50" });
+  assert.ok(html.includes(">50<"));
+});
+
+test("there is no game progress bar", () => {
+  const html = renderNflGame(GAME_LIVE);
+  assert.ok(!html.includes("ffl-nfl-bar"));
 });
 
 /** The two team blocks, away first — slicing on the abbreviation alone would
@@ -781,10 +804,12 @@ test("an unparseable kickoff falls back rather than printing Invalid Date", () =
   assert.ok(fmtKickoff(1789000000).length > 0);
 });
 
-test("a finished game says Final and fills the bar", () => {
-  const html = renderNflGame({ ...GAME_LIVE, state: "post", clock_text: "Final", situation: "", elapsed: 1 });
+test("a finished game says Final and carries no live situation", () => {
+  const html = renderNflGame({
+    ...GAME_LIVE, state: "post", clock_text: "Final", situation: "", ball_on: "", last_play: "",
+  });
   assert.ok(html.includes("Final"));
-  assert.ok(html.includes("100.0%"));
+  assert.ok(!html.includes("ffl-nfl-situation"));
   assert.ok(!html.includes("ffl-nfl-live"), "a final game is not live");
 });
 

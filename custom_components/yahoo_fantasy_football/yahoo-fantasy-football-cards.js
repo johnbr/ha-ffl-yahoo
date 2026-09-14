@@ -367,10 +367,17 @@ function renderNflGame(game, options = {}) {
 
   const clock =
     game.state === "pre" ? fmtKickoff(game.start_time) || "Scheduled" : game.clock_text || "";
-  const situation = game.situation ? `<div class="ffl-nfl-situation">${escapeHtml(game.situation)}</div>` : "";
-  const elapsed = Number(game.elapsed);
-  const bar = Number.isFinite(elapsed)
-    ? `<div class="ffl-nfl-bar"><div class="ffl-nfl-bar-fill" style="width:${(elapsed * 100).toFixed(1)}%"></div></div>`
+  // Down-and-distance and the ball spot read as one phrase — "2nd & 7, DAL 19"
+  // — because they are one situation, not two facts that happen to be adjacent.
+  const situationText = [game.situation, game.ball_on].filter(Boolean).join(", ");
+  const situation = situationText
+    ? `<div class="ffl-nfl-situation">${escapeHtml(situationText)}</div>`
+    : "";
+  // The last play spans the whole width under both clubs: it is about the game
+  // rather than either side of it, and it is the one line here long enough to
+  // need the room.
+  const lastPlay = game.last_play
+    ? `<div class="ffl-nfl-last">${escapeHtml(game.last_play)}</div>`
     : "";
   const panel = open
     ? `<div class="ffl-nfl-plays">${options.playsHtml || `<div class="ffl-loading">Loading plays…</div>`}</div>`
@@ -391,7 +398,7 @@ function renderNflGame(game, options = {}) {
           <div class="ffl-nfl-clock${game.state === "in" ? " ffl-nfl-clock-live" : ""}">${escapeHtml(clock)}</div>
           ${situation}
         </div>
-        ${bar}
+        ${lastPlay}
       </div>
       ${panel}
     </div>`;
@@ -1208,11 +1215,12 @@ const CARD_CSS = `
   .ffl-nfl-clock { font-size: 0.78rem; color: var(--secondary-text-color); white-space: nowrap; }
   .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 600; }
   .ffl-nfl-situation { font-size: 0.7rem; color: var(--secondary-text-color); white-space: nowrap; }
-  .ffl-nfl-bar {
-    grid-column: 1 / -1; height: 2px; border-radius: 2px;
-    background: var(--divider-color); overflow: hidden;
+  /* Spans both tracks: the play belongs to the game, not to either club. */
+  .ffl-nfl-last {
+    grid-column: 1 / -1; margin-top: 2px;
+    font-size: 0.72rem; color: var(--secondary-text-color);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .ffl-nfl-bar-fill { height: 100%; background: var(--primary-color); }
   .ffl-nfl-finals {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 6px; margin-top: 2px; cursor: pointer; border-radius: 8px;

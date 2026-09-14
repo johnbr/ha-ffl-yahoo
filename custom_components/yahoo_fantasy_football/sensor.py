@@ -129,7 +129,11 @@ class YahooNflGamesSensor(_LeagueEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        return nfl_games_attributes(self.coordinator.league_data, self._league_id)
+        return nfl_games_attributes(
+            self.coordinator.league_data,
+            self._league_id,
+            self.coordinator.nfl_last_plays,
+        )
 
 
 class YahooMyTeamSensor(_LeagueEntity):

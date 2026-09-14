@@ -522,13 +522,13 @@ def _game_row(status: str, **over):
 
 
 def test_a_finished_game_says_final_and_reads_as_complete() -> None:
-    from yahoo_fantasy_football.league_state import _clock_text, _elapsed_fraction, _situation
+    from yahoo_fantasy_football.league_state import _ball_spot, _clock_text, _situation
 
     game = _game_row("F")
     assert game.state == "post"
     assert _clock_text(game) == "Final"
-    assert _elapsed_fraction(game) == 1.0
     assert _situation(game) == "", "a finished game has no down and distance"
+    assert _ball_spot(game) == "", "nor a ball on the field"
 
 
 def test_a_live_game_reads_its_quarter_and_down() -> None:
@@ -545,6 +545,67 @@ def test_overtime_is_not_printed_as_a_quarter_number() -> None:
     assert _clock_text(_game_row("P", period="5", clock="8:11")) == "OT 8:11"
 
 
+def _spot(to_goal: str, ball: str):
+    """A live game with the ball at a given distance from the goal.
+
+    Away is team 17, home is team 26 — see ``_game_row``.
+    """
+    from yahoo_fantasy_football.league_state import _ball_spot
+    from yahoo_fantasy_football.yahoo_redzone import GameState
+
+    cells = ["g", "2026091301", "17", "26", "P", "0", "2", "9:07",
+             "0", "0", "1789000000", "2", "7", to_goal, ball]
+    return _ball_spot(GameState(cells))
+
+
+def test_the_ball_spot_past_midfield_names_the_defending_club() -> None:
+    """Yahoo's own rail: "2nd & 7, DAL 19" with the RZ badge on NYG.
+
+    The Giants have the ball nineteen yards from Dallas's end zone, so the
+    marker sits on Dallas's half — the number belongs to the club being
+    driven on, not the one driving.
+    """
+    # Away (17 = NE) has the ball, 19 from the goal -> home's half (26 = Sea).
+    assert _spot("19", "17") == "Sea 19"
+    # And the mirror: home has it, deep in the away club's territory.
+    assert _spot("8", "26") == "NE 8"
+
+
+def test_the_ball_spot_in_a_club_s_own_half_counts_up_from_its_goal() -> None:
+    # 81 to go means they are on their own 19.
+    assert _spot("81", "17") == "NE 19"
+    assert _spot("61", "26") == "Sea 39"
+
+
+def test_midfield_belongs_to_nobody() -> None:
+    assert _spot("50", "17") == "50"
+
+
+def test_a_spot_the_feed_cannot_mean_is_not_printed() -> None:
+    """0 is what the feed parks at between plays, after a score, on a kickoff."""
+    assert _spot("0", "17") == ""
+    assert _spot("100", "17") == ""
+    assert _spot("42", "") == "", "no ball carrier, no side of the field"
+
+
+def test_down_and_distance_is_dropped_when_the_spot_is_gone() -> None:
+    """Observed live: the feed keeps a finished play's down and distance.
+
+    Between a PAT and the kickoff it reported down=1 dist=3 from the snap
+    before the touchdown, with yards-to-goal already zeroed.
+    """
+    from yahoo_fantasy_football.league_state import _situation
+    from yahoo_fantasy_football.yahoo_redzone import GameState
+
+    stale = GameState(["g", "1", "17", "26", "P", "0", "1", "6:40",
+                       "0", "7", "1789000000", "1", "3", "0", "19"])
+    assert _situation(stale) == "", "a play that has ended must not be captioned"
+
+    live = GameState(["g", "1", "17", "26", "P", "0", "1", "6:40",
+                      "0", "7", "1789000000", "1", "3", "44", "19"])
+    assert _situation(live) == "1st & 3"
+
+
 def test_goal_to_go_says_goal_rather_than_a_distance() -> None:
     from yahoo_fantasy_football.league_state import _situation
 
@@ -559,7 +620,7 @@ def test_a_scheduled_game_carries_its_kickoff_and_no_clock() -> None:
     for row in rows:
         assert row["clock_text"] == "", "the card formats kickoff in the viewer's zone"
         assert isinstance(row["start_time"], int) and row["start_time"] > 0
-        assert row["elapsed"] == 0.0
+        assert row["ball_on"] == "", "a game that has not started has no ball spot"
 
 
 def test_down_and_distance_only_appears_on_a_live_game() -> None:

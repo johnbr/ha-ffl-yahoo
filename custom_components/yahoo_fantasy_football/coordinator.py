@@ -61,7 +61,20 @@ MAX_PLAY_FEEDS = 8
 # it — a full Sunday would be a quarter of a megabyte per poll to render one
 # line per game. They are fetched only when a reader expands a game, and this
 # TTL keeps a card that repaints on every 10s poll from refetching each time.
-NFL_PLAYS_TTL_SECONDS = 25.0
+# Raised from 25s when the games card started showing a last play for every
+# live game rather than only for one a reader had expanded. One cache serves
+# both, so the TTL is what bounds the cost of the always-on line:
+#
+#   ~20 KB a game x 13 live games on a Sunday = ~260 KB a refresh.
+#   At 45s that is ~21 MB/hr; on the 10s poll it would have been ~93 MB/hr.
+#
+# A play lands every 30-40s of real time, so 45s rarely skips one, and the
+# expanded list is at most this stale before the next poll refreshes it.
+NFL_PLAYS_TTL_SECONDS = 45.0
+
+# Ceiling on last-play feeds per refresh. Sixteen is the whole week's slate, so
+# this cannot silently drop a game — it is a runaway guard, not a sample.
+MAX_NFL_LAST_PLAY_FEEDS = 16
 
 
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
@@ -93,6 +106,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")
         # {plays_id: (fetched_at, rows)} for the games card's on-demand lists.
         self._nfl_plays: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+        # {plays_id: newest play text} for live games, refreshed every poll.
+        self._nfl_last_plays: dict[str, str] = {}
 
         super().__init__(
             hass,
@@ -134,8 +149,45 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             raise UpdateFailed(str(err)) from err
 
         await self._process_plays(data, now)
+        await self._refresh_nfl_last_plays(data)
         self.update_interval = _interval(data)
         return data
+
+    async def _refresh_nfl_last_plays(self, data: LeagueData) -> None:
+        """Newest play text for each LIVE NFL game, for the games card.
+
+        Live games only. A finished game's last play is a snapshot nobody is
+        watching change, and a scheduled one has none — fetching either would
+        be paying for a line that will never move.
+
+        Shares :meth:`async_game_plays`' cache, so a game a reader has expanded
+        is not fetched twice, and every failure is swallowed: a missing line is
+        cosmetic where a failed refresh would blank the scores.
+        """
+        live = [
+            str(game.plays_id)
+            for game in getattr(data, "nfl_games", [])
+            if getattr(game, "state", "") == "in" and getattr(game, "plays_id", "")
+        ]
+        if not live:
+            self._nfl_last_plays = {}
+            return
+
+        results = await asyncio.gather(
+            *(self.async_game_plays(plays_id, 1) for plays_id in live[:MAX_NFL_LAST_PLAY_FEEDS]),
+            return_exceptions=True,
+        )
+        latest: dict[str, str] = {}
+        for plays_id, result in zip(live, results, strict=False):
+            if isinstance(result, BaseException) or not result:
+                continue
+            latest[plays_id] = result[0].get("text", "")
+        self._nfl_last_plays = latest
+
+    @property
+    def nfl_last_plays(self) -> dict[str, str]:
+        """``{plays-feed id: newest play}`` for games in progress."""
+        return self._nfl_last_plays
 
     async def _process_plays(self, data: LeagueData, now: float) -> None:
         """Diff against the previous poll and publish anything new."""

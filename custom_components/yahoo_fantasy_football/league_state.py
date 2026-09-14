@@ -252,13 +252,56 @@ def _clock_text(game: Any) -> str:
     return f"{quarter} {clock}".strip()
 
 
+def _ball_spot(game: Any) -> str:
+    """``DAL 19`` — which yard line the ball is on, the way a broadcast says it.
+
+    The feed sends yards-to-GOAL, one number counting down as the offence
+    advances. A yard line is that same fact said the way people read it: a
+    number from 1 to 50 plus whose half of the field it is on. Past midfield
+    the number belongs to the DEFENDING club — Yahoo's own rail shows
+    "2nd & 7, DAL 19" with the red-zone badge on NYG, because it is the Giants
+    who have the ball nineteen yards from Dallas's end zone. So this has to
+    know who is carrying it, not merely how far they have to go.
+
+    Empty unless a live game has a real spot: 0 and 100 are not positions, and
+    the feed parks at 0 between plays, after a score and during a kickoff.
+    """
+    if getattr(game, "state", "") != "in":
+        return ""
+    try:
+        to_goal = int(getattr(game, "yards_to_goal", 0) or 0)
+    except (TypeError, ValueError):
+        return ""
+    if not 0 < to_goal < 100:
+        return ""
+    if to_goal == 50:
+        return "50"  # midfield belongs to nobody
+
+    from .yahoo_redzone import team_abbr
+
+    with_ball = str(getattr(game, "team_with_ball", "") or "")
+    if not with_ball:
+        return ""
+    if to_goal > 50:
+        # Still in their own half: count up from their own goal line.
+        return f"{team_abbr(with_ball)} {100 - to_goal}"
+    other = game.home if with_ball == str(game.away) else game.away
+    return f"{team_abbr(other)} {to_goal}"
+
+
 def _situation(game: Any) -> str:
     """``2nd & 7`` — down and distance, empty unless a live game has them.
 
-    Deliberately not the ball spot: yards-to-goal is what drives the red-zone
-    flag, and printing "at the 18" beside a red-zone badge says it twice.
+    Gated on there being a real ball spot, because the feed does NOT clear down
+    and distance when a drive ends: observed live on 2026-09-13, a game sitting
+    between a PAT and the kickoff still reported ``down=1 dist=3`` from the
+    snap before the touchdown, with yards-to-goal already zeroed. Printing that
+    would caption a play that has already finished. The two render as one
+    phrase anyway, so half of it going stale is worse than neither showing.
     """
     if getattr(game, "state", "") != "in":
+        return ""
+    if not _ball_spot(game):
         return ""
     try:
         down = int(getattr(game, "down", 0) or 0)
@@ -271,21 +314,6 @@ def _situation(game: Any) -> str:
     if distance <= 0:
         return f"{ordinal} & goal"
     return f"{ordinal} & {distance}"
-
-
-def _elapsed_fraction(game: Any) -> float | None:
-    """How far through the game we are, 0.0-1.0, for the progress bar."""
-    from .yahoo_redzone import remaining_fraction
-
-    state = getattr(game, "state", "unknown")
-    if state == "post":
-        return 1.0
-    if state != "in":
-        return 0.0
-    remaining = remaining_fraction(game)
-    if remaining is None:
-        return None
-    return round(max(0.0, min(1.0, 1.0 - remaining)), 4)
 
 
 def _nfl_side(game: Any, club: str, score: Any) -> dict[str, Any]:
@@ -307,14 +335,20 @@ def _int_or_none(value: Any) -> int | None:
         return None
 
 
-def nfl_game_rows(data: LeagueData | None) -> list[dict[str, Any]]:
+def nfl_game_rows(
+    data: LeagueData | None, last_plays: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
     """The week's NFL games, as the games card renders them.
 
     Small enough to ride in attributes — sixteen games of scalars, against the
-    rosters that are deliberately kept out. The per-game PLAY list is not here:
-    each game's feed is ~20 KB, so a full Sunday would be a quarter of a
-    megabyte per poll to show one line per game. Those load on demand when a
-    game is expanded, which is the same trade the matchup rosters already make.
+    rosters that are deliberately kept out.
+
+    ``last_plays`` maps a plays-feed id to that game's newest play, and is the
+    one thing here the games feed cannot supply. The coordinator fetches it for
+    LIVE games only and on its own slower cadence, because each game's feed is
+    ~20 KB and a full Sunday on the 10 s poll would be a quarter of a megabyte
+    every ten seconds. The full per-game play LIST is still not here: those load
+    on demand when a game is expanded, the same trade the rosters already make.
     """
     if data is None:
         return []
@@ -327,8 +361,9 @@ def nfl_game_rows(data: LeagueData | None) -> list[dict[str, Any]]:
                 "state": getattr(game, "state", "unknown"),
                 "clock_text": _clock_text(game),
                 "situation": _situation(game),
+                "ball_on": _ball_spot(game),
+                "last_play": (last_plays or {}).get(str(getattr(game, "plays_id", "") or "")) or "",
                 "start_time": _int_or_none(getattr(game, "start_time", None)),
-                "elapsed": _elapsed_fraction(game),
                 "away": _nfl_side(game, game.away, getattr(game, "away_score", None)),
                 "home": _nfl_side(game, game.home, getattr(game, "home_score", None)),
             }
@@ -347,8 +382,10 @@ def nfl_games_state(data: LeagueData | None) -> str:
     return str(data.active_games)
 
 
-def nfl_games_attributes(data: LeagueData | None, league_id: str) -> dict[str, Any]:
-    rows = nfl_game_rows(data)
+def nfl_games_attributes(
+    data: LeagueData | None, league_id: str, last_plays: dict[str, str] | None = None
+) -> dict[str, Any]:
+    rows = nfl_game_rows(data, last_plays)
     return {
         "league_id": league_id,
         "games": rows,
