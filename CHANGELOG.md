@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.11.1...v0.12.0) (2026-09-15)
+
+
+### Features
+
+* leave the tackler out of play descriptions ([470b03a](https://github.com/johnbr/ha-ffl-yahoo/commit/470b03acd4fc3dc946904ff67a6ac795497fad3a))
+
 ## [0.11.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.11.0...v0.11.1) (2026-09-15)
 
 
