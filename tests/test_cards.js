@@ -855,6 +855,11 @@ test("an unparseable kickoff falls back rather than printing Invalid Date", () =
   assert.ok(fmtKickoff(1789000000).length > 0);
 });
 
+test("the NFL last play wraps rather than truncating", () => {
+  assert.match(rule(".ffl-nfl-last"), /white-space:\s*normal/);
+  assert.doesNotMatch(rule(".ffl-nfl-last"), /text-overflow/);
+});
+
 test("the field bar fills from the offence's own goal line to the ball", () => {
   // 20 to go means the drive has covered 80 yards: 80% filled, red inside
   // the 20 to match the RZ badge.

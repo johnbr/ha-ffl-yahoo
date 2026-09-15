@@ -1280,11 +1280,14 @@ const CARD_CSS = `
   .ffl-nfl-field-rz .ffl-nfl-field-fill { background: var(--error-color, #db4437); }
   /* Spans both tracks: the play belongs to the game, not to either club.
      Set exactly like a row of the expanded play list (size, weight, colour)
-     — it IS that list's newest row, shown early. */
+     — it IS that list's newest row, shown early. Wraps rather than
+     truncates, for the same reason the stat line does: the tackler at the
+     end of "Patrick Mahomes passed to Travis Kelce to the right for 6 yard
+     gain, tackled by Pat Surtain II" is the part an ellipsis took. */
   .ffl-nfl-last {
     grid-column: 1 / -1; margin-top: 2px;
-    font-size: 0.78rem; font-weight: 500; color: var(--primary-text-color);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 0.78rem; font-weight: 500; line-height: 1.25; color: var(--primary-text-color);
+    white-space: normal; overflow-wrap: anywhere;
   }
   .ffl-nfl-finals {
     display: flex; align-items: center; justify-content: center; gap: 6px;
