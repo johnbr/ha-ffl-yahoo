@@ -263,6 +263,35 @@ def _clock_text(game: Any) -> str:
     return f"{quarter} {clock}".strip()
 
 
+def _yards_to_goal(game: Any) -> int | None:
+    """How far the offence has to go, or None when the feed has no real spot.
+
+    None unless a live game has one: 0 and 100 are not positions, and the feed
+    parks at 0 between plays, after a score and during a kickoff. The carrier
+    must also be one of the two clubs actually playing. The feed parks THAT at
+    "0" when nobody has the ball — at half time, between quarters, on a
+    kickoff — and "0" is a truthy string, so a bare emptiness check let it
+    through and rendered a yard line owned by club "0". Observed live at half
+    time on 2026-09-13 as "0 45".
+
+    One gate for everything derived from the spot — the yard-line text, the
+    down and distance, the field bar — so they can never disagree about
+    whether there is a ball to talk about.
+    """
+    if getattr(game, "state", "") != "in":
+        return None
+    try:
+        to_goal = int(getattr(game, "yards_to_goal", 0) or 0)
+    except (TypeError, ValueError):
+        return None
+    if not 0 < to_goal < 100:
+        return None
+    with_ball = str(getattr(game, "team_with_ball", "") or "")
+    if with_ball not in {str(game.away), str(game.home)}:
+        return None
+    return to_goal
+
+
 def _ball_spot(game: Any) -> str:
     """``DAL 19`` — which yard line the ball is on, the way a broadcast says it.
 
@@ -273,31 +302,16 @@ def _ball_spot(game: Any) -> str:
     "2nd & 7, DAL 19" with the red-zone badge on NYG, because it is the Giants
     who have the ball nineteen yards from Dallas's end zone. So this has to
     know who is carrying it, not merely how far they have to go.
-
-    Empty unless a live game has a real spot: 0 and 100 are not positions, and
-    the feed parks at 0 between plays, after a score and during a kickoff.
     """
-    if getattr(game, "state", "") != "in":
-        return ""
-    try:
-        to_goal = int(getattr(game, "yards_to_goal", 0) or 0)
-    except (TypeError, ValueError):
-        return ""
-    if not 0 < to_goal < 100:
+    to_goal = _yards_to_goal(game)
+    if to_goal is None:
         return ""
     if to_goal == 50:
         return "50"  # midfield belongs to nobody
 
     from .yahoo_redzone import team_abbr
 
-    # Must be one of the two clubs actually playing. The feed parks this at
-    # "0" when nobody has the ball — at half time, between quarters, on a
-    # kickoff — and "0" is a truthy string, so a bare emptiness check let it
-    # through and rendered a yard line owned by club "0". Observed live at
-    # half time on 2026-09-13 as "0 45".
-    with_ball = str(getattr(game, "team_with_ball", "") or "")
-    if with_ball not in {str(game.away), str(game.home)}:
-        return ""
+    with_ball = str(game.team_with_ball)
     if to_goal > 50:
         # Still in their own half: count up from their own goal line.
         return f"{team_abbr(with_ball)} {100 - to_goal}"
@@ -378,6 +392,9 @@ def nfl_game_rows(
                 "clock_text": _clock_text(game),
                 "situation": _situation(game),
                 "ball_on": _ball_spot(game),
+                # Numeric twin of ball_on, for the field bar. None whenever
+                # ball_on is empty, by construction.
+                "yards_to_goal": _yards_to_goal(game),
                 "last_play": (last_plays or {}).get(str(getattr(game, "plays_id", "") or "")) or "",
                 "start_time": _int_or_none(getattr(game, "start_time", None)),
                 "away": _nfl_side(game, game.away, getattr(game, "away_score", None)),

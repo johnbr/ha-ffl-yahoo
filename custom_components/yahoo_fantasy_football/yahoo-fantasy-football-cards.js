@@ -364,6 +364,33 @@ function renderNflTeam(side, isLeader) {
 }
 
 /**
+ * The field, as one bar: how far the current drive has come.
+ *
+ * The offence always drives LEFT TO RIGHT, whichever club it is — the fill
+ * starts at their own goal line and ends where the ball is, so a long fill
+ * means they are close to scoring, for every game, without a legend. Yahoo's
+ * own rail draws it this way. The alternative, fixed ends per club, needs
+ * the reader to know which end is whose, and nothing on the card says so.
+ *
+ * `yards_to_goal` is null whenever the integration has no real spot — before
+ * kickoff, at half time, between a score and the kickoff — and the bar is
+ * simply absent then rather than drawn empty; the caption beside it is gone
+ * for the same reason, by the same gate.
+ */
+function renderNflField(game) {
+  if (game.state !== "in") return "";
+  const toGoal = Number(game.yards_to_goal);
+  if (!Number.isFinite(toGoal) || toGoal <= 0 || toGoal >= 100) return "";
+  const pct = 100 - toGoal;
+  // Inside the 20 the fill goes red, the same signal the RZ badge gives.
+  const rz = toGoal <= 20 ? " ffl-nfl-field-rz" : "";
+  return `
+    <div class="ffl-nfl-field${rz}" role="img" aria-label="${escapeHtml(`${toGoal} yards to the end zone`)}">
+      <div class="ffl-nfl-field-fill" style="width:${pct}%"></div>
+    </div>`;
+}
+
+/**
  * One NFL game.
  *
  * A game that has not kicked off shows its start time instead of a clock —
@@ -385,6 +412,7 @@ function renderNflGame(game, options = {}) {
   const situation = situationText
     ? `<div class="ffl-nfl-situation">${escapeHtml(situationText)}</div>`
     : "";
+  const field = renderNflField(game);
   // The last play spans the whole width under both clubs: it is about the game
   // rather than either side of it, and it is the one line here long enough to
   // need the room.
@@ -410,6 +438,7 @@ function renderNflGame(game, options = {}) {
           <div class="ffl-nfl-clock${game.state === "in" ? " ffl-nfl-clock-live" : ""}">${escapeHtml(clock)}</div>
           ${situation}
         </div>
+        ${field}
         ${lastPlay}
       </div>
       ${panel}
@@ -974,7 +1003,7 @@ class FflNflGamesCard extends FflBaseCard {
     for (const g of rows) {
       const a = g.away || {};
       const h = g.home || {};
-      parts.push(g.game_id, g.state, g.clock_text, g.situation, g.elapsed);
+      parts.push(g.game_id, g.state, g.clock_text, g.situation, g.yards_to_goal, g.last_play);
       parts.push(a.score, h.score, a.has_ball ? 1 : 0, h.has_ball ? 1 : 0);
       parts.push(a.red_zone ? 1 : 0, h.red_zone ? 1 : 0);
     }
@@ -1235,6 +1264,16 @@ const CARD_CSS = `
   .ffl-nfl-clock { font-size: 0.78rem; font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
   .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 700; }
   .ffl-nfl-situation { font-size: 0.7rem; font-weight: 500; color: var(--primary-text-color); white-space: nowrap; }
+  /* The field. Spans both tracks like the play below it. Track in the
+     divider colour, fill in the primary — the same pair the win bar uses —
+     with no yard markings: it is there to be read at a glance, and the yard
+     line beside it is the number. */
+  .ffl-nfl-field {
+    grid-column: 1 / -1; height: 4px; margin-top: 4px; border-radius: 2px;
+    background: var(--divider-color); overflow: hidden;
+  }
+  .ffl-nfl-field-fill { height: 100%; border-radius: 2px; background: var(--primary-color); }
+  .ffl-nfl-field-rz .ffl-nfl-field-fill { background: var(--error-color, #db4437); }
   /* Spans both tracks: the play belongs to the game, not to either club.
      Set exactly like a row of the expanded play list (size, weight, colour)
      — it IS that list's newest row, shown early. */
@@ -1503,6 +1542,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderPlayerBlock,
     renderHistory,
     renderNflGame,
+    renderNflField,
     renderNflTeam,
     renderNflPlays,
     renderFinalsToggle,

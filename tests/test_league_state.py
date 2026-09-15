@@ -517,10 +517,13 @@ def _game_row(status: str, **over):
     """
     from yahoo_fantasy_football.yahoo_redzone import GameState
 
+    # The away club (17) carries the ball unless told otherwise: a spot, and
+    # everything gated on it, needs a carrier that is actually in the game.
     cells = ["g", "2026091301", "17", "26", status, "0",
              over.get("period", "4"), over.get("clock", "0:00"),
              "21", "24", "1789000000",
-             over.get("down", "0"), over.get("distance", "0"), "50", "0"]
+             over.get("down", "0"), over.get("distance", "0"),
+             over.get("to_goal", "50"), over.get("ball", "17")]
     return GameState(cells)
 
 
@@ -598,6 +601,27 @@ def test_the_ball_spot_in_a_club_s_own_half_counts_up_from_its_goal() -> None:
 
 def test_midfield_belongs_to_nobody() -> None:
     assert _spot("50", "17") == "50"
+    # ...but somebody still has to be holding the ball there. A stale 50 with
+    # the feed's "nobody" carrier is the half-time case, not a position.
+    assert _spot("50", "0") == ""
+
+
+def test_the_numeric_spot_and_the_text_agree_on_when_there_is_one() -> None:
+    """One gate feeds the yard-line text, the down and distance and the field
+    bar, so the card can never draw a ball the caption says is not there."""
+    from yahoo_fantasy_football.league_state import _ball_spot, _yards_to_goal
+    from yahoo_fantasy_football.yahoo_redzone import GameState
+
+    def game(to_goal, ball, status="P"):
+        return GameState(["g", "2026091301", "17", "26", status, "0", "2", "9:07",
+                          "0", "0", "1789000000", "2", "7", to_goal, ball])
+
+    assert _yards_to_goal(game("19", "17")) == 19
+    assert _yards_to_goal(game("81", "26")) == 81
+    for g in (game("0", "17"), game("100", "17"), game("45", "0"),
+              game("45", "99"), game("45", "17", status="F"), game("x", "17")):
+        assert _yards_to_goal(g) is None
+        assert _ball_spot(g) == ""
 
 
 def test_a_spot_the_feed_cannot_mean_is_not_printed() -> None:
@@ -662,6 +686,7 @@ def test_a_scheduled_game_carries_its_kickoff_and_no_clock() -> None:
         assert row["clock_text"] == "", "the card formats kickoff in the viewer's zone"
         assert isinstance(row["start_time"], int) and row["start_time"] > 0
         assert row["ball_on"] == "", "a game that has not started has no ball spot"
+        assert row["yards_to_goal"] is None
 
 
 def test_down_and_distance_only_appears_on_a_live_game() -> None:

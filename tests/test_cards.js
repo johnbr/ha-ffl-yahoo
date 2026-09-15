@@ -41,6 +41,7 @@ const {
   renderPlayerBlock,
   renderHistory,
   renderNflGame,
+  renderNflField,
   renderNflPlays,
   fmtKickoff,
   findNflGamesEntity,
@@ -753,7 +754,7 @@ test("each panel says what it is loading", () => {
 
 const GAME_LIVE = {
   game_id: "20260913016", plays_id: "16", state: "in",
-  clock_text: "Q3 6:24", situation: "2nd & 7", ball_on: "Det 20", start_time: 1789000000,
+  clock_text: "Q3 6:24", situation: "2nd & 7", ball_on: "Det 20", yards_to_goal: 20, start_time: 1789000000,
   last_play: "Alvin Kamara rushed to the left for 4 yard gain",
   away: { team_id: "9", abbr: "NO", score: 17, has_ball: true, red_zone: true },
   home: { team_id: "16", abbr: "Det", score: 24, has_ball: false, red_zone: false },
@@ -832,6 +833,31 @@ test("an unparseable kickoff falls back rather than printing Invalid Date", () =
   assert.equal(fmtKickoff(0), "");
   assert.equal(fmtKickoff("nonsense"), "");
   assert.ok(fmtKickoff(1789000000).length > 0);
+});
+
+test("the field bar fills from the offence's own goal line to the ball", () => {
+  // 20 to go means the drive has covered 80 yards: 80% filled, red inside
+  // the 20 to match the RZ badge.
+  const html = renderNflGame(GAME_LIVE);
+  assert.ok(html.includes("ffl-nfl-field"));
+  assert.ok(html.includes("width:80%"));
+  assert.ok(html.includes("ffl-nfl-field-rz"));
+  assert.ok(html.indexOf("ffl-nfl-field") < html.indexOf("ffl-nfl-last"), "field above the play, as Yahoo draws it");
+
+  const midfield = renderNflField({ ...GAME_LIVE, yards_to_goal: 50 });
+  assert.ok(midfield.includes("width:50%"));
+  assert.ok(!midfield.includes("ffl-nfl-field-rz"));
+  assert.ok(renderNflField({ ...GAME_LIVE, yards_to_goal: 81 }).includes("width:19%"));
+});
+
+test("no real ball spot means no field bar at all", () => {
+  // Null is the integration's "no spot" — before kickoff, at half time,
+  // between a score and the kickoff. Never an empty track.
+  for (const ytg of [null, undefined, 0, 100, "", "nope"]) {
+    assert.equal(renderNflField({ ...GAME_LIVE, yards_to_goal: ytg }), "", `ytg=${ytg}`);
+  }
+  assert.equal(renderNflField({ ...GAME_LIVE, state: "post" }), "");
+  assert.equal(renderNflField({ ...GAME_LIVE, state: "pre" }), "");
 });
 
 test("a finished game says Final and carries no live situation", () => {
