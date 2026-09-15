@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.12.0...v0.13.0) (2026-09-15)
+
+
+### Features
+
+* colour the winning score gold once a result is in ([5e62727](https://github.com/johnbr/ha-ffl-yahoo/commit/5e6272797d6cfb9fd090aaabf6e2980d37af2877))
+* show only the next game day by default and keep both NFL folds shut ([6f40f0d](https://github.com/johnbr/ha-ffl-yahoo/commit/6f40f0d692f612f13c4c09069912f8b2365b4d53))
+
 ## [0.12.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.11.1...v0.12.0) (2026-09-15)
 
 
