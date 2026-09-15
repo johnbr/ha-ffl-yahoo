@@ -300,6 +300,11 @@ test("the live badge is centred on the card, whatever the title's width", () => 
   assert.match(rule(".ffl-header-week"), /grid-column:\s*3/);
 });
 
+test("a player's stat line wraps rather than truncating in the lineup", () => {
+  assert.match(rule(".ffl-lu-stat"), /white-space:\s*normal/);
+  assert.doesNotMatch(rule(".ffl-lu-stat"), /text-overflow/);
+});
+
 test("a narrow row breaks between the player and the result, not inside either", () => {
   const html = renderRowPlay(
     { text: "x", short_text: "A. St. Brown 1 rec, 23 yds, 1 TD", short_who: "A. St. Brown", short_what: "1 rec, 23 yds, 1 TD", side: "home" },

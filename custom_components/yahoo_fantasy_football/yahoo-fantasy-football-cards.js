@@ -1451,11 +1451,20 @@ const CARD_CSS = `
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .ffl-lu-proj { flex: 0 0 auto; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--secondary-text-color); }
-  .ffl-lu-game, .ffl-lu-stat {
+  .ffl-lu-game {
     font-size: 0.66rem; color: var(--secondary-text-color);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .ffl-lu-stat { font-style: italic; }
+  /* The stat line WRAPS. It is the one line in the block whose length is
+     the player's day — "21 comp, 269 pass yds, 2 pass TD, 65 rush yds,
+     2 rush TD" — and an ellipsis after the second stat threw away exactly
+     the part a manager opens the lineup to read. The paired block across the
+     slot stretches to match, so the two sides stay on one row. */
+  .ffl-lu-stat {
+    font-size: 0.66rem; font-style: italic; line-height: 1.25;
+    color: var(--secondary-text-color);
+    white-space: normal; overflow-wrap: anywhere;
+  }
 
   .ffl-ball { font-size: 0.7em; margin-inline-start: 4px; }
   .ffl-rz {
