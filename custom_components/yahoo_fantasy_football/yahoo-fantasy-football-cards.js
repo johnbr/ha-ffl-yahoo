@@ -1287,9 +1287,16 @@ const CARD_CSS = `
   .ffl-team { min-width: 0; }
   .ffl-team-start { text-align: start; }
   .ffl-team-end { text-align: end; }
+  /* Names WRAP rather than truncate: a 1fr track on a phone is ~90px, and
+     an ellipsis there cut most of the league down to its first two words.
+     No line cap on purpose — Yahoo limits a team name to 20 characters, so
+     two lines hold any name at any width this card is used at, and a clamp
+     would only add an engine-specific -webkit-box path for nothing.
+     overflow-wrap: anywhere is for the one-word name with nowhere to
+     break; without it the word runs under the score instead of wrapping. */
   .ffl-team-name {
-    font-weight: 500; color: var(--primary-text-color);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 0.85rem; line-height: 1.2; font-weight: 500; color: var(--primary-text-color);
+    white-space: normal; overflow-wrap: anywhere;
   }
   .ffl-team.ffl-leader .ffl-team-name { font-weight: 700; }
   .ffl-team-proj { font-size: 0.72rem; color: var(--secondary-text-color); }
@@ -1330,7 +1337,7 @@ const CARD_CSS = `
     font-variant-numeric: tabular-nums;
   }
   .ffl-rowproj { font-size: 0.72rem; font-weight: 600; line-height: 1.1; }
-  .ffl-score { font-size: 1.15rem; color: var(--secondary-text-color); }
+  .ffl-score { font-size: 0.9rem; color: var(--secondary-text-color); }
   .ffl-score.ffl-leader { color: var(--primary-text-color); font-weight: 700; }
   .ffl-vs { color: var(--secondary-text-color); font-size: 0.8rem; }
 
