@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.11.0...v0.11.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* wrap the NFL card's last play instead of truncating it ([9261963](https://github.com/johnbr/ha-ffl-yahoo/commit/9261963e9d4203f9f4e08ef9f48805ced3e0d13b))
+
 ## [0.11.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.10.0...v0.11.0) (2026-09-15)
 
 
