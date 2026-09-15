@@ -118,11 +118,38 @@ function findNflGamesEntity(hass) {
  * local is. Returns "" for a missing or unparseable value so the caller can
  * fall back rather than print "Invalid Date".
  */
+/**
+ * The viewer's calendar day a kickoff falls on, as a comparable key.
+ *
+ * The VIEWER's day, from the browser's clock and zone, because that is the
+ * day the reader means by "today" — the integration has no idea where the
+ * dashboard is being looked at from. Empty for a missing or nonsense time.
+ */
+function localDayKey(epoch) {
+  const seconds = Number(epoch);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const d = new Date(seconds * 1000);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function isToday(epoch) {
+  return localDayKey(epoch) === localDayKey(Date.now() / 1000);
+}
+
+/**
+ * ``1:25 PM`` for a kickoff today, ``Sun 1:25 PM`` for one on another day.
+ *
+ * The weekday only when it carries information: the games shown by default
+ * all fall on one day, but the folded list spans the week, and a bare time
+ * there would not say which evening it meant.
+ */
 function fmtKickoff(epoch) {
   const seconds = Number(epoch);
   if (!Number.isFinite(seconds) || seconds <= 0) return "";
   try {
-    return new Date(seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const when = new Date(seconds * 1000);
+    const time = when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return isToday(seconds) ? time : `${when.toLocaleDateString([], { weekday: "short" })} ${time}`;
   } catch (err) {
     return "";
   }
@@ -452,14 +479,26 @@ function renderNflGame(game, options = {}) {
  * is a whole card's worth of obviously-interactive content, this is one line of
  * text and needs to say that it does something.
  */
-function renderFinalsToggle(count, open) {
+/**
+ * A row that folds part of the slate away: "12 later this week", "15 final".
+ *
+ * Both folds start shut. Finished games used to open themselves when nothing
+ * else was showing, on the theory that a card showing nothing is useless —
+ * but the week's end is exactly when the reader has stopped looking, and a
+ * card that unfolds sixteen results then is louder than one that says
+ * "16 final" and waits to be asked.
+ */
+function renderFoldToggle(kind, count, open) {
+  const plural = count === 1 ? "" : "s";
+  const label = kind === "final" ? `${count} final` : `${count} later this week`;
+  const what = kind === "final" ? `finished game${plural}` : `later game${plural}`;
   return `
-    <div class="ffl-nfl-finals${open ? " ffl-nfl-finals-open" : ""}"
-         role="button" tabindex="0" data-finals-toggle="1"
+    <div class="ffl-nfl-fold ffl-nfl-fold-${kind}${open ? " ffl-nfl-fold-open" : ""}"
+         role="button" tabindex="0" data-fold-toggle="${kind}"
          aria-expanded="${open ? "true" : "false"}"
-         aria-label="${open ? "Hide" : "Show"} ${count} finished game${count === 1 ? "" : "s"}">
-      <span class="ffl-nfl-finals-caret"></span>
-      <span>${count} final</span>
+         aria-label="${open ? "Hide" : "Show"} ${count} ${what}">
+      <span class="ffl-nfl-fold-caret"></span>
+      <span>${label}</span>
     </div>`;
 }
 
@@ -962,7 +1001,8 @@ class FflNflGamesCard extends FflBaseCard {
     // `null` means "not chosen yet", which is NOT the same as false — an
     // unchosen card opens the finals only when there is nothing else to show,
     // while an explicit false keeps them shut even on an all-final slate.
-    this._showFinal = null;
+    // Which folds the reader has opened. Both shut until asked.
+    this._folds = { later: false, final: false };
   }
 
   getCardSize() {
@@ -974,27 +1014,42 @@ class FflNflGamesCard extends FflBaseCard {
   }
 
   /**
-   * Live and upcoming games first, finished ones last.
+   * What shows by default, and what folds away.
+   *
+   * Live games always show. Of the scheduled ones, only those on the NEXT
+   * day that has a game — Thursday's game alone on a Tuesday, the whole
+   * Sunday slate on a Friday, Monday night's game once Sunday is done — and
+   * the rest of the week folds behind "N later this week". Finished games
+   * fold behind "N final". A Sunday afternoon therefore reads as the live
+   * games, then tonight's, with Monday's folded; the week's end reads as
+   * nothing but the two folds.
+   *
+   * "Next day" is the viewer's calendar day, see localDayKey. A scheduled
+   * game with no usable kickoff time shows rather than hides — a missing
+   * time is a reason to look, not to fold.
    *
    * Sorted here rather than in the sensor: the slate is served in kickoff
-   * order, which is the honest general-purpose shape, and "what is still worth
-   * watching" is a question about this card rather than about the data.
-   *
-   * Within each group the feed's kickoff order is preserved, so a live game
-   * sits above a scheduled one without needing a second rule — it kicked off
-   * earlier, which is exactly why it is live.
+   * order, which is the honest general-purpose shape, and "what is worth
+   * looking at" is a question about this card rather than about the data.
+   * Within each group the feed's kickoff order is preserved.
    */
   _split(rows) {
+    const live = [];
+    const pre = [];
     const done = [];
-    const active = [];
-    for (const game of rows) (game.state === "post" ? done : active).push(game);
-    return { active, done };
-  }
-
-  /** Are the finished games showing? Unchosen opens only on an empty slate. */
-  _finalsOpen(activeCount) {
-    if (this._showFinal === null || this._showFinal === undefined) return activeCount === 0;
-    return this._showFinal === true;
+    for (const game of rows) {
+      (game.state === "post" ? done : game.state === "in" ? live : pre).push(game);
+    }
+    const keys = pre.map((g) => localDayKey(g.start_time)).filter(Boolean);
+    const nextDay = keys.length
+      ? pre
+          .filter((g) => localDayKey(g.start_time))
+          .sort((a, b) => Number(a.start_time) - Number(b.start_time))
+          .map((g) => localDayKey(g.start_time))[0]
+      : "";
+    const soon = pre.filter((g) => !localDayKey(g.start_time) || localDayKey(g.start_time) === nextDay);
+    const later = pre.filter((g) => !soon.includes(g));
+    return { live, soon, later, done };
   }
 
   /** Scalar-only, like its sibling — never stringify the games array. */
@@ -1011,13 +1066,10 @@ class FflNflGamesCard extends FflBaseCard {
   }
 
   _onActivate(event) {
-    const finals = event.target.closest("[data-finals-toggle]");
-    if (finals) {
-      const st = this._stateObj();
-      const activeCount = st ? this._split(this._rows(st)).active.length : 0;
-      // Flip against what is actually showing, so the first click on an
-      // auto-opened list closes it rather than appearing to do nothing.
-      this._showFinal = !this._finalsOpen(activeCount);
+    const fold = event.target.closest("[data-fold-toggle]");
+    if (fold) {
+      const kind = fold.getAttribute("data-fold-toggle");
+      this._folds[kind] = !this._folds[kind];
       this._invalidate();
       return;
     }
@@ -1080,20 +1132,25 @@ class FflNflGamesCard extends FflBaseCard {
       this._paint(`<div class="ffl-placeholder">Waiting for the NFL schedule…</div>`);
       return;
     }
-    const live = Number(st.attributes.active_games) || 0;
+    const liveCount = Number(st.attributes.active_games) || 0;
     const header = `
       <div class="ffl-header">
         <span class="ffl-header-name">${escapeHtml(this.config.title || "NFL Games")}</span>
-        ${live ? `<span class="ffl-header-live">${live} live</span>` : ""}
+        ${liveCount ? `<span class="ffl-header-live">${liveCount} live</span>` : ""}
         <span class="ffl-header-week">${rows.length} games</span>
       </div>`;
 
-    const { active, done } = this._split(rows);
-    const open = this._finalsOpen(active.length);
-    const finals = done.length
-      ? `${renderFinalsToggle(done.length, open)}${open ? this._renderGames(done) : ""}`
-      : "";
-    this._paint(`${header}<div class="ffl-nfl-games">${this._renderGames(active)}${finals}</div>`);
+    const { live, soon, later, done } = this._split(rows);
+    const fold = (kind, games) =>
+      games.length
+        ? `${renderFoldToggle(kind, games.length, this._folds[kind])}${this._folds[kind] ? this._renderGames(games) : ""}`
+        : "";
+    this._paint(
+      `${header}<div class="ffl-nfl-games">${this._renderGames(live)}${this._renderGames(soon)}${fold(
+        "later",
+        later
+      )}${fold("final", done)}</div>`
+    );
   }
 }
 
@@ -1289,24 +1346,26 @@ const CARD_CSS = `
     font-size: 0.78rem; font-weight: 500; line-height: 1.25; color: var(--primary-text-color);
     white-space: normal; overflow-wrap: anywhere;
   }
-  .ffl-nfl-finals {
+  .ffl-nfl-fold {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 6px; margin-top: 2px; cursor: pointer; border-radius: 8px;
     font-size: 0.75rem; font-weight: 500; color: var(--secondary-text-color);
     text-transform: uppercase; letter-spacing: .04em;
   }
-  .ffl-nfl-finals:hover, .ffl-nfl-finals:focus-visible {
+  .ffl-nfl-fold:hover, .ffl-nfl-fold:focus-visible {
     background: var(--secondary-background-color); outline: none;
   }
-  .ffl-nfl-finals-caret {
+  .ffl-nfl-fold-caret {
     width: 0; height: 0;
     border-left: 4px solid transparent; border-right: 4px solid transparent;
     border-top: 5px solid currentColor;
     transition: transform 120ms ease-in-out;
   }
-  .ffl-nfl-finals-open .ffl-nfl-finals-caret { transform: rotate(180deg); }
-  /* A finished game is still readable, just not competing with a live one. */
-  .ffl-nfl-finals-open ~ .ffl-nfl-game .ffl-nfl-abbr { color: var(--secondary-text-color); }
+  .ffl-nfl-fold-open .ffl-nfl-fold-caret { transform: rotate(180deg); }
+  /* A finished game is still readable, just not competing with a live one.
+     Scoped to the FINAL fold: the later-this-week fold sits above it, and
+     its games are still to come. */
+  .ffl-nfl-fold-final.ffl-nfl-fold-open ~ .ffl-nfl-game .ffl-nfl-abbr { color: var(--secondary-text-color); }
 
   .ffl-nfl-plays { padding: 2px 6px 10px; }
   .ffl-nfl-playlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -1566,7 +1625,8 @@ if (typeof module !== "undefined" && module.exports) {
     renderNflField,
     renderNflTeam,
     renderNflPlays,
-    renderFinalsToggle,
+    renderFoldToggle,
+    localDayKey,
     fmtKickoff,
     findFflEntity,
     findNflGamesEntity,

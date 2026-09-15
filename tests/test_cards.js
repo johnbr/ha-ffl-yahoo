@@ -45,7 +45,8 @@ const {
   renderNflPlays,
   fmtKickoff,
   findNflGamesEntity,
-  renderFinalsToggle,
+  renderFoldToggle,
+  localDayKey,
   FflNflGamesCard,
 } = cards;
 
@@ -928,13 +929,25 @@ test("the games entity is found by its games array, not its id", () => {
   assert.equal(findNflGamesEntity({}), "");
 });
 
-/* ------------------------------------------------- finished games, folded */
+/* ------------------------------------------- what shows, and what folds */
+
+// Kickoffs on distinct local days, built from local components so the test
+// means the same thing in every zone the runner might be in.
+const at = (dayOffset, hour) => {
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(hour, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
+};
 
 const SLATE = [
   { ...GAME_LIVE, game_id: "live1", state: "in" },
   { ...GAME_LIVE, game_id: "done1", state: "post", clock_text: "Final" },
-  { ...GAME_LIVE, game_id: "soon1", state: "pre", clock_text: "" },
+  { ...GAME_LIVE, game_id: "thu1", state: "pre", clock_text: "", start_time: at(1, 17) },
+  { ...GAME_LIVE, game_id: "sun1", state: "pre", clock_text: "", start_time: at(4, 10) },
+  { ...GAME_LIVE, game_id: "sun2", state: "pre", clock_text: "", start_time: at(4, 13) },
   { ...GAME_LIVE, game_id: "done2", state: "post", clock_text: "Final" },
+  { ...GAME_LIVE, game_id: "thu2", state: "pre", clock_text: "", start_time: at(1, 20) },
 ];
 
 function nflCard() {
@@ -943,44 +956,65 @@ function nflCard() {
   return card;
 }
 
-test("finished games sort below everything still worth watching", () => {
-  const { active, done } = nflCard()._split(SLATE);
-  assert.deepEqual(active.map((g) => g.game_id), ["live1", "soon1"]);
+test("live games, then only the next game day's, with the rest folded", () => {
+  const { live, soon, later, done } = nflCard()._split(SLATE);
+  assert.deepEqual(live.map((g) => g.game_id), ["live1"]);
+  assert.deepEqual(soon.map((g) => g.game_id), ["thu1", "thu2"], "both of tomorrow's games, nothing later");
+  assert.deepEqual(later.map((g) => g.game_id), ["sun1", "sun2"]);
   assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
 });
 
+test("the next game day is whichever comes first, not today", () => {
+  // Nothing today: Sunday is the next day with a game, so Sunday shows.
+  const sundayOnly = SLATE.filter((g) => !g.game_id.startsWith("thu"));
+  const { soon, later } = nflCard()._split(sundayOnly);
+  assert.deepEqual(soon.map((g) => g.game_id), ["sun1", "sun2"]);
+  assert.deepEqual(later, []);
+});
+
+test("a scheduled game with no kickoff time shows rather than hides", () => {
+  const { soon } = nflCard()._split([{ ...GAME_LIVE, game_id: "x", state: "pre", start_time: null }, ...SLATE]);
+  assert.ok(soon.some((g) => g.game_id === "x"));
+});
+
 test("the feed's kickoff order survives inside each group", () => {
-  // live1 before soon1 because it kicked off earlier — no second rule needed.
-  const { active } = nflCard()._split(SLATE);
-  assert.equal(active[0].game_id, "live1");
+  const { soon } = nflCard()._split(SLATE);
+  assert.deepEqual(soon.map((g) => g.game_id), ["thu1", "thu2"]);
 });
 
-test("finished games start hidden while anything else is showing", () => {
+test("both folds start shut, even on an all-final slate", () => {
+  // The week's end is when the reader has stopped looking; sixteen results
+  // unfolding then is louder than "16 final" waiting to be asked.
   const card = nflCard();
-  assert.equal(card._finalsOpen(2), false);
+  assert.deepEqual(card._folds, { later: false, final: false });
 });
 
-test("an all-final slate opens rather than hiding every game behind a click", () => {
-  const card = nflCard();
-  assert.equal(card._finalsOpen(0), true, "a card showing nothing is useless");
-});
-
-test("an explicit choice beats the default in both directions", () => {
-  const card = nflCard();
-  card._showFinal = true;
-  assert.equal(card._finalsOpen(5), true, "opened by hand, kept open");
-  card._showFinal = false;
-  assert.equal(card._finalsOpen(0), false, "closed by hand, kept shut on an all-final slate");
-});
-
-test("the finals toggle says how many and which way it points", () => {
-  const shut = renderFinalsToggle(8, false);
+test("the fold toggles say how many and which way they point", () => {
+  const shut = renderFoldToggle("final", 8, false);
   assert.ok(shut.includes("8 final"));
+  assert.ok(shut.includes('data-fold-toggle="final"'));
   assert.ok(shut.includes('aria-expanded="false"'));
   assert.ok(shut.includes("Show 8 finished games"));
 
-  const open = renderFinalsToggle(1, true);
-  assert.ok(open.includes("ffl-nfl-finals-open"));
+  const open = renderFoldToggle("final", 1, true);
+  assert.ok(open.includes("ffl-nfl-fold-open"));
   assert.ok(open.includes('aria-expanded="true"'));
   assert.ok(open.includes("Hide 1 finished game"), "singular reads properly");
+
+  const later = renderFoldToggle("later", 12, false);
+  assert.ok(later.includes("12 later this week"));
+  assert.ok(later.includes("Show 12 later games"));
+});
+
+test("only the final fold dims the games beneath it", () => {
+  assert.match(CARD_CSS, /\.ffl-nfl-fold-final\.ffl-nfl-fold-open ~ \.ffl-nfl-game/);
+  // ...and no unscoped version that would catch the later-this-week fold too.
+  assert.doesNotMatch(CARD_CSS, /(?<![\w-])\.ffl-nfl-fold-open ~ \.ffl-nfl-game/);
+});
+
+test("a kickoff on another day carries its weekday", () => {
+  assert.doesNotMatch(fmtKickoff(at(0, 13)), /^[A-Z][a-z]{2} /, "today is just the time");
+  assert.match(fmtKickoff(at(3, 13)), /^[A-Z][a-z]{2} /, "another day names itself");
+  assert.equal(localDayKey(at(2, 1)), localDayKey(at(2, 23)), "one key per local day");
+  assert.notEqual(localDayKey(at(2, 23)), localDayKey(at(3, 1)));
 });
