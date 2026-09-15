@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.10.0...v0.11.0) (2026-09-15)
+
+
+### Features
+
+* draw each live NFL game's field as a bar under the clubs ([b2dcc21](https://github.com/johnbr/ha-ffl-yahoo/commit/b2dcc215f6d5bd396c92a45f131cda0ff8aded00))
+* wrap the row's play line and break it between player and result ([26e1399](https://github.com/johnbr/ha-ffl-yahoo/commit/26e139942f4b18bf7974a87dcebff6f56d092af8))
+
+
+### Bug Fixes
+
+* keep the projections under the scores and the live badge centred ([f84a307](https://github.com/johnbr/ha-ffl-yahoo/commit/f84a3077781d67b3077fa19d815e60f41303260d))
+* wrap the lineup stat line instead of truncating it ([dd6eb02](https://github.com/johnbr/ha-ffl-yahoo/commit/dd6eb021cfe7b14708973473df2179b240fe5e5f))
+
 ## [0.10.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.9.0...v0.10.0) (2026-09-15)
 
 
