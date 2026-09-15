@@ -670,6 +670,23 @@ def test_the_short_form_is_player_first_and_drops_the_repeated_category() -> Non
     assert short_describe(event) == "T. Etienne Jr. 1 rec, 1 yd"
 
 
+def test_the_short_form_splits_between_the_player_and_the_result() -> None:
+    """The card breaks the line between the halves when a row is too narrow,
+    so the halves have to be exactly what the joined form is made of."""
+    from yahoo_fantasy_football.plays import short_describe, short_parts
+
+    event = replace(
+        _scoring_event("33413", stat_delta="1 Rec, 23 Rec Yds, 1 Rec TD"),
+        player_name="Amon-Ra St. Brown",
+    )
+    assert short_parts(event) == ("A. St. Brown", "1 rec, 23 yds, 1 TD")
+    assert " ".join(short_parts(event)) == short_describe(event)
+
+    # Nothing to say about the stat line: the delta is the result.
+    bare = replace(_scoring_event("33413", stat_delta=""), player_name="Justin Herbert")
+    assert short_parts(bare) == ("J. Herbert", f"{bare.delta:+.2f}")
+
+
 def test_the_short_form_keeps_a_category_nothing_else_established() -> None:
     """Alone, the yards must still say what they were for."""
     from yahoo_fantasy_football.yahoo_redzone import shorten_stat_delta

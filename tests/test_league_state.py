@@ -202,6 +202,9 @@ def test_a_play_renders_with_text_for_the_banner() -> None:
     assert d["delta"] == pytest.approx(6.4)
     assert d["text"]
     assert d["correction"] is False
+    # The row's compact form travels whole AND in halves, and they agree.
+    assert d["short_text"] == f"{d['short_who']} {d['short_what']}"
+    assert d["short_who"] and d["short_what"]
 
 
 # ---------------------------------------------------------------------------

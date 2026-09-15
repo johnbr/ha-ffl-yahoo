@@ -232,15 +232,27 @@ function renderRowPlay(play, matchupId, open) {
   // The full sentence is not lost, it is what the expanded play list shows;
   // here it would lead with a quarterback nobody rosters and force a wrap.
   // Falls back to `text` so a payload from an older integration still renders.
-  const text = `<span class="ffl-row-play-text">${escapeHtml(play.short_text || play.text)}</span>`;
-  const delta = `<span class="ffl-row-play-delta">${escapeHtml(fmtDelta(play.delta))}</span>`;
+  // No point delta here — the row already shows the live projection moving,
+  // and "+2.80" beside a five-word play was the part that forced the line to
+  // truncate on a phone. The delta is on every row of the expanded play list.
+  //
+  // The player and the result are two boxes, not one run of text, so that a
+  // row too narrow for both breaks BETWEEN them — "A. St. Brown" over
+  // "1 rec, 23 yd, 1 TD" — instead of wherever the width runs out. A payload
+  // without the halves (an older integration) still renders as one span.
+  const text =
+    play.short_who && play.short_what
+      ? `<span class="ffl-row-play-who">${escapeHtml(play.short_who)}</span> <span class="ffl-row-play-what">${escapeHtml(
+          play.short_what
+        )}</span>`
+      : escapeHtml(play.short_text || play.text);
   return `
     <div class="ffl-row-play ffl-play-${side}${play.correction ? " ffl-correction" : ""}${open ? " ffl-play-open" : ""}"
          role="button" tabindex="0" data-history="1"
          data-matchup-id="${escapeHtml(matchupId || "")}"
          aria-expanded="${open ? "true" : "false"}"
          aria-label="Show scoring play history">
-      ${side === "away" ? text + delta : delta + text}
+      <span class="ffl-row-play-text">${text}</span>
     </div>`;
 }
 
@@ -1160,23 +1172,27 @@ const CARD_CSS = `
        showed up on exactly the matchups whose last score went right, which
        read as a data problem rather than a layout one. */
     grid-column: 1; grid-row: 1;
-    display: flex; align-items: baseline; gap: 6px;
-    padding: 1px 4px; font-size: 0.8rem; color: var(--secondary-text-color);
-    cursor: pointer; border-radius: 6px;
+    min-width: 0; padding: 1px 4px; font-size: 0.8rem; line-height: 1.2;
+    color: var(--secondary-text-color); cursor: pointer; border-radius: 6px;
   }
-  .ffl-play-away { grid-column: 3; }
   .ffl-row-play:hover, .ffl-row-play:focus-visible { background: var(--secondary-background-color); outline: none; }
-  /* The delta sits on the OUTSIDE edge of the team that earned it, with the
-     description reading inward — position alone then says which side scored. */
-  .ffl-play-home { justify-content: flex-start; }
-  .ffl-play-away { justify-content: flex-end; }
-  .ffl-play-unknown { justify-content: space-between; }
-  /* The play text is the variable-length part, so it is the part that
-     truncates; the delta is short and always worth showing in full. */
-  .ffl-row-play-text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ffl-play-unknown .ffl-row-play-text { flex: 1 1 auto; }
-  .ffl-row-play-delta { flex: none; font-variant-numeric: tabular-nums; color: var(--primary-color); }
-  .ffl-row-play.ffl-correction .ffl-row-play-delta { color: var(--error-color); }
+  /* Reads inward from the scoring team's edge — position alone says which
+     side scored, the same way the team names do. */
+  .ffl-play-home { text-align: start; }
+  .ffl-play-away { grid-column: 3; text-align: end; }
+  /* Wraps like the team name above it, and for the same reason: a phone's
+     side track is ~100px and an ellipsis there ate the yardage, which is the
+     part worth reading. The player and the result are inline-blocks, which
+     is what makes the break land between them: an inline-block is atomic to
+     the line breaker, so the result moves to the next line whole when it
+     does not fit beside the name. The name never breaks internally; the
+     result still may, as a last resort on a very narrow row. */
+  .ffl-row-play-text { white-space: normal; overflow-wrap: anywhere; }
+  .ffl-row-play-who { display: inline-block; white-space: nowrap; }
+  .ffl-row-play-what { display: inline-block; }
+  /* A play that took points away — a pick, a fumble, a loss — reads in the
+     error colour now that there is no red delta to carry that. */
+  .ffl-row-play.ffl-correction { color: var(--error-color); }
 
   /* ---- NFL games ---- */
   .ffl-nfl-games { display: flex; flex-direction: column; gap: 2px; }

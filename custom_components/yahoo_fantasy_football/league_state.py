@@ -16,7 +16,7 @@ from .const import (
     SCAN_INTERVAL_LIVE_SECONDS,
     SCAN_INTERVAL_NEAR_GAME_SECONDS,
 )
-from .plays import PlayFeed, ScoringEvent, describe, short_describe
+from .plays import PlayFeed, ScoringEvent, describe, short_describe, short_parts
 from .web_client import LeagueData
 
 # How many plays ride along in entity attributes. The full history is served on
@@ -207,6 +207,7 @@ def _player_dict(player: Any) -> dict[str, Any]:
 
 def play_dict(event: ScoringEvent) -> dict[str, Any]:
     """One scoring event, as the banner and history overlay want it."""
+    short_who, short_what = short_parts(event)
     return {
         "event_id": event.event_id,
         "text": describe(event),
@@ -214,6 +215,10 @@ def play_dict(event: ScoringEvent) -> dict[str, Any]:
         # ``text`` so the row can stay terse while the expanded play list keeps
         # Yahoo's full sentence.
         "short_text": short_describe(event),
+        # ...and its two halves, so the row can break between the player and
+        # what they did rather than wherever the width happens to run out.
+        "short_who": short_who,
+        "short_what": short_what,
         "stat_delta": event.stat_delta,
         "player": event.player_name,
         "team_key": event.team_key,

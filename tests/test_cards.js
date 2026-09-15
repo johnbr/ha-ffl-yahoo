@@ -199,10 +199,13 @@ test("a row carries the identifiers the click handler reads", () => {
 
 /* ------------------------------------------------------------- play line */
 
-test("the play line shows the play text and its delta", () => {
+test("the play line shows the play text but not its delta", () => {
+  // The delta lives on the expanded play list only; on the row it was the
+  // part that forced a phone-width line to truncate.
   const html = renderRowPlay({ text: "Nacua 24 Yd TD", delta: 6.4, side: "home" }, "w1.m1");
   assert.ok(html.includes("Nacua 24 Yd TD"));
-  assert.ok(html.includes("+6.40"));
+  assert.ok(!html.includes("+6.40"));
+  assert.ok(!html.includes("play-delta"));
   assert.ok(html.includes("data-history"), "the play line must open the history overlay");
   assert.ok(html.includes('data-matchup-id="w1.m1"'), "history must be scoped to this matchup");
 });
@@ -242,15 +245,19 @@ test("the expanded history keeps Yahoo's full sentence", () => {
   assert.ok(html.includes("Tyler Shough passed to Travis Etienne Jr."));
 });
 
+// The declaration block of one CSS rule, by its selector. A `{` on the
+// selector's own line is what keeps `.ffl-row-play` from matching
+// `.ffl-row-play-text`.
+const rule = (selector) => {
+  const at = CARD_CSS.indexOf(selector + " {");
+  assert.ok(at !== -1, `${selector} rule not found`);
+  return CARD_CSS.slice(at, CARD_CSS.indexOf("}", at));
+};
+
 test("both foot children are pinned to one grid row", () => {
   // Grid packs sparsely: an AWAY play takes column 3, pushing the cursor past
   // column 2, so a sibling with only a column set wraps to a second row. That
   // made every away-scoring matchup a line taller and read as a data problem.
-  const rule = (selector) => {
-    const at = CARD_CSS.indexOf(selector + " {");
-    assert.ok(at !== -1, `${selector} rule not found`);
-    return CARD_CSS.slice(at, CARD_CSS.indexOf("}", at));
-  };
   assert.match(rule(".ffl-row-play"), /grid-row:\s*1/);
   assert.match(rule(".ffl-rowprojs"), /grid-row:\s*1/);
 });
@@ -267,9 +274,32 @@ test("the play aligns to the side of the team that scored it", () => {
   const away = renderRowPlay({ text: "T", delta: 6, side: "away" }, "m");
   assert.ok(home.includes("ffl-play-home"));
   assert.ok(away.includes("ffl-play-away"));
-  // Delta outermost: first for the left-hand team, last for the right-hand one.
-  assert.ok(home.indexOf("play-delta") < home.indexOf("play-text"));
-  assert.ok(away.indexOf("play-delta") > away.indexOf("play-text"));
+  // Alignment is the CSS's job — text-align follows the side, like the names.
+  assert.match(rule(".ffl-play-home"), /text-align:\s*start/);
+  assert.match(rule(".ffl-play-away"), /text-align:\s*end/);
+});
+
+test("the row play text wraps instead of truncating", () => {
+  assert.match(rule(".ffl-row-play-text"), /white-space:\s*normal/);
+  assert.doesNotMatch(rule(".ffl-row-play-text"), /text-overflow/);
+});
+
+test("a narrow row breaks between the player and the result, not inside either", () => {
+  const html = renderRowPlay(
+    { text: "x", short_text: "A. St. Brown 1 rec, 23 yds, 1 TD", short_who: "A. St. Brown", short_what: "1 rec, 23 yds, 1 TD", side: "home" },
+    "m"
+  );
+  assert.match(html, /<span class="ffl-row-play-who">A\. St\. Brown<\/span> <span class="ffl-row-play-what">1 rec, 23 yds, 1 TD<\/span>/);
+  // Atomic to the line breaker, and the name itself never splits.
+  assert.match(rule(".ffl-row-play-who"), /display:\s*inline-block/);
+  assert.match(rule(".ffl-row-play-who"), /white-space:\s*nowrap/);
+  assert.match(rule(".ffl-row-play-what"), /display:\s*inline-block/);
+});
+
+test("a payload without the halves still renders as one run of text", () => {
+  const html = renderRowPlay({ text: "x", short_text: "T. Etienne Jr. 1 rec, 1 yd", side: "home" }, "m");
+  assert.ok(html.includes("T. Etienne Jr. 1 rec, 1 yd"));
+  assert.ok(!html.includes("ffl-row-play-who"));
 });
 
 test("a play whose side cannot be resolved still renders", () => {

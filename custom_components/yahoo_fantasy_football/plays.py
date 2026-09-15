@@ -438,6 +438,24 @@ def describe(event: ScoringEvent) -> str:
     return f"{who} {event.delta:+.2f}"
 
 
+def short_parts(event: ScoringEvent) -> tuple[str, str]:
+    """``("T. Etienne Jr.", "1 rec, 1 yd")`` — who, and what they did.
+
+    The two halves of :func:`short_describe`, kept apart so the card can put
+    the line break BETWEEN them when a row is too narrow for both: "A. St.
+    Brown" over "1 rec, 23 yd, 1 TD" reads, "A. St. Brown 1 rec," over
+    "23 yd, 1 TD" does not.
+    """
+    who = abbreviate_name(event.player_name)
+    if event.correction:
+        return who, f"{event.delta:+.2f} (stat correction)"
+    if event.stat_delta:
+        from .yahoo_redzone import shorten_stat_delta
+
+        return who, shorten_stat_delta(event.stat_delta)
+    return who, f"{event.delta:+.2f}"
+
+
 def short_describe(event: ScoringEvent) -> str:
     """``T. Etienne Jr. 1 rec, 1 yd`` — the fantasy-side view of an event.
 
@@ -451,14 +469,7 @@ def short_describe(event: ScoringEvent) -> str:
     The long form is not lost: it is what the expanded play list shows, and
     what an NFL-games view would want, where the play itself is the subject.
     """
-    who = abbreviate_name(event.player_name)
-    if event.correction:
-        return f"{who} {event.delta:+.2f} (stat correction)"
-    if event.stat_delta:
-        from .yahoo_redzone import shorten_stat_delta
-
-        return f"{who} {shorten_stat_delta(event.stat_delta)}"
-    return f"{who} {event.delta:+.2f}"
+    return " ".join(short_parts(event))
 
 
 # ---------------------------------------------------------------------------
