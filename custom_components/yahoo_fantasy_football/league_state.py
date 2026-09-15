@@ -82,7 +82,18 @@ def _team_dict(team: Any) -> dict[str, Any]:
         "points": team.points,
         "projected": team.projected,
         "live_projected": team.live_projected,
+        "remaining": getattr(team, "remaining", None),
     }
+
+
+def matchup_final(home: Any, away: Any) -> bool:
+    """Is this matchup's result in — nobody on either side left to play?
+
+    Both sides have to KNOW they have nobody left; a tier that cannot count
+    (``remaining`` of ``None``) never declares a winner. This is what colours
+    the winning score, so a false positive would crown a team mid-game.
+    """
+    return getattr(home, "remaining", None) == 0 and getattr(away, "remaining", None) == 0
 
 
 def matchup_rows(data: LeagueData, feed: PlayFeed | None = None) -> list[dict[str, Any]]:
@@ -126,6 +137,7 @@ def matchup_rows(data: LeagueData, feed: PlayFeed | None = None) -> list[dict[st
                 "away": _team_dict(away),
                 "leader": leader,
                 "win_prob": win_probability(home, away),
+                "final": matchup_final(home, away),
                 "has_roster": index < len(data.matchups),
                 "last_play": _row_play(last, home, away),
             }

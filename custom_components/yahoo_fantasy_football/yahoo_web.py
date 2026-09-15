@@ -142,6 +142,12 @@ class WebTeam:
     projected: float | None = None
     live_projected: float | None = None
     """The starters' live projections, summed. Matches Yahoo's "Proj Pts"."""
+    remaining: int | None = None
+    """Starters whose game has not finished — still to kick off, or running.
+
+    ``None`` from a tier that cannot tell. Zero on both sides of a matchup is
+    what makes its result final: nobody left who could move the score.
+    """
     remaining_var: float = 0.0
     """Sum of the squares of the starters' still-to-come projections.
 

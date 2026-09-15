@@ -1028,6 +1028,10 @@ def _team(team: dict[str, Any], roster: list[WebPlayer]) -> WebTeam:
         points=round(sum(p.points or 0.0 for p in starters), 2),
         projected=float(projected) if projected not in (None, "") else None,
         live_projected=live,
+        # "in" counts: a player on the field can still move the score. A
+        # missing game (``unknown`` — a bye, or a feed that arrived short)
+        # does not, or a bye-week starter would keep a matchup open all week.
+        remaining=sum(1 for p in starters if p.game_state in ("pre", "in")),
         remaining_var=round(
             sum(max(0.0, (p.live_projected or 0.0) - (p.points or 0.0)) ** 2 for p in starters), 4
         ),

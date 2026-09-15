@@ -42,6 +42,7 @@ const {
   renderHistory,
   renderNflGame,
   renderNflField,
+  scoreClass,
   renderNflPlays,
   fmtKickoff,
   findNflGamesEntity,
@@ -120,6 +121,21 @@ test("a collapsed row shows names and scores, and nothing else", () => {
   assert.ok(!html.includes("138.49"), "the home projection must not be on the row");
   assert.ok(!html.includes("126.61"), "the away projection must not be on the row");
   assert.ok(!html.includes("ffl-projs"), "no projection block on a collapsed row");
+});
+
+test("the winning score turns gold only once the matchup is decided", () => {
+  // `final` is the integration's word: neither team has a starter left to
+  // play. A leader mid-week is only ahead.
+  const ahead = renderMatchupRow(ROW);
+  assert.ok(!ahead.includes("ffl-won"));
+  const decided = renderMatchupRow({ ...ROW, final: true });
+  assert.match(decided, /class="ffl-score ffl-leader ffl-won">180\.67</);
+  assert.match(decided, /class="ffl-score">104\.09</, "the loser is not marked");
+  // A tie has no leader, so nothing to colour even when it is over.
+  assert.ok(!renderMatchupRow({ ...ROW, leader: null, final: true }).includes("ffl-won"));
+  assert.equal(scoreClass(true, true), " ffl-leader ffl-won");
+  assert.equal(scoreClass(true, false), " ffl-leader");
+  assert.equal(scoreClass(false, true), "");
 });
 
 test("the collapsed row shows both live projections, coloured", () => {
@@ -893,6 +909,22 @@ test("a finished game says Final and carries no live situation", () => {
   assert.ok(html.includes("Final"));
   assert.ok(!html.includes("ffl-nfl-situation"));
   assert.ok(!html.includes("ffl-nfl-live"), "a final game is not live");
+});
+
+test("a finished game marks the winner's score gold; a live leader is only ahead", () => {
+  // Split on the team div only — `ffl-nfl-teams`, the wrapper, shares the prefix.
+  const blocks = (html) => html.split(/<div class="ffl-nfl-team[" ]/).slice(1);
+  const live = blocks(renderNflGame(GAME_LIVE));
+  assert.ok(live.every((b) => !b.includes("ffl-nfl-won")));
+
+  const done = blocks(renderNflGame({ ...GAME_LIVE, state: "post", clock_text: "Final" }));
+  assert.ok(!done[0].includes("ffl-nfl-won"), "NO lost 17-24");
+  assert.ok(done[1].includes("ffl-nfl-won"), "Det won");
+  assert.ok(done[1].includes("ffl-nfl-lead"), "and is still the leader");
+
+  const tied = renderNflGame({ ...GAME_LIVE, state: "post", away: { ...GAME_LIVE.away, score: 24 } });
+  assert.ok(!tied.includes("ffl-nfl-won"), "a tie crowns nobody");
+  assert.match(rule(".ffl-score.ffl-won, .ffl-nfl-won .ffl-nfl-score"), /--ffl-winner-color/);
 });
 
 test("a game is only expanded when it is the open one", () => {

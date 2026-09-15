@@ -103,6 +103,33 @@ def test_a_tie_has_no_leader() -> None:
     assert matchup_rows(tied)[0]["leader"] is None
 
 
+def test_a_matchup_is_final_only_when_nobody_on_either_side_is_left() -> None:
+    """This colours the winning score, so a false positive would crown a team
+    mid-game. Both sides must KNOW they have nobody left; None never counts."""
+    from dataclasses import replace
+
+    from yahoo_fantasy_football.league_state import matchup_final
+
+    # The HTML tier cannot count, so its rows are never final.
+    home, away = DATA.standings[0]
+    assert home.remaining is None
+    assert matchup_rows(DATA)[0]["final"] is False
+    # The GameChannel tier can, and the week-1 capture is mid-slate.
+    live = _slate()
+    assert all(h.remaining and a.remaining for h, a in live.standings)
+    assert not any(r["final"] for r in matchup_rows(live))
+
+    done = (replace(home, remaining=0), replace(away, remaining=0))
+    assert matchup_final(*done) is True
+    assert matchup_rows(replace(DATA, standings=[done]))[0]["final"] is True
+    assert matchup_final(replace(home, remaining=0), away) is False, "one side still playing"
+    assert matchup_final(replace(home, remaining=None), replace(away, remaining=0)) is False, (
+        "a tier that cannot count never declares"
+    )
+    # The count rides along on each side, so a card can say "3 left" if it wants.
+    assert matchup_rows(live)[0]["home"]["remaining"] == live.standings[0][0].remaining
+
+
 def test_rows_come_from_the_scoreboard_so_a_failed_roster_still_scores() -> None:
     """A matchup whose roster fetch failed must still show its score."""
     from dataclasses import replace

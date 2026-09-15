@@ -289,6 +289,18 @@ def test_team_totals_count_starters_only(league):
         assert team.points < round(sum(p.points for p in roster), 2)
 
 
+def test_a_team_counts_the_starters_still_to_play(league):
+    """What decides whether a matchup's result is in. The capture has one live
+    game and fifteen scheduled, so every team still has somebody to play; a
+    bench player never counts, and neither does a starter with no game."""
+    for m in league.matchups:
+        for side in (0, 1):
+            team, roster = m.teams[side], m.roster(side)
+            expected = sum(1 for p in roster if p.starter and p.game_state in ("pre", "in"))
+            assert team.remaining == expected
+            assert team.remaining > 0, "nobody is finished in the week-1 capture"
+
+
 def test_team_defense_is_scored_from_the_team_feed(league):
     """A D/ST has ``primaryPosition: null`` and its stats live under an NFL
     team id, not the synthetic ``100000+`` fantasy id on the roster."""

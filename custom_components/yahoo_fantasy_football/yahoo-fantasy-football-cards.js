@@ -378,12 +378,12 @@ function renderRowFoot(row, playsOpen) {
  * game's status column, because "who has the ball" is a fact about a side and
  * putting it anywhere else makes the reader work out which one it means.
  */
-function renderNflTeam(side, isLeader) {
+function renderNflTeam(side, isLeader, won = false) {
   const ball = side.has_ball ? `<span class="ffl-poss" aria-label="has the ball">🏈</span>` : "";
   const rz = side.red_zone ? `<span class="ffl-rz" aria-label="in the red zone">RZ</span>` : "";
   const score = side.score === null || side.score === undefined ? "" : String(side.score);
   return `
-    <div class="ffl-nfl-team${isLeader ? " ffl-nfl-lead" : ""}">
+    <div class="ffl-nfl-team${isLeader ? " ffl-nfl-lead" : ""}${won ? " ffl-nfl-won" : ""}">
       <span class="ffl-nfl-abbr">${escapeHtml(side.abbr || side.team_id || "")}</span>
       ${ball}${rz}
       <span class="ffl-nfl-score">${escapeHtml(score)}</span>
@@ -430,6 +430,9 @@ function renderNflGame(game, options = {}) {
   const home = game.home || {};
   const awayLead = Number(away.score) > Number(home.score);
   const homeLead = Number(home.score) > Number(away.score);
+  // Gold for the winner once the game is over — the same mark the league
+  // card puts on a decided matchup. A leader in a running game is only ahead.
+  const over = game.state === "post";
 
   const clock =
     game.state === "pre" ? fmtKickoff(game.start_time) || "Scheduled" : game.clock_text || "";
@@ -458,8 +461,8 @@ function renderNflGame(game, options = {}) {
            aria-expanded="${open ? "true" : "false"}"
            aria-label="${escapeHtml(`${away.abbr || ""} ${away.score ?? ""} at ${home.abbr || ""} ${home.score ?? ""}`)}">
         <div class="ffl-nfl-teams">
-          ${renderNflTeam(away, awayLead)}
-          ${renderNflTeam(home, homeLead)}
+          ${renderNflTeam(away, awayLead, over && awayLead)}
+          ${renderNflTeam(home, homeLead, over && homeLead)}
         </div>
         <div class="ffl-nfl-status">
           <div class="ffl-nfl-clock${game.state === "in" ? " ffl-nfl-clock-live" : ""}">${escapeHtml(clock)}</div>
@@ -523,6 +526,17 @@ function renderNflPlays(plays) {
     </ul>`;
 }
 
+/**
+ * A score's emphasis: bold for the side ahead, and gold once that lead is a
+ * result. `final` is the integration's word — true only when neither team
+ * has a starter left to play — so a team is never crowned mid-game; a tie
+ * has no leader and so nothing to colour.
+ */
+function scoreClass(isLeader, final) {
+  if (!isLeader) return "";
+  return final ? " ffl-leader ffl-won" : " ffl-leader";
+}
+
 function renderMatchupRow(row, options = {}) {
   const { home, away, leader } = row;
   const expanded = options.expanded === true;
@@ -546,9 +560,9 @@ function renderMatchupRow(row, options = {}) {
            aria-label="${escapeHtml(`${home.name} ${fmtPoints(home.points)}, ${away.name} ${fmtPoints(away.points)}`)}">
         ${renderTeamSide(home, leader === home.team_id, "start")}
         <div class="ffl-scores">
-          <span class="ffl-score${leader === home.team_id ? " ffl-leader" : ""}">${fmtPoints(home.points)}</span>
+          <span class="ffl-score${scoreClass(leader === home.team_id, row.final)}">${fmtPoints(home.points)}</span>
           <span class="ffl-vs">–</span>
-          <span class="ffl-score${leader === away.team_id ? " ffl-leader" : ""}">${fmtPoints(away.points)}</span>
+          <span class="ffl-score${scoreClass(leader === away.team_id, row.final)}">${fmtPoints(away.points)}</span>
         </div>
         ${renderTeamSide(away, leader === away.team_id, "end")}
       </div>
@@ -745,7 +759,7 @@ class FflBaseCard extends HTMLElement {
     const parts = [this.constructor.name, st.state, st.attributes.week, st.attributes.partial ? 1 : 0];
     for (const r of rows) {
       parts.push(r.matchup_id, r.home.points, r.away.points, r.home.projected, r.away.projected, r.leader);
-      parts.push(r.home.live_projected, r.away.live_projected, r.win_prob);
+      parts.push(r.home.live_projected, r.away.live_projected, r.win_prob, r.final ? 1 : 0);
       // A correction can leave the score unchanged while the row's play text
       // changes, so the play's identity has to be in the fingerprint or the
       // guard suppresses a repaint the user is waiting on.
@@ -1471,6 +1485,10 @@ const CARD_CSS = `
   .ffl-rowproj { font-size: 0.72rem; font-weight: 600; line-height: 1.1; }
   .ffl-score { font-size: 0.9rem; color: var(--secondary-text-color); }
   .ffl-score.ffl-leader { color: var(--primary-text-color); font-weight: 700; }
+  /* A decided result: the winning score in gold, on both cards. One token
+     so a theme can pick its own shade — the default is a yellow that still
+     reads on a light card, where a pure yellow would not. */
+  .ffl-score.ffl-won, .ffl-nfl-won .ffl-nfl-score { color: var(--ffl-winner-color, #fbc02d); }
   .ffl-vs { color: var(--secondary-text-color); font-size: 0.8rem; }
 
   .ffl-stale { font-size: 0.75rem; color: var(--warning-color); padding: 4px 6px; }
@@ -1623,6 +1641,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderHistory,
     renderNflGame,
     renderNflField,
+    scoreClass,
     renderNflTeam,
     renderNflPlays,
     renderFoldToggle,
