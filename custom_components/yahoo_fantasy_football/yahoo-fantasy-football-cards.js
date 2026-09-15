@@ -1190,9 +1190,13 @@ const CARD_CSS = `
   /* Three tracks so the play line sits on its own scoring side — column 1 for
      home, column 3 for away. The foot is not rendered at all when there is no
      play, so a quiet matchup costs nothing. */
+  /* Baseline, not centre: the projections share the FIRST line's baseline
+     with the play, so a play that wraps to two or three lines grows
+     downward under them and they stay put beneath the scores. Centred, a
+     long play dragged them down with it. */
   .ffl-row-foot {
     display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: center; gap: 6px; padding: 0 6px 4px;
+    align-items: baseline; gap: 6px; padding: 0 6px 4px;
   }
   .ffl-row-play {
     /* Row pinned explicitly, and it matters: with the projections beside it,
@@ -1310,24 +1314,29 @@ const CARD_CSS = `
   }
   .ffl-nfl-play-text { min-width: 0; font-weight: 500; color: var(--primary-text-color); }
 
+  /* Three tracks with the badge in the middle one, so "1 LIVE" sits at the
+     card's centre on every card. As a space-between flex row its position
+     depended on how wide the title was, and "NFL Games" pushed it visibly
+     right of where "Kush" left it on the card above. Each part names its
+     column so a missing badge or week cannot shuffle the others over. */
   .ffl-header {
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 12px; padding: 2px 6px 10px; margin-bottom: 6px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: baseline; gap: 12px; padding: 2px 6px 10px; margin-bottom: 6px;
     border-bottom: 1px solid var(--divider-color);
   }
   .ffl-header-name {
-    font-size: 1.15rem; font-weight: 600; color: var(--primary-text-color);
+    grid-column: 1; font-size: 1.15rem; font-weight: 600; color: var(--primary-text-color);
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .ffl-header-live {
-    flex: none; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+    grid-column: 2; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
     letter-spacing: .04em; color: var(--success-color, #43a047);
     border: 1px solid currentColor; border-radius: 10px; padding: 1px 6px;
     white-space: nowrap;
   }
   .ffl-header-week {
-    flex: none; font-size: 0.8rem; text-transform: uppercase; letter-spacing: .04em;
-    color: var(--secondary-text-color);
+    grid-column: 3; justify-self: end; font-size: 0.8rem; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--secondary-text-color); white-space: nowrap;
   }
 
   .ffl-expanded > .ffl-row { background: var(--secondary-background-color); }

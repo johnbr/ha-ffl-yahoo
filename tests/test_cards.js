@@ -285,6 +285,21 @@ test("the row play text wraps instead of truncating", () => {
   assert.doesNotMatch(rule(".ffl-row-play-text"), /text-overflow/);
 });
 
+test("the projections hold their place under the scores however long the play is", () => {
+  // Centre alignment let a wrapped play drag the projections down with it.
+  assert.match(rule(".ffl-row-foot"), /align-items:\s*baseline/);
+});
+
+test("the live badge is centred on the card, whatever the title's width", () => {
+  // A 3-track grid with each part naming its column: the badge is the
+  // middle track on the league card and the NFL card alike, so the two line
+  // up when stacked.
+  assert.match(rule(".ffl-header"), /grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
+  assert.match(rule(".ffl-header-name"), /grid-column:\s*1/);
+  assert.match(rule(".ffl-header-live"), /grid-column:\s*2/);
+  assert.match(rule(".ffl-header-week"), /grid-column:\s*3/);
+});
+
 test("a narrow row breaks between the player and the result, not inside either", () => {
   const html = renderRowPlay(
     { text: "x", short_text: "A. St. Brown 1 rec, 23 yds, 1 TD", short_who: "A. St. Brown", short_what: "1 rec, 23 yds, 1 TD", side: "home" },
