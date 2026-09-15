@@ -1281,9 +1281,9 @@ const CARD_CSS = `
   /* Spans both tracks: the play belongs to the game, not to either club.
      Set exactly like a row of the expanded play list (size, weight, colour)
      — it IS that list's newest row, shown early. Wraps rather than
-     truncates, for the same reason the stat line does: the tackler at the
-     end of "Patrick Mahomes passed to Travis Kelce to the right for 6 yard
-     gain, tackled by Pat Surtain II" is the part an ellipsis took. */
+     truncates, for the same reason the stat line does: the yardage at the
+     end of "Kansas City kicked off for 57 yards, RJ Harvey returned kickoff
+     for 26 yards" is the part an ellipsis took. */
   .ffl-nfl-last {
     grid-column: 1 / -1; margin-top: 2px;
     font-size: 0.78rem; font-weight: 500; line-height: 1.25; color: var(--primary-text-color);

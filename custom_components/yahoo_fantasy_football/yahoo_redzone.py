@@ -520,6 +520,12 @@ _PLAY_REF = re.compile(r"\[(\d+)\]")
 # can be dropped whole rather than printed with a hole in it.
 _UNKNOWN = "\x00"
 
+# A clause that is NOTHING but tackler attribution — ``tackled by [29298]``,
+# or two of them. Matched on the raw clause, ids still bracketed, so a tackle
+# that says more ("tackled by [id] in the end zone for a safety") does not
+# match and is kept: there the tackle is the play.
+_PURE_TACKLE = re.compile(r"^tackled by \[\d+\](?: and \[\d+\])?$")
+
 
 def _cell(cells: list[str], index: int) -> str:
     """One cell of a relay row, or ``""`` — rows are ragged by design."""
@@ -594,20 +600,80 @@ def parse_relay_plays(text: str) -> list[RelayPlay]:
 def humanize_play(text: str, names: dict[str, str]) -> str:
     """Turn ``[42654] rushed ..., tackled by [29298]`` into plain English.
 
+    The tackler is left out. Who made the tackle means nothing in fantasy
+    terms and it was the longest part of most plays — "rushed to the right
+    for 13 yard gain, tackled by Pat Surtain II" says everything it needs to
+    before the comma. Only a clause that is purely the tackler goes; one
+    that says more keeps its tackle. A sentence that is NOTHING but the
+    tackle goes entirely — the feed does emit "tackled by L'Jarius Sneed" as
+    a play's whole text, and printed under a matchup it was a line saying
+    who tackled the manager's receiver. Empty is the right answer there:
+    every caller has a better fallback (the stat line for a scoring event,
+    the previous play for a game) than a tackle with no play in front of it.
+
     A clause naming somebody the dictionary cannot resolve is dropped whole,
     which is why the substitution goes via a sentinel rather than straight to
     the name: printing "tackled by" with nothing after it is worse than not
     mentioning the tackle. Sentences are separated by ``|`` in the feed (a punt
     and its return), so those are split too.
     """
-    resolved = _PLAY_REF.sub(lambda m: names.get(m.group(1), _UNKNOWN), text)
     sentences = []
-    for sentence in resolved.split("|"):
-        clauses = [c for c in sentence.split(", ") if _UNKNOWN not in c]
-        joined = ", ".join(c.strip() for c in clauses if c.strip())
+    for sentence in text.split("|"):
+        raw = [c.strip() for c in sentence.split(", ") if c.strip()]
+        kept = [c for c in raw if not _PURE_TACKLE.match(c)]
+        resolved = [_PLAY_REF.sub(lambda m: names.get(m.group(1), _UNKNOWN), c) for c in kept]
+        joined = ", ".join(c for c in resolved if _UNKNOWN not in c)
         if joined:
             sentences.append(joined)
     return ". ".join(sentences)
+
+
+# A word that can be part of a tackler's name in already-humanised text:
+# a capitalised word, apostrophe and hyphen names (L'Jarius, Amon-Ra),
+# initials (P.J.), the suffixes and particles a roster uses, and "and".
+_NAME_WORD = re.compile(r"^(?:[A-Z][\w'-]*|(?:[A-Z]\.)+|Jr\.|Sr\.|St\.|II|III|IV|V|and)$")
+
+
+def strip_tackler(text: str) -> str:
+    """:func:`humanize_play`'s tackler rule, applied to text already humanised.
+
+    For play text that was humanised BEFORE the rule existed and persisted
+    with the tackler in — a week's history survives a restart through Home
+    Assistant's Store. New text never needs this; it is stripped at source,
+    where the ids make the clause unambiguous.
+
+    Here it has to be read back out of English. A clause is dropped when it
+    is "tackled by" followed by nothing but name words; a lower-case word
+    after the name ("in the end zone for a safety") means it says more, and
+    it stays. The tackle is the last clause of its sentence, so a name word
+    carrying a full stop ("Holland.") is where the next sentence starts —
+    "…tackled by Jevon Holland. NY Giants committed 15 yard penalty" keeps
+    the penalty. "St." and "Jr." are name words, so a stop is only read as a
+    sentence end when it is on a word that is not one of them.
+    """
+    kept: list[str] = []
+    for clause in text.split(", "):
+        clause = clause.strip()
+        if not clause.startswith("tackled by "):
+            if clause:
+                kept.append(clause)
+            continue
+        words = clause[len("tackled by ") :].split(" ")
+        rest: list[str] | None = None
+        for i, word in enumerate(words):
+            if _NAME_WORD.match(word):
+                continue
+            if word.endswith(".") and _NAME_WORD.match(word[:-1]):
+                rest = words[i + 1 :]  # the sentence after the tackle
+                break
+            kept.append(clause)  # says more than who tackled
+            break
+        else:
+            continue  # nothing but the tackler: gone
+        if rest:
+            joined = ", ".join(kept)
+            kept = [f"{joined}. {' '.join(rest)}" if joined else " ".join(rest)]
+    return ", ".join(kept)
 
 
 def live_clubs(games: dict[str, GameState]) -> frozenset[str]:

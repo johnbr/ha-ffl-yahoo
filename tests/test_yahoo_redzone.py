@@ -502,12 +502,41 @@ def test_a_play_reads_as_english(plays_text: str, players_text: str) -> None:
     plays = parse_relay_plays(plays_text)
     assert (
         humanize_play(plays[2].text, names)
-        == "Sam Darnold passed to Jaxon Smith-Njigba down the middle for 13 yard gain, "
-        "tackled by Robert Spillane"
+        == "Sam Darnold passed to Jaxon Smith-Njigba down the middle for 13 yard gain"
     )
     punt = next(p for p in plays if "punted" in p.text)
     assert humanize_play(punt.text, names) == (
         "Michael Dickson punted for 43 yards. Marcus Jones returned punt for no gain"
+    )
+
+
+def test_the_tackler_is_left_out_unless_the_tackle_is_the_play() -> None:
+    """Who made the tackle means nothing in fantasy terms, so a clause that is
+    purely the tackler goes. One that says more keeps it — there the tackle IS
+    what happened."""
+    names = {"1": "Jadarian Price", "2": "Pat Surtain II", "3": "Zach Allen"}
+
+    assert humanize_play("[1] rushed to the right for 13 yard gain, tackled by [2]", names) == (
+        "Jadarian Price rushed to the right for 13 yard gain"
+    )
+    assert humanize_play("[1] rushed for 2 yard gain, tackled by [2] and [3]", names) == (
+        "Jadarian Price rushed for 2 yard gain"
+    )
+    # More than attribution: the tackle produced the result.
+    assert humanize_play(
+        "[1] rushed to the left for 3 yard loss, tackled by [2] in the end zone for a safety",
+        names,
+    ) == "Jadarian Price rushed to the left for 3 yard loss, tackled by Pat Surtain II in the end zone for a safety"
+    # The whole sentence is the tackle — observed live as a play's entire
+    # text, and it printed as a line about who tackled the manager's receiver.
+    # Empty, so the event falls back to its stat line instead.
+    assert humanize_play("tackled by [2]", names) == ""
+    assert humanize_play("[1] punted for 40 yards|tackled by [2]", names) == (
+        "Jadarian Price punted for 40 yards"
+    )
+    # Dropping the tackler does not rescue a clause naming a stranger.
+    assert humanize_play("[1] rushed for 4 yard gain, fumbled, recovered by [9]", names) == (
+        "Jadarian Price rushed for 4 yard gain, fumbled"
     )
 
 
@@ -516,6 +545,40 @@ def test_a_clause_naming_a_stranger_is_dropped_whole(plays_text: str) -> None:
     plays = parse_relay_plays(plays_text)
     assert humanize_play(plays[1].text, {"42654": "Jadarian Price"}) == (
         "Jadarian Price rushed to the right for 13 yard gain"
+    )
+
+
+def test_stored_text_loses_its_tackler_too() -> None:
+    """History persisted before the rule existed still carries the tackler."""
+    from yahoo_fantasy_football.yahoo_redzone import strip_tackler
+
+    assert strip_tackler("Jadarian Price rushed to the right for 13 yard gain, tackled by Pat Surtain II") == (
+        "Jadarian Price rushed to the right for 13 yard gain"
+    )
+    # Apostrophes, hyphens, initials, suffixes, two tacklers.
+    for tackler in ("L'Jarius Sneed", "Amon-Ra St. Brown", "T.J. Watt", "Kenneth Walker III",
+                    "Odell Beckham Jr.", "Zach Allen and Pat Surtain II"):
+        assert strip_tackler(f"Bo Nix rushed for 2 yard gain, tackled by {tackler}") == (
+            "Bo Nix rushed for 2 yard gain"
+        ), tackler
+    # More than attribution stays.
+    kept = "Bo Nix rushed for 3 yard loss, tackled by Zach Allen in the end zone for a safety"
+    assert strip_tackler(kept) == kept
+    # The tackle-only text observed live goes entirely; sentences survive around it.
+    assert strip_tackler("tackled by L'Jarius Sneed") == ""
+    assert strip_tackler("Matt Araiza punted for 59 yards. Marvin Mims Jr. returned punt for 17 yards") == (
+        "Matt Araiza punted for 59 yards. Marvin Mims Jr. returned punt for 17 yards"
+    )
+    # A sentence after the tackle — stored text from 2026-09-14 — keeps the penalty.
+    assert strip_tackler(
+        "Dak Prescott passed to Ryan Flournoy for 17 yard gain, tackled by Jevon Holland. "
+        "NY Giants committed 15 yard penalty (Unnecessary Roughness)"
+    ) == "Dak Prescott passed to Ryan Flournoy for 17 yard gain. NY Giants committed 15 yard penalty (Unnecessary Roughness)"
+    assert strip_tackler("Bo Nix rushed for 2 yard gain, tackled by Amon-Ra St. Brown. Denver committed 5 yard penalty") == (
+        "Bo Nix rushed for 2 yard gain. Denver committed 5 yard penalty"
+    )
+    assert strip_tackler("tackled by P.J. Locke. Dallas committed 15 yard penalty (Face Mask)") == (
+        "Dallas committed 15 yard penalty (Face Mask)"
     )
 
 

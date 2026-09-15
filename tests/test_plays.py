@@ -489,6 +489,38 @@ def test_feed_round_trips_through_storage() -> None:
     assert restored.week == 3
 
 
+def test_restoring_history_drops_the_tackler_it_was_saved_with() -> None:
+    """The store holds text humanised before the tackler rule existed, and a
+    week of it survives a restart. Live on 2026-09-14 the Wallyworld row's
+    expanded list showed a line that was nothing but who tackled Waddle."""
+    from dataclasses import replace
+
+    from yahoo_fantasy_football.plays import MatchedPlay, describe
+
+    before = snap(1, 100.0, player("p1", 0.0, name="Jaylen Waddle", nfl_team="Mia", position="WR"))
+    after = snap(1, 145.0, player("p1", 1.2, name="Jaylen Waddle", nfl_team="Mia", position="WR"))
+    tackled = replace(
+        diff_snapshots(before, after)[0],
+        stat_delta="1 Rec, 2 Rec Yds",
+        plays=(MatchedPlay(text="tackled by L'Jarius Sneed", role="", confidence=1.0),),
+    )
+    with_gain = replace(
+        tackled,
+        event_id="other",
+        plays=(MatchedPlay(text="Tua Tagovailoa passed to Jaylen Waddle for 2 yard gain, tackled by L'Jarius Sneed",
+                           role="", confidence=1.0),),
+    )
+    feed = PlayFeed()
+    feed.add([tackled, with_gain])
+
+    restored = {e.event_id: e for e in loads(dumps(feed)).recent(5)}
+    # Nothing but the tackle: the play is gone and the stat line stands in.
+    assert restored[tackled.event_id].best_play is None
+    assert describe(restored[tackled.event_id]) == "J. Waddle 1 Rec, 2 Rec Yds"
+    # A real play keeps everything before the tackler.
+    assert describe(restored["other"]) == "Tua Tagovailoa passed to Jaylen Waddle for 2 yard gain"
+
+
 def test_restored_feed_still_deduplicates() -> None:
     before = snap(3, 100.0, player("p1", 12.5))
     after = snap(3, 145.0, player("p1", 18.9))

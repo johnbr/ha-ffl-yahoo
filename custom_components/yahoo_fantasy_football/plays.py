@@ -613,8 +613,19 @@ def _event_to_dict(event: ScoringEvent) -> dict[str, Any]:
 
 
 def _event_from_dict(raw: dict[str, Any]) -> ScoringEvent:
+    from .yahoo_redzone import strip_tackler
+
     data = dict(raw)
-    data["plays"] = tuple(MatchedPlay(**p) for p in data.get("plays") or [])
+    # Stored text predates whatever the humaniser does today; a play whose
+    # text was nothing but the tackler is dropped, and the event falls back
+    # to its stat line the way a fresh one would.
+    plays = []
+    for p in data.get("plays") or []:
+        play = MatchedPlay(**p)
+        text = strip_tackler(play.text)
+        if text:
+            plays.append(play if text == play.text else replace(play, text=text))
+    data["plays"] = tuple(plays)
     return ScoringEvent(**data)
 
 
