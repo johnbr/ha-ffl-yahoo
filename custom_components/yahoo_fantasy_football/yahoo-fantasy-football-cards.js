@@ -1194,13 +1194,17 @@ const CARD_CSS = `
     background: var(--secondary-background-color); outline: none;
   }
   .ffl-nfl-teams { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  /* Medium (500) is the card's floor, not regular: the type here is small,
+     and at 400 on a tablet it read as faint rather than as quiet. Both clubs
+     are in the PRIMARY colour — the leader is told apart by weight alone.
+     They used to be secondary with only the leader lifted, which on a dark
+     theme left a tied game as two lines of mid-grey, the dullest thing on
+     the dashboard. */
   .ffl-nfl-team {
     display: flex; align-items: baseline; gap: 6px; min-width: 0;
-    color: var(--secondary-text-color);
+    color: var(--primary-text-color); font-weight: 500;
   }
-  /* Only the side that is ahead gets full contrast, so a glance finds the
-     leader without reading either number. */
-  .ffl-nfl-team.ffl-nfl-lead { color: var(--primary-text-color); font-weight: 700; }
+  .ffl-nfl-team.ffl-nfl-lead { font-weight: 700; }
   .ffl-nfl-abbr { font-size: 0.9rem; letter-spacing: .02em; }
   .ffl-nfl-score {
     margin-inline-start: auto; font-size: 0.95rem; font-variant-numeric: tabular-nums;
@@ -1212,19 +1216,21 @@ const CARD_CSS = `
     border-radius: 4px; padding: 0 3px;
   }
   .ffl-nfl-status { text-align: end; flex: none; }
-  .ffl-nfl-clock { font-size: 0.78rem; color: var(--secondary-text-color); white-space: nowrap; }
-  .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 600; }
-  .ffl-nfl-situation { font-size: 0.7rem; color: var(--secondary-text-color); white-space: nowrap; }
-  /* Spans both tracks: the play belongs to the game, not to either club. */
+  .ffl-nfl-clock { font-size: 0.78rem; font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
+  .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 700; }
+  .ffl-nfl-situation { font-size: 0.7rem; font-weight: 500; color: var(--primary-text-color); white-space: nowrap; }
+  /* Spans both tracks: the play belongs to the game, not to either club.
+     Set exactly like a row of the expanded play list (size, weight, colour)
+     — it IS that list's newest row, shown early. */
   .ffl-nfl-last {
     grid-column: 1 / -1; margin-top: 2px;
-    font-size: 0.72rem; color: var(--secondary-text-color);
+    font-size: 0.78rem; font-weight: 500; color: var(--primary-text-color);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .ffl-nfl-finals {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 6px; margin-top: 2px; cursor: pointer; border-radius: 8px;
-    font-size: 0.75rem; color: var(--secondary-text-color);
+    font-size: 0.75rem; font-weight: 500; color: var(--secondary-text-color);
     text-transform: uppercase; letter-spacing: .04em;
   }
   .ffl-nfl-finals:hover, .ffl-nfl-finals:focus-visible {
@@ -1247,7 +1253,7 @@ const CARD_CSS = `
     flex: none; min-width: 4.2em; color: var(--secondary-text-color);
     font-variant-numeric: tabular-nums;
   }
-  .ffl-nfl-play-text { min-width: 0; color: var(--primary-text-color); }
+  .ffl-nfl-play-text { min-width: 0; font-weight: 500; color: var(--primary-text-color); }
 
   .ffl-header {
     display: flex; align-items: baseline; justify-content: space-between;
