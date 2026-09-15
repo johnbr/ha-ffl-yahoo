@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.9.0...v0.10.0) (2026-09-15)
+
+
+### Features
+
+* wrap long team names and set the matchup row in smaller type ([674ea4c](https://github.com/johnbr/ha-ffl-yahoo/commit/674ea4cfff02b65a154090ed821b59074727e768))
+
+
+### Bug Fixes
+
+* make the collapsed NFL rows legible on a dark theme ([33d799a](https://github.com/johnbr/ha-ffl-yahoo/commit/33d799a3098ae5f59f3ab63398080d69d2c140e1))
+
 ## [0.9.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.8.0...v0.9.0) (2026-09-14)
 
 
