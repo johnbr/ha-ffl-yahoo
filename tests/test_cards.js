@@ -1026,9 +1026,12 @@ const at = (dayOffset, hour) => {
   return Math.floor(d.getTime() / 1000);
 };
 
+// "tonight" is today, "thu" tomorrow, "sun" four days out — whatever the
+// real weekday, the names say how far away each game is.
 const SLATE = [
   { ...GAME_LIVE, game_id: "live1", state: "in" },
   { ...GAME_LIVE, game_id: "done1", state: "post", clock_text: "Final" },
+  { ...GAME_LIVE, game_id: "tonight1", state: "pre", clock_text: "", start_time: at(0, 20) },
   { ...GAME_LIVE, game_id: "thu1", state: "pre", clock_text: "", start_time: at(1, 17) },
   { ...GAME_LIVE, game_id: "sun1", state: "pre", clock_text: "", start_time: at(4, 10) },
   { ...GAME_LIVE, game_id: "sun2", state: "pre", clock_text: "", start_time: at(4, 13) },
@@ -1050,24 +1053,29 @@ test("while a game is live, the live games are all that shows", () => {
   const { live, soon, later, done } = nflCard()._split(SLATE);
   assert.deepEqual(live.map((g) => g.game_id), ["live1"]);
   assert.deepEqual(soon, []);
-  assert.deepEqual(later.map((g) => g.game_id), ["thu1", "sun1", "sun2", "thu2"], "every scheduled game folds");
+  assert.deepEqual(
+    later.map((g) => g.game_id),
+    ["tonight1", "thu1", "sun1", "sun2", "thu2"],
+    "every scheduled game folds"
+  );
   assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
 });
 
-test("once nothing is live, only the next game day's, with the rest folded", () => {
+test("once nothing is live, only today's games show, with the rest folded", () => {
   const { live, soon, later, done } = nflCard()._split(IDLE_SLATE);
   assert.deepEqual(live, []);
-  assert.deepEqual(soon.map((g) => g.game_id), ["thu1", "thu2"], "both of tomorrow's games, nothing later");
-  assert.deepEqual(later.map((g) => g.game_id), ["sun1", "sun2"]);
+  assert.deepEqual(soon.map((g) => g.game_id), ["tonight1"], "tonight's game, and nothing further out");
+  assert.deepEqual(later.map((g) => g.game_id), ["thu1", "sun1", "sun2", "thu2"]);
   assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
 });
 
-test("the next game day is whichever comes first, not today", () => {
-  // Nothing today: Sunday is the next day with a game, so Sunday shows.
-  const sundayOnly = IDLE_SLATE.filter((g) => !g.game_id.startsWith("thu"));
-  const { soon, later } = nflCard()._split(sundayOnly);
-  assert.deepEqual(soon.map((g) => g.game_id), ["sun1", "sun2"]);
-  assert.deepEqual(later, []);
+test("a day with no game is nothing but the folds, however near Sunday is", () => {
+  // Sunday's slate sitting open from Thursday to Sunday morning was the
+  // complaint: thirteen games nobody was reading yet. It waits for its day.
+  const nothingToday = IDLE_SLATE.filter((g) => g.game_id !== "tonight1");
+  const { soon, later } = nflCard()._split(nothingToday);
+  assert.deepEqual(soon, []);
+  assert.deepEqual(later.map((g) => g.game_id), ["thu1", "sun1", "sun2", "thu2"]);
 });
 
 test("a scheduled game with no kickoff time shows rather than hides", () => {
@@ -1076,8 +1084,8 @@ test("a scheduled game with no kickoff time shows rather than hides", () => {
 });
 
 test("the feed's kickoff order survives inside each group", () => {
-  const { soon } = nflCard()._split(IDLE_SLATE);
-  assert.deepEqual(soon.map((g) => g.game_id), ["thu1", "thu2"]);
+  const { later } = nflCard()._split(IDLE_SLATE);
+  assert.deepEqual(later.map((g) => g.game_id), ["thu1", "sun1", "sun2", "thu2"]);
 });
 
 test("both folds start shut, even on an all-final slate", () => {

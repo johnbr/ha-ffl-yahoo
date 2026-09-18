@@ -1052,17 +1052,17 @@ class FflNflGamesCard extends FflBaseCard {
    *
    * While any game is in progress, the live games are ALL that shows — a
    * scheduled game is noise next to one being played, and the reader who
-   * wants it can unfold it. Once the last live game ends, the scheduled
-   * games on the NEXT day that has one come out — Thursday's game alone on
-   * a Tuesday, the whole Sunday slate on a Friday, Monday night's game once
-   * Sunday is done — and the rest of the week folds behind "N later this
-   * week". Finished games fold behind "N final". A Sunday afternoon
-   * therefore reads as the live games and two folds; the evening, once
-   * they are done, as tonight's game; the week's end as nothing but folds.
+   * wants it can unfold it. Otherwise only TODAY's scheduled games show;
+   * every other scheduled game folds behind "N later this week" until its
+   * day comes. Sunday's thirteen games sitting open from Thursday night to
+   * Sunday morning was a list nobody was reading. Finished games fold
+   * behind "N final". So: a Friday reads as nothing but the two folds; a
+   * Sunday morning as the whole slate; the afternoon as the live games and
+   * the folds; the week's end as the folds again.
    *
-   * "Next day" is the viewer's calendar day, see localDayKey. A scheduled
-   * game with no usable kickoff time shows rather than hides (when nothing
-   * is live) — a missing time is a reason to look, not to fold.
+   * "Today" is the viewer's calendar day, see localDayKey. A scheduled game
+   * with no usable kickoff time shows rather than hides (when nothing is
+   * live) — a missing time is a reason to look, not to fold.
    *
    * Sorted here rather than in the sensor: the slate is served in kickoff
    * order, which is the honest general-purpose shape, and "what is worth
@@ -1077,14 +1077,7 @@ class FflNflGamesCard extends FflBaseCard {
       (game.state === "post" ? done : game.state === "in" ? live : pre).push(game);
     }
     if (live.length) return { live, soon: [], later: pre, done };
-    const keys = pre.map((g) => localDayKey(g.start_time)).filter(Boolean);
-    const nextDay = keys.length
-      ? pre
-          .filter((g) => localDayKey(g.start_time))
-          .sort((a, b) => Number(a.start_time) - Number(b.start_time))
-          .map((g) => localDayKey(g.start_time))[0]
-      : "";
-    const soon = pre.filter((g) => !localDayKey(g.start_time) || localDayKey(g.start_time) === nextDay);
+    const soon = pre.filter((g) => !localDayKey(g.start_time) || isToday(g.start_time));
     const later = pre.filter((g) => !soon.includes(g));
     return { live, soon, later, done };
   }
