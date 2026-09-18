@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.13.0...v0.14.0) (2026-09-18)
+
+
+### Features
+
+* down & distance on plays, kickoff times on rosters, live-only NFL view ([e5e4ab4](https://github.com/johnbr/ha-ffl-yahoo/commit/e5e4ab40bf07c74837145a3cf9c9e848639fd73b))
+* drop AM/PM from kickoff times except between 11 PM and 7 AM ([1f74698](https://github.com/johnbr/ha-ffl-yahoo/commit/1f7469836449ab3d4a7f800637886e8e19e2c50a))
+* fold scheduled NFL games until the day they are played ([ae6afc5](https://github.com/johnbr/ha-ffl-yahoo/commit/ae6afc5ccad2ebf1aa9c33188c9936711fde0feb))
+
+
+### Bug Fixes
+
+* stop missing plays — poll play feeds conditionally, fix week rollover ([4b3c57c](https://github.com/johnbr/ha-ffl-yahoo/commit/4b3c57cf22be4e9822d9d683d93924391842acb4))
+
 ## [0.13.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.12.0...v0.13.0) (2026-09-15)
 
 
