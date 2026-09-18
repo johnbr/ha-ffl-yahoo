@@ -342,11 +342,17 @@ def enrich_events(
 
 
 def abbreviate_name(name: str) -> str:
-    """``Puka Nacua`` → ``P. Nacua``. Single-word names pass through."""
+    """``Puka Nacua`` → ``P. Nacua``. Single-word names pass through.
+
+    A first name that is already initials — ``D.J. Reed``, ``C.J. Stroud`` —
+    is kept whole: ``D. Reed`` is a different person's name, not a shorter
+    version of this one.
+    """
     parts = (name or "").split()
     if len(parts) < 2:
         return name or ""
-    return f"{parts[0][0]}. {' '.join(parts[1:])}"
+    first = parts[0] if "." in parts[0] else f"{parts[0][0]}."
+    return f"{first} {' '.join(parts[1:])}"
 
 
 def _stat_delta(before: dict[str, float], after: dict[str, float]) -> str:

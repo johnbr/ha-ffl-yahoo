@@ -166,6 +166,7 @@ def test_the_popup_carries_the_fields_the_card_renders() -> None:
     }
     assert starter["name"] == "Josh Allen"
     assert starter["projected"] == pytest.approx(25.38)
+    assert starter["kickoff"] is None, "the HTML tier has no kickoff to offer"
 
 
 def test_an_out_of_range_matchup_returns_empty_rather_than_raising() -> None:
@@ -696,6 +697,26 @@ def test_down_and_distance_is_dropped_when_the_spot_is_gone() -> None:
     live = GameState(["g", "1", "17", "26", "P", "0", "1", "6:40",
                       "0", "7", "1789000000", "1", "3", "44", "17"])
     assert _situation(live) == "1st & 3"
+
+
+def test_the_distance_can_never_exceed_the_goal_line() -> None:
+    """Seen live 2026-09-17: "4th & 6" with the ball on the 1 — it was 1st & goal.
+
+    The feed moves the spot first and the down and distance a few seconds
+    later. Whatever the down says, nothing is further away than the end zone.
+    """
+    from yahoo_fantasy_football.league_state import _situation, down_and_distance
+
+    assert _situation(_game_row("P", down="4", distance="6", to_goal="1")) == "4th & goal"
+    assert _situation(_game_row("P", down="1", distance="10", to_goal="10")) == "1st & goal"
+    assert _situation(_game_row("P", down="1", distance="10", to_goal="11")) == "1st & 10"
+    assert _situation(_game_row("P", down="2", distance="0", to_goal="4")) == "2nd & goal", "feed's own goal"
+
+    # The bare helper, as the play list uses it: no spot known → trust the distance.
+    assert down_and_distance(3, 8, None) == "3rd & 8"
+    assert down_and_distance(3, 8, 0) == "3rd & 8"
+    assert down_and_distance(0, 0, 0) == "", "a kickoff, a PAT, a timeout: no down"
+    assert down_and_distance("x", 8, 0) == ""
 
 
 def test_goal_to_go_says_goal_rather_than_a_distance() -> None:

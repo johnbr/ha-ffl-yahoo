@@ -214,6 +214,7 @@ def _player_dict(player: Any) -> dict[str, Any]:
         "stat_line": player.stat_line,
         "game": player.game_note,
         "game_state": player.game_state,
+        "kickoff": getattr(player, "kickoff", None),
     }
 
 
@@ -345,15 +346,31 @@ def _situation(game: Any) -> str:
         return ""
     if not _ball_spot(game):
         return ""
+    return down_and_distance(
+        getattr(game, "down", 0), getattr(game, "distance", 0), _yards_to_goal(game)
+    )
+
+
+def down_and_distance(down: Any, distance: Any, to_goal: Any = None) -> str:
+    """``2nd & 7``, or ``2nd & goal`` — empty when there is no down.
+
+    "Goal" whenever the distance reaches the goal line, not only when the feed
+    says so. The games feed updates its fields piecemeal — the spot moves,
+    then the down and distance follow a few seconds later — and in between it
+    can say things like "4th & 6" with the ball on the 1 (seen live
+    2026-09-17; it was 1st & goal). Nothing can be further to go than the
+    end zone, so the distance is capped at what the spot allows.
+    """
     try:
-        down = int(getattr(game, "down", 0) or 0)
-        distance = int(getattr(game, "distance", 0) or 0)
+        down = int(down or 0)
+        distance = int(distance or 0)
+        to_goal = int(to_goal or 0)
     except (TypeError, ValueError):
         return ""
     if not down:
         return ""
     ordinal = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}.get(down, f"{down}th")
-    if distance <= 0:
+    if distance <= 0 or (0 < to_goal <= distance):
         return f"{ordinal} & goal"
     return f"{ordinal} & {distance}"
 

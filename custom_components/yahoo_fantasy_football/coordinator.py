@@ -29,8 +29,8 @@ from .const import (
     DOMAIN,
     EVENT_SCORING_PLAY,
 )
-from .league_state import play_dict, poll_interval
-from .plays import PlayFeed, ScoringEvent, diff_snapshots, match_relay_play
+from .league_state import down_and_distance, play_dict, poll_interval
+from .plays import PlayFeed, ScoringEvent, abbreviate_name, diff_snapshots, match_relay_play
 from .redzone_client import USER_AGENT, RedzoneClient
 from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
 from .yahoo_redzone import humanize_play, parse_relay_plays, to_snapshot
@@ -104,6 +104,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._nfl_plays: dict[str, tuple[str, list[dict[str, Any]]]] = {}
         # {plays_id: newest play text} for live games, refreshed every poll.
         self._nfl_last_plays: dict[str, str] = {}
+        # (the player dictionary it came from, its abbreviated twin).
+        self._short_names_cache: tuple[dict[str, str], dict[str, str]] | None = None
         # {plays_id: newest play sequence} as of the END of the last poll. A
         # scoring event raised this poll can only have come from a play above
         # it — see ``ScoringEvent.play_floor``.
@@ -342,6 +344,12 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         if cached and cached[0] == body:
             return cached[1][:limit]
 
+        # The expanded list is the one place names are shortened — a dozen
+        # rows of "Jahmyr Gibbs rushed up the middle" is wider than the card
+        # on a phone — and the one place a play is prefixed with the down
+        # and distance it was run from. The always-on last-play line and the
+        # fantasy history keep the full sentence.
+        short_names = self._short_names(names)
         rows: list[dict[str, Any]] = []
         for play in reversed(parse_relay_plays(body)):  # newest first, the way a reader scans
             text = humanize_play(play.text, names)
@@ -351,12 +359,23 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 {
                     "play_id": f"{play.game_key}.{play.sequence}",
                     "text": text,
+                    "short_text": humanize_play(play.text, short_names),
+                    "situation": down_and_distance(play.down, play.distance, play.yards_to_goal),
                     "period": play.period,
                     "clock": play.clock,
                 }
             )
         self._nfl_plays[plays_id] = (body, rows)
         return rows[:limit]
+
+    def _short_names(self, names: dict[str, str]) -> dict[str, str]:
+        """``{id: "J. Goff"}`` for the player dictionary, computed once per dictionary."""
+        cached = self._short_names_cache
+        if cached is not None and cached[0] is names:
+            return cached[1]
+        short = {pid: abbreviate_name(name) for pid, name in names.items()}
+        self._short_names_cache = (names, short)
+        return short
 
     @property
     def league_data(self) -> LeagueData | None:

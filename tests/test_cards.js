@@ -101,6 +101,34 @@ test("a hostile play description cannot inject markup", () => {
   assert.ok(!html.includes("<img"), "raw img tag leaked into the play line");
 });
 
+test("a player yet to play shows when, not just whom", () => {
+  // Built from local components so the assertion means the same in any zone.
+  const when = new Date();
+  when.setDate(when.getDate() + 3);
+  when.setHours(10, 0, 0, 0);
+  const kickoff = Math.floor(when.getTime() / 1000);
+  const html = renderPlayerBlock(P({ game: "vs Min", game_state: "pre", kickoff, points: 0, stat_line: "" }), "home");
+  const expected = `${when.toLocaleDateString([], { weekday: "short" })} ${when.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })} vs Min`;
+  assert.ok(html.includes(escapeHtml(expected)), `expected "${expected}" in ${html}`);
+});
+
+test("once the game is on, the note is the clock and score, not the kickoff", () => {
+  const html = renderPlayerBlock(
+    P({ game: "Q2 7:31 10-7 vs Min", game_state: "in", kickoff: 1789690500 }),
+    "home"
+  );
+  assert.ok(html.includes("Q2 7:31 10-7 vs Min"));
+  assert.ok(!html.includes("PM vs Min") && !html.includes("AM vs Min"));
+});
+
+test("a pre-game player from an integration without kickoffs still reads", () => {
+  const html = renderPlayerBlock(P({ game: "@ SF", game_state: "pre", kickoff: null }), "home");
+  assert.ok(html.includes(">@ SF<"));
+});
+
 test("a hostile player name cannot inject markup", () => {
   const html = renderPlayerBlock(
     { slot: "QB", name: `<b>x</b>`, game: "", projected: 1, points: 1, stat_line: "", game_state: "post" },
@@ -948,6 +976,32 @@ test("a hostile play description cannot inject markup into the games card", () =
   const html = renderNflPlays([{ text: `<img onerror=alert(1)>`, period: "1", clock: "1:00" }]);
   assert.ok(!html.includes("<img"));
   assert.ok(html.includes("&lt;img"));
+  const down = renderNflPlays([{ text: "x", situation: `<b>1st</b>`, period: "1", clock: "1:00" }]);
+  assert.ok(!down.includes("<b>"));
+});
+
+test("a play is prefixed with the down and distance it was run from, names shortened", () => {
+  const html = renderNflPlays([
+    {
+      play_id: "2.101",
+      text: "Jared Goff passed to Jahmyr Gibbs for 7 yard gain",
+      short_text: "J. Goff passed to J. Gibbs for 7 yard gain",
+      situation: "1st & 10",
+      period: "3",
+      clock: "14:20",
+    },
+    { play_id: "2.99", text: "Buffalo timeout", short_text: "Buffalo timeout", situation: "", period: "3", clock: "15:00" },
+  ]);
+  assert.ok(html.includes('<span class="ffl-nfl-play-down">1st &amp; 10</span> J. Goff passed to J. Gibbs'));
+  assert.ok(!html.includes("Jared Goff"), "the list shows the short form");
+  // A timeout has no down: no prefix, and no stray span either.
+  assert.equal((html.match(/ffl-nfl-play-down/g) || []).length, 1);
+  assert.ok(html.includes(">Buffalo timeout<"));
+});
+
+test("an integration without short_text still renders the play list", () => {
+  const html = renderNflPlays([{ play_id: "2.1", text: "Full sentence", period: "1", clock: "9:00" }]);
+  assert.ok(html.includes("Full sentence"));
 });
 
 test("the games entity is found by its games array, not its id", () => {
@@ -988,9 +1042,21 @@ function nflCard() {
   return card;
 }
 
-test("live games, then only the next game day's, with the rest folded", () => {
+// The same week with nothing in progress: what the card shows between games.
+const IDLE_SLATE = SLATE.filter((g) => g.state !== "in");
+
+test("while a game is live, the live games are all that shows", () => {
+  // A scheduled game is noise beside one being played — even tonight's.
   const { live, soon, later, done } = nflCard()._split(SLATE);
   assert.deepEqual(live.map((g) => g.game_id), ["live1"]);
+  assert.deepEqual(soon, []);
+  assert.deepEqual(later.map((g) => g.game_id), ["thu1", "sun1", "sun2", "thu2"], "every scheduled game folds");
+  assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
+});
+
+test("once nothing is live, only the next game day's, with the rest folded", () => {
+  const { live, soon, later, done } = nflCard()._split(IDLE_SLATE);
+  assert.deepEqual(live, []);
   assert.deepEqual(soon.map((g) => g.game_id), ["thu1", "thu2"], "both of tomorrow's games, nothing later");
   assert.deepEqual(later.map((g) => g.game_id), ["sun1", "sun2"]);
   assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
@@ -998,19 +1064,19 @@ test("live games, then only the next game day's, with the rest folded", () => {
 
 test("the next game day is whichever comes first, not today", () => {
   // Nothing today: Sunday is the next day with a game, so Sunday shows.
-  const sundayOnly = SLATE.filter((g) => !g.game_id.startsWith("thu"));
+  const sundayOnly = IDLE_SLATE.filter((g) => !g.game_id.startsWith("thu"));
   const { soon, later } = nflCard()._split(sundayOnly);
   assert.deepEqual(soon.map((g) => g.game_id), ["sun1", "sun2"]);
   assert.deepEqual(later, []);
 });
 
 test("a scheduled game with no kickoff time shows rather than hides", () => {
-  const { soon } = nflCard()._split([{ ...GAME_LIVE, game_id: "x", state: "pre", start_time: null }, ...SLATE]);
+  const { soon } = nflCard()._split([{ ...GAME_LIVE, game_id: "x", state: "pre", start_time: null }, ...IDLE_SLATE]);
   assert.ok(soon.some((g) => g.game_id === "x"));
 });
 
 test("the feed's kickoff order survives inside each group", () => {
-  const { soon } = nflCard()._split(SLATE);
+  const { soon } = nflCard()._split(IDLE_SLATE);
   assert.deepEqual(soon.map((g) => g.game_id), ["thu1", "thu2"]);
 });
 

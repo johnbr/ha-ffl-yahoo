@@ -506,6 +506,16 @@ function renderFoldToggle(kind, count, open) {
 }
 
 /** The expanded game's play list, newest first. */
+/**
+ * One game's recent plays, newest first.
+ *
+ * Each play is prefixed with the down and distance it was run FROM — "1st &
+ * 10 J. Goff passed to J. Gibbs…" — which the integration leaves empty for
+ * anything that was not a snap (a kickoff, a PAT, a timeout), so those read
+ * bare. Names come shortened (`short_text`) because a dozen full sentences
+ * do not fit a phone; the full `text` is the fallback for an older
+ * integration that does not send the short form.
+ */
 function renderNflPlays(plays) {
   if (!Array.isArray(plays) || !plays.length) {
     return `<div class="ffl-empty">No plays yet.</div>`;
@@ -519,7 +529,9 @@ function renderNflPlays(plays) {
           <span class="ffl-nfl-play-when">${escapeHtml(
             [p.period ? `Q${p.period}` : "", p.clock || ""].filter(Boolean).join(" ")
           )}</span>
-          <span class="ffl-nfl-play-text">${escapeHtml(p.text || "")}</span>
+          <span class="ffl-nfl-play-text">${
+            p.situation ? `<span class="ffl-nfl-play-down">${escapeHtml(p.situation)}</span> ` : ""
+          }${escapeHtml(p.short_text || p.text || "")}</span>
         </li>`
         )
         .join("")}
@@ -624,6 +636,14 @@ function renderPlayerBlock(player, align) {
         String(player.status).toLowerCase()
       )}">${escapeHtml(player.status)}</span>`
     : "";
+  // "vs Min" says who; a player yet to play also needs WHEN — "Sun 10:00 AM
+  // vs Min" — and the kickoff reads the way the games card prints it, weekday
+  // included unless it is today. Once the game is on, the note carries the
+  // clock and the score and the kickoff is history.
+  const game =
+    player.game_state === "pre" && player.kickoff
+      ? [fmtKickoff(player.kickoff), player.game].filter(Boolean).join(" ")
+      : player.game;
   return `
     <div class="ffl-lu-block ffl-lu-${align} ffl-p-${stateCls}">
       <div class="ffl-lu-line">
@@ -638,7 +658,7 @@ function renderPlayerBlock(player, align) {
           proj
         )}</span>
       </div>
-      ${player.game ? `<div class="ffl-lu-game">${escapeHtml(player.game)}</div>` : ""}
+      ${game ? `<div class="ffl-lu-game">${escapeHtml(game)}</div>` : ""}
       ${player.stat_line ? `<div class="ffl-lu-stat">${escapeHtml(player.stat_line)}</div>` : ""}
     </div>`;
 }
@@ -1030,17 +1050,19 @@ class FflNflGamesCard extends FflBaseCard {
   /**
    * What shows by default, and what folds away.
    *
-   * Live games always show. Of the scheduled ones, only those on the NEXT
-   * day that has a game — Thursday's game alone on a Tuesday, the whole
-   * Sunday slate on a Friday, Monday night's game once Sunday is done — and
-   * the rest of the week folds behind "N later this week". Finished games
-   * fold behind "N final". A Sunday afternoon therefore reads as the live
-   * games, then tonight's, with Monday's folded; the week's end reads as
-   * nothing but the two folds.
+   * While any game is in progress, the live games are ALL that shows — a
+   * scheduled game is noise next to one being played, and the reader who
+   * wants it can unfold it. Once the last live game ends, the scheduled
+   * games on the NEXT day that has one come out — Thursday's game alone on
+   * a Tuesday, the whole Sunday slate on a Friday, Monday night's game once
+   * Sunday is done — and the rest of the week folds behind "N later this
+   * week". Finished games fold behind "N final". A Sunday afternoon
+   * therefore reads as the live games and two folds; the evening, once
+   * they are done, as tonight's game; the week's end as nothing but folds.
    *
    * "Next day" is the viewer's calendar day, see localDayKey. A scheduled
-   * game with no usable kickoff time shows rather than hides — a missing
-   * time is a reason to look, not to fold.
+   * game with no usable kickoff time shows rather than hides (when nothing
+   * is live) — a missing time is a reason to look, not to fold.
    *
    * Sorted here rather than in the sensor: the slate is served in kickoff
    * order, which is the honest general-purpose shape, and "what is worth
@@ -1054,6 +1076,7 @@ class FflNflGamesCard extends FflBaseCard {
     for (const game of rows) {
       (game.state === "post" ? done : game.state === "in" ? live : pre).push(game);
     }
+    if (live.length) return { live, soon: [], later: pre, done };
     const keys = pre.map((g) => localDayKey(g.start_time)).filter(Boolean);
     const nextDay = keys.length
       ? pre
@@ -1389,6 +1412,7 @@ const CARD_CSS = `
     font-variant-numeric: tabular-nums;
   }
   .ffl-nfl-play-text { min-width: 0; font-weight: 500; color: var(--primary-text-color); }
+  .ffl-nfl-play-down { color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
 
   /* Three tracks with the badge in the middle one, so "1 LIVE" sits at the
      card's centre on every card. As a space-between flex row its position

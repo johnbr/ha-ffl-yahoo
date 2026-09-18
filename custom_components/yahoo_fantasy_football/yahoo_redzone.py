@@ -545,6 +545,17 @@ class RelayPlay:
     """Everyone named in the description, in the order they appear."""
     text: str
     """Raw, with ids still in brackets — see :func:`humanize_play`."""
+    down: str = ""
+    distance: str = ""
+    yards_to_goal: str = ""
+    """The situation the play was run FROM — ``1st & 10`` at the snap.
+
+    Blank (``0``) on anything that is not a snap from scrimmage: kickoffs,
+    PATs, timeouts, the two-minute warning, the end of a quarter. That is
+    the feed's own convention, and it is exactly the set of rows that should
+    not carry a down-and-distance prefix, so nothing here has to know play
+    types.
+    """
 
 
 def parse_relay_players(text: str) -> dict[str, str]:
@@ -591,6 +602,9 @@ def parse_relay_plays(text: str) -> list[RelayPlay]:
                 team_with_ball=_cell(cells, PLAY_ROW["teamWithBall"]),
                 player_ids=tuple(_PLAY_REF.findall(body)),
                 text=body,
+                down=_cell(cells, PLAY_ROW["down"]),
+                distance=_cell(cells, PLAY_ROW["distance"]),
+                yards_to_goal=_cell(cells, PLAY_ROW["yardsToGoal"]),
             )
         )
     plays.sort(key=lambda p: p.sequence)
@@ -917,6 +931,15 @@ def describe_delta(before: dict[str, float], after: dict[str, float]) -> str:
 DEFENSE_POSITION_TYPE = "DT"
 
 
+def _epoch(value: Any) -> int | None:
+    """A relay timestamp cell as an int, or None — the feed leaves it 0 when unknown."""
+    try:
+        epoch = int(value)
+    except (TypeError, ValueError):
+        return None
+    return epoch if epoch > 0 else None
+
+
 def _is_defense(entry: dict[str, Any], meta: dict[str, Any]) -> bool:
     return DEFENSE_POSITION_TYPE in (
         str(entry.get("positionType") or "").upper(),
@@ -946,6 +969,7 @@ def _player(
         live_projected=live_projection(points, projected, game),
         stat_line=stat_line(stats),
         game_note=game.note_for(nfl_team) if game else "",
+        kickoff=_epoch(game.start_time) if game else None,
         has_ball=game.has_ball(nfl_team) if game else False,
         red_zone=game.in_red_zone(nfl_team) if game else False,
         status=str(entry.get("status") or "").upper(),

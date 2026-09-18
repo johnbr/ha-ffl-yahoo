@@ -588,6 +588,8 @@ def test_stored_payload_is_json_serialisable() -> None:
         ("Puka Nacua", "P. Nacua"),
         ("Michael Penix Jr.", "M. Penix Jr."),
         ("Amon-Ra St. Brown", "A. St. Brown"),
+        ("D.J. Reed", "D.J. Reed"),
+        ("James Cook III", "J. Cook III"),
         ("Cher", "Cher"),
         ("", ""),
     ],

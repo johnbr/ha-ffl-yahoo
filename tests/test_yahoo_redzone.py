@@ -325,6 +325,21 @@ def test_game_state_comes_from_the_feed_not_from_english(league):
     assert "pre" in states
 
 
+def test_a_player_yet_to_play_knows_when_their_game_kicks_off(league, games_text):
+    """"vs Min" is only half the answer before the game; the roster wants "Sun 10:00 AM vs Min"."""
+    from yahoo_fantasy_football.yahoo_redzone import NFL_TEAMS
+
+    games = parse_relay_games(games_text)
+    by_abbr = {abbr: games.get(club) for club, abbr in NFL_TEAMS.items()}
+    for player in (p for m in league.matchups for p in m.players):
+        game = by_abbr.get(player.nfl_team)
+        if game is None:
+            assert player.kickoff is None
+            continue
+        assert player.kickoff == int(game.start_time), player.name
+        assert player.kickoff > 1_700_000_000, "an epoch, not a relative time"
+
+
 def test_players_carry_their_stat_line(league):
     maye = next(
         p for m in league.matchups for p in m.players if p.name == "Drake Maye"
@@ -495,6 +510,19 @@ def test_plays_parse_oldest_first_with_everyone_named(plays_text: str) -> None:
     assert [p.sequence for p in plays] == sorted(p.sequence for p in plays)
     assert plays[1].player_ids == ("42654", "29298")
     assert plays[1].period == "1" and plays[1].clock == "14:55"
+
+
+def test_a_play_carries_the_situation_it_was_run_from(plays_text: str) -> None:
+    """Pre-snap down, distance and spot — blank on anything that is not a snap."""
+    from yahoo_fantasy_football.league_state import down_and_distance
+
+    plays = {p.sequence: p for p in parse_relay_plays(plays_text)}
+    kickoff, first_snap, punt = plays[1], plays[2], plays[8]
+    assert (kickoff.down, kickoff.distance, kickoff.yards_to_goal) == ("0", "0", "0")
+    assert down_and_distance(kickoff.down, kickoff.distance, kickoff.yards_to_goal) == ""
+    assert (first_snap.down, first_snap.distance, first_snap.yards_to_goal) == ("1", "10", "76")
+    assert down_and_distance(first_snap.down, first_snap.distance, first_snap.yards_to_goal) == "1st & 10"
+    assert down_and_distance(punt.down, punt.distance, punt.yards_to_goal) == "4th & 11"
 
 
 def test_a_two_sentence_play_keeps_both_halves(plays_text: str) -> None:

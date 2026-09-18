@@ -98,6 +98,10 @@ class WebPlayer:
     their game is final; in between it is what the player is on pace for.
     ``None`` from the HTML tier, which has no game clock to work from.
     """
+    kickoff: int | None = None
+    """When this player's NFL game starts, as a Unix epoch. ``None`` from the
+    HTML tier and for a club with no game in the feed. What lets a roster row
+    say *when* "vs Min" is, not just that it is coming."""
     game_state_hint: str = ""
     """An authoritative game state, when the source reports one directly.
 
