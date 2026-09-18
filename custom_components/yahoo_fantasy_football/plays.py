@@ -143,6 +143,17 @@ class ScoringEvent:
     prints under each matchup on GameChannel, and it is preferred over a bare
     point delta by :func:`describe`.
     """
+    play_floor: int | None = None
+    """The newest play already in the game's feed when this event was raised.
+
+    Only a play numbered above it can be this event's description. Yahoo's
+    stat feed moves 15-20 s before the play's text reaches the play feed
+    (measured live 2026-09-17), so at the moment an event is raised the play
+    it came from is usually not there yet — and the newest play that mentions
+    the player is their *previous* one. Without the floor that previous play
+    was matched, pinned, and shown as the description of a play it was not.
+    ``None`` when the feed's state was unknown, which falls back to newest-wins.
+    """
 
     @property
     def enriched(self) -> bool:
@@ -381,6 +392,11 @@ def match_relay_play(
     That is deliberate: a play ageing out of the feed is not a reason to
     relabel the event with something newer and unrelated.
 
+    The unpinned pick honours ``event.play_floor``: plays already in the feed
+    when the event was raised cannot be the play that raised it. Returning
+    ``None`` here is the normal case for a fresh event — its text has not
+    landed yet — and the caller tries again on the next poll.
+
     ``yahoo_redzone`` is imported lazily to keep this module free of any
     particular source — the HTML tier has no play feed at all.
     """
@@ -389,10 +405,13 @@ def match_relay_play(
     player_id = event.player_key.rsplit(".p.", 1)[-1]
     if not player_id:
         return None
-    for play in reversed(plays):
+    floor = event.play_floor
+    for play in reversed(plays):  # newest first
         if pin is not None:
             if f"{play.game_key}.{play.sequence}" != pin:
                 continue
+        elif floor is not None and play.sequence <= floor:
+            return None  # nothing further back can be it either
         elif player_id not in play.player_ids:
             continue
         text = humanize_play(play.text, names)
@@ -533,6 +552,24 @@ class PlayFeed:
                 self._events[index] = updated
                 return updated
         return None
+
+    def start_week(self, week: int | None) -> bool:
+        """Make ``week`` the feed's week. Returns whether an older week was cleared.
+
+        The coordinator calls this once per poll. It has to move ``week`` as
+        well as clearing, because :meth:`add` is the only other thing that
+        does, and ``add`` never runs until an event exists. Clearing without
+        moving the week meant the *next* poll saw last week's number again and
+        cleared again — every poll of the first game of week 2 reset the
+        baseline, so no diff ever produced an event (2026-09-17, Det at Buf).
+        """
+        if week is None or week == self._week:
+            return False
+        rolled = self._week is not None
+        if rolled:
+            self.clear()
+        self._week = week
+        return rolled
 
     def clear(self) -> None:
         self._events.clear()

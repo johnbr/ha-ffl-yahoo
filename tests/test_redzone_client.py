@@ -9,6 +9,8 @@ from __future__ import annotations
 import pytest
 from conftest import FIXTURES
 from yahoo_fantasy_football.redzone_client import (
+    PLAYS_MIN_INTERVAL_SECONDS,
+    PLAYS_RECHECK_SECONDS,
     SEED_TTL_SECONDS,
     FetchFailed,
     RedzoneClient,
@@ -156,3 +158,122 @@ async def test_team_choices_for_the_config_flow():
     assert len(teams) == 10
     assert all(isinstance(name, str) and name for name in teams.values())
     assert await client.async_league_name() == "Test League"
+
+
+# -- the play feed: conditional, cached, asked for on every poll ----------------
+
+PLAYS_V1 = "# nfl/plays-2.txt\np|2|1|1|10|65|8|1|15:00|2|9|[1] passed to [2] for 9 yard gain\n"
+PLAYS_V2 = PLAYS_V1 + "p|2|2|2|1|56|8|1|14:30|1|1|[3] rushed for a 1 yard touchdown\n"
+
+
+class _Relay:
+    """A play feed that honours ``If-Modified-Since`` the way Yahoo's does."""
+
+    def __init__(self, body: str, modified: str = "Thu, 17 Sep 2026 02:14:19 GMT") -> None:
+        self.body, self.modified = body, modified
+        self.asks: list[str | None] = []
+        self.fail = False
+
+    def publish(self, body: str, modified: str) -> None:
+        self.body, self.modified = body, modified
+
+    async def fetch_if_modified(self, url: str, since: str | None) -> tuple[str | None, str]:
+        self.asks.append(since)
+        if self.fail:
+            raise OSError("boom")
+        if since is not None and since == self.modified:
+            return None, since
+        return self.body, self.modified
+
+
+def _plays_client(relay: _Relay) -> RedzoneClient:
+    return RedzoneClient(_fetcher(_bodies()), LEAGUE, fetch_if_modified=relay.fetch_if_modified)
+
+
+@pytest.mark.asyncio
+async def test_an_unchanged_play_feed_is_a_304_and_the_cached_body():
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+
+    assert await client.async_plays("2", now=100.0) == PLAYS_V1
+    assert relay.asks == [None], "nothing to condition the first ask on"
+
+    assert await client.async_plays("2", now=110.0) == PLAYS_V1
+    assert relay.asks[-1] == relay.modified, "the second ask carries If-Modified-Since"
+
+
+@pytest.mark.asyncio
+async def test_a_changed_play_feed_arrives_on_the_next_poll():
+    """The whole point: the text lands after the snap, and the next poll sees it."""
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+    await client.async_plays("2", now=100.0)
+
+    relay.publish(PLAYS_V2, "Thu, 17 Sep 2026 02:14:49 GMT")
+    assert await client.async_plays("2", now=110.0) == PLAYS_V2
+    assert await client.async_plays("2", now=120.0) == PLAYS_V2
+    assert relay.asks[-1] == "Thu, 17 Sep 2026 02:14:49 GMT", "conditioned on the NEW mtime"
+
+
+@pytest.mark.asyncio
+async def test_two_asks_in_one_poll_are_one_request():
+    """Fantasy enrichment and the games card both want the same feed each poll."""
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+
+    await client.async_plays("2", now=100.0)
+    await client.async_plays("2", now=100.0)
+    await client.async_plays("2", now=100.0 + PLAYS_MIN_INTERVAL_SECONDS - 1)
+    assert len(relay.asks) == 1
+
+    await client.async_plays("2", now=100.0 + PLAYS_MIN_INTERVAL_SECONDS)
+    assert len(relay.asks) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_304_is_not_trusted_forever():
+    """Last-Modified is one-second and per-origin; a full fetch confirms it now and then."""
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+
+    await client.async_plays("2", now=100.0)
+    await client.async_plays("2", now=100.0 + PLAYS_RECHECK_SECONDS / 2)
+    assert relay.asks[-1] is not None
+    await client.async_plays("2", now=100.0 + PLAYS_RECHECK_SECONDS + 1)
+    assert relay.asks[-1] is None, "past the recheck window the ask is unconditional"
+    await client.async_plays("2", now=100.0 + PLAYS_RECHECK_SECONDS + 20)
+    assert relay.asks[-1] is not None, "and the full fetch restarts the window"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_play_fetch_serves_what_it_had():
+    """Stale text beats a blank line for one bad poll; nothing at all beats a raise."""
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+    relay.fail = True
+    assert await client.async_plays("2", now=100.0) == ""
+
+    relay.fail = False
+    await client.async_plays("2", now=110.0)
+    relay.fail = True
+    assert await client.async_plays("2", now=120.0) == PLAYS_V1
+
+
+@pytest.mark.asyncio
+async def test_play_feeds_are_per_game():
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+    await client.async_plays("2", now=100.0)
+    await client.async_plays("7", now=100.0)
+    assert relay.asks == [None, None], "game 7 cannot be conditioned on game 2's mtime"
+
+
+@pytest.mark.asyncio
+async def test_without_a_conditional_fetcher_the_feed_is_fetched_whole():
+    """The config flow and the seed-only tests never supply one."""
+    log: list[str] = []
+    bodies = _bodies() | {"plays-2": PLAYS_V1}
+    client = RedzoneClient(_fetcher(bodies, log=log), LEAGUE)
+    assert await client.async_plays("2", now=100.0) == PLAYS_V1
+    assert await client.async_plays("2", now=100.0) == PLAYS_V1
+    assert sum("plays-2" in u for u in log) == 2

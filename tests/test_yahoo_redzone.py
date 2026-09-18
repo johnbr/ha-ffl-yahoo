@@ -645,36 +645,3 @@ def test_games_in_order_sorts_by_kickoff() -> None:
     games = parse_relay_games((FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text())
     starts = [int(g.start_time) for g in games_in_order(games) if str(g.start_time).isdigit()]
     assert starts == sorted(starts)
-
-
-def _sig_game(**over):
-    from yahoo_fantasy_football.yahoo_redzone import GameState
-
-    cells = ["g", "1", "17", "26", "P", "0",
-             over.get("period", "2"), over.get("clock", "9:07"),
-             over.get("away_score", "7"), over.get("home_score", "10"), "1789000000",
-             over.get("down", "2"), over.get("distance", "7"),
-             over.get("ytg", "44"), over.get("ball", "17")]
-    return GameState(cells)
-
-
-def test_the_play_signature_ignores_the_running_clock() -> None:
-    """A clock in it would mark every poll as changed, defeating the point."""
-    from yahoo_fantasy_football.yahoo_redzone import play_signature
-
-    assert play_signature(_sig_game(clock="9:07")) == play_signature(_sig_game(clock="8:41"))
-
-
-def test_the_play_signature_moves_on_anything_that_is_a_play() -> None:
-    from yahoo_fantasy_football.yahoo_redzone import play_signature
-
-    base = play_signature(_sig_game())
-    for label, over in {
-        "an incompletion advances the down": {"down": "3"},
-        "a penalty changes the distance": {"distance": "12"},
-        "a gain moves the ball": {"ytg": "38"},
-        "a turnover changes possession": {"ball": "26"},
-        "a score changes the score": {"home_score": "17"},
-        "a quarter ends": {"period": "3"},
-    }.items():
-        assert play_signature(_sig_game(**over)) != base, label

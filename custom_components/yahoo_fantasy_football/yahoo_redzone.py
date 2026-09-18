@@ -731,35 +731,6 @@ def parse_relay_games(text: str) -> dict[str, GameState]:
     return games
 
 
-def play_signature(game: GameState) -> str:
-    """What changes exactly once per play, for one game.
-
-    The games feed is 2.6 KB and arrives every poll; a game's play-by-play is
-    ~20 KB. So the cheap feed is used as the change detector for the expensive
-    one: when this string is unchanged no play has run, and the play feed does
-    not need refetching.
-
-    The CLOCK is deliberately absent. It moves continuously during a play and
-    would mark every poll as changed, which is the opposite of what this is
-    for. Down, distance, ball spot, possession and the scores move on the
-    snap — an incompletion advances the down, a penalty the distance, a
-    turnover the possession — so between them they tick once per play and stay
-    still in between.
-    """
-    return "|".join(
-        str(getattr(game, name, "") or "")
-        for name in (
-            "period",
-            "down",
-            "distance",
-            "yards_to_goal",
-            "team_with_ball",
-            "away_score",
-            "home_score",
-        )
-    )
-
-
 def games_in_order(games: dict[str, GameState]) -> list[GameState]:
     """The week's slate, one entry per GAME, in kickoff order.
 

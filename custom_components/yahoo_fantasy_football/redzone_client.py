@@ -24,11 +24,23 @@ condition this tier has.
 Politeness
 ----------
 This is still a scraper against a site that did not invite us. Cadence is the
-coordinator's job, but the shape is bounded here: a fixed three requests per
-refresh, no per-matchup fan-out, and no browser impersonation beyond a single
-``User-Agent``. The endpoints answer without one — it is sent so the traffic is
-identifiable rather than to evade anything. If Yahoo starts refusing, the
-correct response is to fetch less, not to evade harder.
+coordinator's job, but the shape is bounded here: three requests per refresh
+plus one *conditional* request per live game's play-by-play, no per-matchup
+fan-out, and no browser impersonation beyond a single ``User-Agent``. The
+endpoints answer without one — it is sent so the traffic is identifiable rather
+than to evade anything. If Yahoo starts refusing, the correct response is to
+fetch less, not to evade harder.
+
+The play feeds are the one thing polled every refresh, and they are polled with
+``If-Modified-Since`` because the relay honours it (verified 2026-09-17: a real
+``Last-Modified``, ``304`` on an unchanged file). A ``304`` is a couple of
+hundred bytes, so asking every 10 s costs less than the old scheme of fetching
+the whole feed whenever the games feed *looked* like a play had run — and it
+stops missing plays. The games feed reflects a snap 2-30 s before the play's
+text reaches the play feed (measured live, six plays), so a fetch triggered by
+the games feed was usually too early, and nothing triggered a second one until
+the next snap: the last-play line ran a play behind, and a touchdown whose text
+landed between the score change and the PAT was never shown at all.
 """
 
 from __future__ import annotations
@@ -37,6 +49,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 from .web_client import (  # noqa: F401  (LeagueIsPrivate re-exported for callers)
     STALE_AFTER_SECONDS,
@@ -64,6 +77,12 @@ USER_AGENT = (
 # ``(url) -> body``. Unlike the HTML tier there is no login bounce to detect,
 # so the fetcher does not have to report where it landed.
 Fetcher = Callable[[str], Awaitable[str]]
+
+# ``(url, if_modified_since) -> (body, last_modified)``, with ``body`` ``None``
+# when the server answered ``304 Not Modified``. Optional: the config flow and
+# the tests that only need the seed get by on the plain fetcher, and without
+# this one the play feeds are simply fetched whole every time.
+ConditionalFetcher = Callable[[str, str | None], Awaitable[tuple[str | None, str]]]
 
 # A redzone payload for a real league runs to ~190 KB; the relay feeds are
 # small but never empty, since each carries a comment header. Anything under
@@ -93,6 +112,32 @@ SEED_TTL_SECONDS = 180.0
 # undo the point of caching the seed.
 PLAYERS_TTL_SECONDS = 1800.0
 
+# How often a play feed is fetched whole regardless of ``If-Modified-Since``.
+#
+# ``Last-Modified`` has one-second resolution and comes from whichever origin
+# answered, so a ``304`` is trusted only for this long before an unconditional
+# fetch confirms it. Cheap insurance: one full (gzip, ~5 KB) fetch per live
+# game every minute and a half.
+PLAYS_RECHECK_SECONDS = 90.0
+
+# The floor between two asks for the same play feed. The coordinator asks once
+# per poll and the games card asks again for each expanded game a moment later;
+# the second ask is answered from the first's result rather than with a second
+# round trip.
+PLAYS_MIN_INTERVAL_SECONDS = 5.0
+
+
+@dataclass
+class _PlaysCache:
+    """One game's play feed as last seen, and when."""
+
+    body: str
+    last_modified: str
+    fetched_at: float
+    """Last time the server was asked, whether it answered 200 or 304."""
+    loaded_at: float
+    """Last time a full body arrived."""
+
 
 class RedzoneClient:
     """Read one league over Yahoo's anonymous GameChannel tier."""
@@ -104,8 +149,10 @@ class RedzoneClient:
         *,
         sport: str = "nfl",
         seed_ttl: float = SEED_TTL_SECONDS,
+        fetch_if_modified: ConditionalFetcher | None = None,
     ) -> None:
         self._fetch = fetch
+        self._fetch_if_modified = fetch_if_modified
         self.league_id = str(league_id)
         self.sport = sport
         self._seed_ttl = seed_ttl
@@ -117,6 +164,7 @@ class RedzoneClient:
         self._seed_at: float = 0.0
         self._players: dict[str, str] | None = None
         self._players_at: float = 0.0
+        self._plays: dict[str, _PlaysCache] = {}
 
     # -- internals ---------------------------------------------------------
 
@@ -189,16 +237,47 @@ class RedzoneClient:
         self._players, self._players_at = parse_relay_players(body), now
         return self._players
 
-    async def async_plays(self, plays_id: str) -> str:
+    async def async_plays(self, plays_id: str, now: float) -> str:
         """One game's play-by-play feed, or ``""`` if it is not being served.
 
-        Never cached: this is the feed whose *text* changes — Yahoo posts a
-        terse description first and revises it — so a cached copy would defeat
-        the only reason for reading it twice.
+        This is the feed whose *text* changes — Yahoo posts a terse description
+        first and revises it in place — so it is never served from a cache by
+        age. It is served from the cache when the server says the file has
+        not changed (``304``), which is what makes asking on every poll
+        affordable. See the module docstring for why every poll.
+
+        ``now`` is the poll's timestamp. Two callers in one poll — the fantasy
+        enrichment and the games card's last play — share one request.
         """
         if not plays_id:
             return ""
-        return await self._get_optional(relay_url(f"plays-{plays_id}", self.sport))
+        url = relay_url(f"plays-{plays_id}", self.sport)
+        if self._fetch_if_modified is None:
+            return await self._get_optional(url)
+
+        cached = self._plays.get(plays_id)
+        if cached is not None and now - cached.fetched_at < PLAYS_MIN_INTERVAL_SECONDS:
+            return cached.body
+
+        since = None
+        if cached is not None and now - cached.loaded_at < PLAYS_RECHECK_SECONDS:
+            since = cached.last_modified or None
+        try:
+            body, last_modified = await self._fetch_if_modified(url, since)
+        except Exception as err:  # a missing feed is cosmetic, never fatal
+            _LOGGER.debug("live feed %s unavailable: %s", url, err)
+            return cached.body if cached is not None else ""
+
+        if body is None:  # 304: what we have is what there is
+            if cached is None:
+                return ""
+            cached.fetched_at = now
+            return cached.body
+        if len(body) < MIN_BODY:
+            _LOGGER.debug("suspiciously short response from %s (%dB)", url, len(body))
+            return cached.body if cached is not None else ""
+        self._plays[plays_id] = _PlaysCache(body, last_modified, now, now)
+        return body
 
     async def async_refresh(self, now: float) -> LeagueData:
         """One poll: the two live feeds, plus the league seed when it is due.

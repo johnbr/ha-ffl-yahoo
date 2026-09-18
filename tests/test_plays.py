@@ -470,6 +470,38 @@ def test_empty_feed_has_no_last_play() -> None:
     assert PlayFeed().last_play() is None
 
 
+def test_start_week_clears_an_older_week_exactly_once() -> None:
+    """The regression of 2026-09-17: a feed restored with week 1 met week 2.
+
+    The coordinator cleared it, but the feed's week stayed at 1 — only ``add``
+    moved it, and ``add`` never ran because the coordinator also reset its
+    baseline on every "new week", so no diff could ever produce an event.
+    Every poll of the first game of week 2 was the first poll.
+    """
+    feed = PlayFeed.from_dict(
+        PlayFeed().to_dict() | {"week": 1}
+    )
+    feed.add(diff_snapshots(snap(1, 1.0, player("p1", 0.0)), snap(1, 2.0, player("p1", 6.0))))
+    assert (len(feed), feed.week) == (1, 1)
+
+    assert feed.start_week(2) is True, "an older week's history is cleared"
+    assert (len(feed), feed.week) == (0, 2)
+    assert feed.start_week(2) is False, "the next poll of the same week is not a rollover"
+
+    feed.add(diff_snapshots(snap(2, 3.0, player("p1", 0.0)), snap(2, 4.0, player("p1", 3.0))))
+    assert len(feed) == 1
+    assert feed.start_week(2) is False
+    assert len(feed) == 1, "a poll must not wipe the week's own events"
+
+
+def test_start_week_on_a_fresh_feed_is_not_a_rollover() -> None:
+    feed = PlayFeed()
+    assert feed.start_week(2) is False
+    assert feed.week == 2
+    assert feed.start_week(None) is False, "no week yet is not a reason to clear"
+    assert feed.week == 2
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
@@ -786,6 +818,55 @@ def test_a_pin_that_no_longer_exists_keeps_the_existing_text() -> None:
 def test_a_player_who_did_nothing_gets_no_description() -> None:
     plays, names = _relay()
     assert match_relay_play(_scoring_event("99999999"), plays, names) is None
+
+
+def test_a_fresh_event_does_not_take_a_play_that_predates_it() -> None:
+    """The stat feed runs 15-20 s ahead of the play text (measured 2026-09-17).
+
+    So when the event is raised, the play it came from is usually not in the
+    feed yet — and the newest play mentioning the player is their PREVIOUS
+    one. Matching that and pinning it captioned a 4-yard catch with the
+    touchdown from the quarter before. The floor is where the feed stood at
+    the end of the previous poll: nothing at or below it can be this event.
+    """
+    plays, names = _relay()
+    mine = [p for p in plays if "40041" in p.player_ids]
+    assert len(mine) > 1, "fixture must exercise the choice"
+    newest = mine[-1]
+
+    # The feed as it stood before the play landed: everything up to the newest
+    # play the player has. The event was raised by a play not yet in it.
+    before = [p for p in plays if p.sequence < newest.sequence]
+    event = _scoring_event("40041", play_floor=before[-1].sequence)
+    assert match_relay_play(event, before, names) is None, "the previous play is not it"
+
+    # Next poll: the text has landed, and it is the only candidate.
+    match = match_relay_play(event, plays, names)
+    assert match is not None
+    assert match.play_id == f"{newest.game_key}.{newest.sequence}"
+
+
+def test_no_floor_falls_back_to_newest_wins() -> None:
+    """Events restored from before the floor existed, or raised with no feed state known."""
+    plays, names = _relay()
+    mine = [p for p in plays if "40041" in p.player_ids]
+    match = match_relay_play(_scoring_event("40041", play_floor=None), plays, names)
+    assert match.play_id == f"{mine[-1].game_key}.{mine[-1].sequence}"
+
+
+def test_a_pinned_event_ignores_the_floor() -> None:
+    """A revision re-renders the play it already matched, wherever that sits."""
+    plays, names = _relay()
+    first = next(p for p in plays if "40041" in p.player_ids)
+    pinned = f"{first.game_key}.{first.sequence}"
+    event = _scoring_event("40041", play_floor=first.sequence + 500)
+    assert match_relay_play(event, plays, names, pin=pinned).play_id == pinned
+
+
+def test_the_floor_survives_a_restart() -> None:
+    feed = PlayFeed()
+    feed.add([_scoring_event("40041", play_floor=57)])
+    assert loads(dumps(feed)).last_play().play_floor == 57
 
 
 def test_the_description_wins_over_the_stat_line() -> None:

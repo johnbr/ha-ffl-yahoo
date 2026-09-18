@@ -33,7 +33,7 @@ from .league_state import play_dict, poll_interval
 from .plays import PlayFeed, ScoringEvent, diff_snapshots, match_relay_play
 from .redzone_client import USER_AGENT, RedzoneClient
 from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
-from .yahoo_redzone import parse_relay_plays, play_signature, to_snapshot
+from .yahoo_redzone import humanize_play, parse_relay_plays, to_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,21 +54,6 @@ PLAY_REVISION_SECONDS = 300.0
 # cap is what guarantees it, since this is a scraper and the cost has to be
 # bounded by construction rather than by expectation.
 MAX_PLAY_FEEDS = 8
-
-# How long an on-demand NFL play list is reused before being refetched.
-#
-# A game's plays feed is ~20 KB, so the games CARD cannot have them pushed to
-# it — a full Sunday would be a quarter of a megabyte per poll to render one
-# line per game. They are fetched only when a reader expands a game, and this
-# TTL keeps a card that repaints on every 10s poll from refetching each time.
-# Backstop only. The always-on last play does NOT wait for this — it refetches
-# as soon as the games feed says a play has run (see ``play_signature``), which
-# is the same 10s poll the scores arrive on. A pure TTL made the games card
-# visibly lag the fantasy one, which updates on every poll, by a play or two.
-#
-# This remains as the floor for a game whose signature is somehow stuck, and as
-# the cache for a reader who has expanded a game.
-NFL_PLAYS_TTL_SECONDS = 45.0
 
 # Ceiling on last-play feeds per refresh. Sixteen is the whole week's slate, so
 # this cannot silently drop a game — it is a runaway guard, not a sample.
@@ -98,16 +83,31 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 resp.raise_for_status()
                 return await resp.text()
 
-        self.client = RedzoneClient(_fetch, self.league_id)
+        async def _fetch_if_modified(url: str, since: str | None) -> tuple[str | None, str]:
+            headers = {"User-Agent": USER_AGENT}
+            if since:
+                headers["If-Modified-Since"] = since
+            async with session.get(url, headers=headers, timeout=REQUEST_TIMEOUT) as resp:
+                if resp.status == 304:
+                    return None, since or ""
+                resp.raise_for_status()
+                return await resp.text(), resp.headers.get("Last-Modified", "")
+
+        self.client = RedzoneClient(
+            _fetch, self.league_id, fetch_if_modified=_fetch_if_modified
+        )
         self.feed = PlayFeed()
         self._previous = None
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")
-        # {plays_id: (fetched_at, rows)} for the games card's on-demand lists.
-        self._nfl_plays: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+        # {plays_id: (feed body it was rendered from, rows)} — the games card's
+        # lists, re-rendered only when the feed actually changed.
+        self._nfl_plays: dict[str, tuple[str, list[dict[str, Any]]]] = {}
         # {plays_id: newest play text} for live games, refreshed every poll.
         self._nfl_last_plays: dict[str, str] = {}
-        # {plays_id: last play-changing state seen} — the cheap feed's tell.
-        self._nfl_signatures: dict[str, str] = {}
+        # {plays_id: newest play sequence} as of the END of the last poll. A
+        # scoring event raised this poll can only have come from a play above
+        # it — see ``ScoringEvent.play_floor``.
+        self._plays_floor: dict[str, int] = {}
 
         super().__init__(
             hass,
@@ -149,55 +149,52 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             raise UpdateFailed(str(err)) from err
 
         await self._process_plays(data, now)
-        await self._refresh_nfl_last_plays(data)
+        await self._refresh_nfl_last_plays(data, now)
         self.update_interval = _interval(data)
         return data
 
-    async def _refresh_nfl_last_plays(self, data: LeagueData) -> None:
+    async def _refresh_nfl_last_plays(self, data: LeagueData, now: float) -> None:
         """Newest play text for each LIVE NFL game, for the games card.
 
         Live games only. A finished game's last play is a snapshot nobody is
         watching change, and a scheduled one has none — fetching either would
         be paying for a line that will never move.
 
-        Shares :meth:`async_game_plays`' cache, so a game a reader has expanded
-        is not fetched twice, and every failure is swallowed: a missing line is
-        cosmetic where a failed refresh would blank the scores.
+        Every live game, every poll. The play feed is the only way to know a
+        play's text has landed: the games feed reflects the snap 2-30 s before
+        the text follows (measured live 2026-09-17), so a fetch cued by the
+        games feed was too early more often than not, and the line then sat a
+        play behind until the next snap cued another. The client answers an
+        unchanged feed with a ``304``, which is what makes every poll cheap.
+
+        Every failure is swallowed: a missing line is cosmetic where a failed
+        refresh would blank the scores.
         """
         live = [
-            game
+            str(game.plays_id)
             for game in getattr(data, "nfl_games", [])
             if getattr(game, "state", "") == "in" and getattr(game, "plays_id", "")
         ][:MAX_NFL_LAST_PLAY_FEEDS]
         if not live:
             self._nfl_last_plays = {}
-            self._nfl_signatures = {}
-            return
-
-        # The 2.6 KB games feed already told us which games ran a play. Only
-        # those are worth spending 20 KB on, and they are worth it IMMEDIATELY
-        # rather than whenever a TTL happens to lapse.
-        wanted = []
-        for game in live:
-            plays_id = str(game.plays_id)
-            signature = play_signature(game)
-            if self._nfl_signatures.get(plays_id) != signature:
-                self._nfl_signatures[plays_id] = signature
-                wanted.append(plays_id)
-
-        keep = {str(game.plays_id) for game in live}
-        self._nfl_last_plays = {k: v for k, v in self._nfl_last_plays.items() if k in keep}
-        if not wanted:
             return
 
         results = await asyncio.gather(
-            *(self.async_game_plays(plays_id, 1, force=True) for plays_id in wanted),
+            *(self.async_game_plays(plays_id, 1, now=now) for plays_id in live),
             return_exceptions=True,
         )
-        for plays_id, result in zip(wanted, results, strict=True):
+        last_plays: dict[str, str] = {}
+        for plays_id, result in zip(live, results, strict=True):
             if isinstance(result, BaseException) or not result:
+                # Keep the line we had rather than blanking it for one bad poll.
+                if plays_id in self._nfl_last_plays:
+                    last_plays[plays_id] = self._nfl_last_plays[plays_id]
                 continue
-            self._nfl_last_plays[plays_id] = result[0].get("text", "")
+            last_plays[plays_id] = result[0].get("text", "")
+            sequence = _sequence(result[0].get("play_id", ""))
+            if sequence is not None:
+                self._plays_floor[plays_id] = sequence
+        self._nfl_last_plays = last_plays
 
     @property
     def nfl_last_plays(self) -> dict[str, str]:
@@ -211,9 +208,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         snapshot = to_snapshot(data.matchups, data.week, now, self.league_id)
 
-        if self.feed.week not in (None, data.week):
+        if self.feed.start_week(data.week):
             # A new week starts a new history rather than appending to the last.
-            self.feed.clear()
             self._previous = None
 
         events = diff_snapshots(self._previous, snapshot)
@@ -260,6 +256,16 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         if not wanted:
             return events
 
+        # A new event's play is usually NOT in the feed yet (the stat feed
+        # runs 15-20 s ahead of the play text), so it is told where the feed
+        # stood at the end of the last poll and matches only above that.
+        events = [
+            replace(event, play_floor=self._plays_floor[feed_id])
+            if (feed_id := data.plays_feeds.get(event.nfl_team or "")) in self._plays_floor
+            else event
+            for event in events
+        ]
+
         try:
             names = await self.client.async_players(now)
         except Exception as err:  # cosmetic, never fatal
@@ -272,7 +278,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         # the refresh the entity is waiting on.
         ids = list(wanted)[:MAX_PLAY_FEEDS]
         results = await asyncio.gather(
-            *(self.client.async_plays(feed_id) for feed_id in ids),
+            *(self.client.async_plays(feed_id, now) for feed_id in ids),
             return_exceptions=True,
         )
         feeds: dict[str, list] = {}
@@ -307,34 +313,37 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         return [described(event) for event in events]
 
     async def async_game_plays(
-        self, plays_id: str, limit: int = 12, force: bool = False
+        self, plays_id: str, limit: int = 12, now: float | None = None
     ) -> list[dict[str, Any]]:
-        """Recent plays for ONE NFL game, newest first, fetched on demand.
+        """Recent plays for ONE NFL game, newest first.
 
         Lives here rather than in :mod:`websocket` because it reaches upstream
         and caches, and that module's whole contract is that it does neither.
+
+        The client decides whether anything is fetched (see ``async_plays``);
+        this only re-renders when the body it is handed is not the one the rows
+        were rendered from, so a ``304`` costs no parsing either.
 
         Returns ``[]`` rather than raising: an unreadable feed should leave the
         expanded game empty, not fail the card.
         """
         if not plays_id:
             return []
-        now = dt_util.utcnow().timestamp()
+        if now is None:
+            now = dt_util.utcnow().timestamp()
         cached = self._nfl_plays.get(plays_id)
-        if cached and not force and now - cached[0] < NFL_PLAYS_TTL_SECONDS:
-            return cached[1][:limit]
 
         try:
             names = await self.client.async_players(now)
-            plays = parse_relay_plays(await self.client.async_plays(plays_id))
+            body = await self.client.async_plays(plays_id, now)
         except Exception as err:  # a missing feed is not worth failing over
             _LOGGER.debug("Could not read plays for NFL game %s: %s", plays_id, err)
             return cached[1][:limit] if cached else []
-
-        from .yahoo_redzone import humanize_play
+        if cached and cached[0] == body:
+            return cached[1][:limit]
 
         rows: list[dict[str, Any]] = []
-        for play in reversed(plays):  # newest first, the way a reader scans
+        for play in reversed(parse_relay_plays(body)):  # newest first, the way a reader scans
             text = humanize_play(play.text, names)
             if not text:
                 continue
@@ -346,7 +355,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                     "clock": play.clock,
                 }
             )
-        self._nfl_plays[plays_id] = (now, rows)
+        self._nfl_plays[plays_id] = (body, rows)
         return rows[:limit]
 
     @property
@@ -356,6 +365,14 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
 def _interval(data: LeagueData | None) -> timedelta:
     return timedelta(seconds=poll_interval(data))
+
+
+def _sequence(play_id: str) -> int | None:
+    """The play number out of a ``game_key.sequence`` id."""
+    try:
+        return int(play_id.rsplit(".", 1)[-1])
+    except (TypeError, ValueError):
+        return None
 
 
 def coordinator_for(hass: HomeAssistant, entry_id: str) -> YahooFantasyCoordinator | None:
