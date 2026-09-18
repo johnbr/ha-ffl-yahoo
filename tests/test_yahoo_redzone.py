@@ -673,3 +673,158 @@ def test_games_in_order_sorts_by_kickoff() -> None:
     games = parse_relay_games((FIXTURES / "yahoo_relay_games_2026_w1.txt").read_text())
     starts = [int(g.start_time) for g in games_in_order(games) if str(g.start_time).isdigit()]
     assert starts == sorted(starts)
+
+
+# ---------------------------------------------------------------------------
+# Games the relay forgets
+# ---------------------------------------------------------------------------
+#
+# The relay restarts each morning with the schedule only: last night's game is
+# back to ``S``, 0-0, no clock — while its line-score rows are still there and
+# still sum to the result. ``yahoo_relay_games_2026_w2_reset.txt`` is that feed,
+# captured the morning after Det at Buf (2026-09-18).
+
+DET_AT_BUF = "20260917002"
+DET_AT_BUF_KICKOFF = 1789690500
+
+
+@pytest.fixture(scope="module")
+def reset_games_text() -> str:
+    return (FIXTURES / "yahoo_relay_games_2026_w2_reset.txt").read_text()
+
+
+def test_line_scores_ride_on_the_h_rows(games_text: str, reset_games_text: str) -> None:
+    from yahoo_fantasy_football.yahoo_redzone import parse_relay_games
+
+    # Live, third quarter: three periods so far, the current one included.
+    live = parse_relay_games(games_text)["26"]
+    assert live.quarters == {"17": (0, 7, 0), "26": (0, 0, 0)}
+    # The morning after: four periods each, and they sum to the result.
+    done = parse_relay_games(reset_games_text)["2"]
+    assert done.quarters == {"8": (0, 10, 7, 14), "2": (14, 13, 7, 7)}
+    # A game that has not kicked off has no line score at all.
+    assert parse_relay_games(reset_games_text)["12"].quarters == {}
+
+
+def test_the_restarted_relay_lists_last_nights_game_as_scheduled(reset_games_text: str) -> None:
+    """The raw parse, pinned so the settling below is testing a real shape."""
+    from yahoo_fantasy_football.yahoo_redzone import parse_relay_games
+
+    game = parse_relay_games(reset_games_text)["2"]
+    assert game.game_id == DET_AT_BUF
+    assert game.state == "pre"
+    assert (game.away_score, game.home_score) == ("0", "0")
+
+
+def test_a_full_line_score_settles_a_forgotten_game_from_the_feed_alone(reset_games_text: str) -> None:
+    from yahoo_fantasy_football.yahoo_redzone import parse_relay_games, settle_forgotten_games
+
+    games = parse_relay_games(reset_games_text)
+    # A minute after kickoff, so the clock alone could not have decided this.
+    settled = settle_forgotten_games(games, now=DET_AT_BUF_KICKOFF + 60)
+
+    assert [g.game_id for g in settled] == [DET_AT_BUF]
+    game = games["2"]
+    assert game.state == "post"
+    assert (game.away_score, game.home_score) == ("31", "41")
+    assert game.note_for("2") == "Final W 41-31 vs Det"
+    assert game.note_for("8") == "Final L 31-41 @ Buf"
+    # The fifteen games still to come are untouched.
+    assert sum(1 for g in games.values() if g.state == "pre") == 30
+
+
+def test_settling_is_idempotent(reset_games_text: str) -> None:
+    from yahoo_fantasy_football.yahoo_redzone import parse_relay_games, settle_forgotten_games
+
+    games = parse_relay_games(reset_games_text)
+    settle_forgotten_games(games, now=DET_AT_BUF_KICKOFF + 60)
+    assert settle_forgotten_games(games, now=DET_AT_BUF_KICKOFF + 60) == []
+    assert games["2"].home_score == "41"
+
+
+def _scheduled(start: int, quarters: dict[str, tuple[int, ...]] | None = None):
+    """A ``g`` row the relay calls scheduled, with optional line-score rows."""
+    from yahoo_fantasy_football.yahoo_redzone import GameState
+
+    game = GameState(["g", "2026092101", "19", "14", "S", "0", "0", "", "0", "0", str(start),
+                      "1", "10", "0", "0"])
+    game.quarters = dict(quarters or {})
+    return game
+
+
+def test_a_forgotten_game_without_a_line_score_is_final_with_no_score() -> None:
+    from yahoo_fantasy_football.yahoo_redzone import FORGOTTEN_AFTER_SECONDS, settle_forgotten_games
+
+    start = 1_790_036_100
+    game = _scheduled(start)
+    games = {"19": game, "14": game}
+
+    # Up to the threshold it is what the feed says: still to come.
+    assert settle_forgotten_games(games, now=start + FORGOTTEN_AFTER_SECONDS - 1) == []
+    assert game.state == "pre"
+
+    assert settle_forgotten_games(games, now=start + FORGOTTEN_AFTER_SECONDS) == [game]
+    assert game.state == "post"
+    # Blank, not the feed's 0-0: "Final" is known, the score is not.
+    assert (game.away_score, game.home_score) == ("", "")
+    assert game.note_for("14") == "Final vs NYG"
+    assert game.note_for("19") == "Final @ LAR"
+
+
+def test_a_partial_line_score_does_not_settle_a_game_by_itself() -> None:
+    """Three periods is a game in progress, whatever the status letter says."""
+    from yahoo_fantasy_football.yahoo_redzone import settle_forgotten_games
+
+    start = 1_790_036_100
+    game = _scheduled(start, {"19": (7, 0, 3), "14": (0, 10, 0)})
+    assert settle_forgotten_games({"19": game, "14": game}, now=start + 60) == []
+    assert game.state == "pre"
+
+
+def test_an_overtime_line_score_settles_as_final_overtime() -> None:
+    from yahoo_fantasy_football.yahoo_redzone import settle_forgotten_games
+
+    start = 1_790_036_100
+    game = _scheduled(start, {"19": (7, 0, 3, 7, 0), "14": (0, 10, 0, 7, 3)})
+    settle_forgotten_games({"19": game, "14": game}, now=start + 60)
+    assert game.status == "FO"
+    assert game.state == "post"
+    assert (game.away_score, game.home_score) == ("17", "20")
+
+
+def test_a_kickoff_the_feed_left_unknown_cannot_be_stale() -> None:
+    """``0`` is the relay's "unknown", and 0 is a very long time ago."""
+    from yahoo_fantasy_football.yahoo_redzone import settle_forgotten_games
+
+    game = _scheduled(0)
+    assert settle_forgotten_games({"19": game, "14": game}, now=1_790_036_100) == []
+    assert game.state == "pre"
+
+
+def test_league_from_payloads_settles_forgotten_games_before_the_rosters(
+    redzone: str, stats_text: str, reset_games_text: str
+) -> None:
+    """The morning after, seen from a roster: played, not "not yet".
+
+    A player left at "pre" is projected for their whole day on top of what
+    they scored, and counted among the starters still to play — which is what
+    the FFL card showed on 2026-09-18 (81 scored + 140 projected = 221 "live").
+    """
+    from yahoo_fantasy_football.yahoo_redzone import league_from_payloads
+
+    data = league_from_payloads(redzone, stats_text, reset_games_text, LEAGUE, now=DET_AT_BUF_KICKOFF + 60)
+
+    (game,) = [g for g in data.nfl_games if g.game_id == DET_AT_BUF]
+    assert game.state == "post"
+    assert (game.away_score, game.home_score) == ("31", "41")
+
+    players = {p.player_id: p for m in data.matchups for p in m.players}
+    allen = players["30977"]  # Josh Allen, Buf
+    assert allen.game_state == "post"
+    assert allen.game_note == "Final W 41-31 vs Det"
+    # Nothing left to play, so the live projection is what he has, whatever
+    # the pre-game projection was.
+    assert allen.live_projected == allen.points
+    # A club with a game still to come reads as before.
+    assert players["40900"].game_state == "pre"  # Caleb Williams, Chi
+    assert data.active_games == 0

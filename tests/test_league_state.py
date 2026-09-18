@@ -737,6 +737,44 @@ def test_a_scheduled_game_carries_its_kickoff_and_no_clock() -> None:
         assert row["yards_to_goal"] is None
 
 
+def test_a_game_the_relay_forgot_reads_as_final_with_its_line_score() -> None:
+    """The morning after Det at Buf, as the games card receives it.
+
+    The restarted relay lists the game as scheduled, 0-0; the row must say
+    final with the real score, or the card files it under "later this week".
+    """
+    from yahoo_fantasy_football.league_state import nfl_game_rows
+    from yahoo_fantasy_football.yahoo_redzone import league_from_payloads
+
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+    data = league_from_payloads(
+        (fixtures / "yahoo_redzone_2026_w1.json").read_text(),
+        (fixtures / "yahoo_relay_stats_2026_w1.txt").read_text(),
+        (fixtures / "yahoo_relay_games_2026_w2_reset.txt").read_text(),
+        "999999",
+        now=1789690500 + 60,
+    )
+    (row,) = [r for r in nfl_game_rows(data) if r["game_id"] == "20260917002"]
+    assert row["state"] == "post"
+    assert row["clock_text"] == "Final"
+    assert (row["away"]["abbr"], row["away"]["score"]) == ("Det", 31)
+    assert (row["home"]["abbr"], row["home"]["score"]) == ("Buf", 41)
+    assert sum(1 for r in nfl_game_rows(data) if r["state"] == "pre") == 15
+
+
+def test_a_forgotten_game_with_no_line_score_is_final_with_no_score() -> None:
+    """Blank beats 0-0: the card prints nothing where a score would go."""
+    from yahoo_fantasy_football.league_state import _clock_text, _nfl_side
+    from yahoo_fantasy_football.yahoo_redzone import settle_forgotten_games
+
+    game = _game_row("S")
+    settle_forgotten_games({"17": game, "26": game}, now=1789000000 + 5 * 3600)
+    assert game.state == "post"
+    assert _clock_text(game) == "Final"
+    assert _nfl_side(game, game.away, game.away_score)["score"] is None
+    assert _nfl_side(game, game.home, game.home_score)["score"] is None
+
+
 def test_down_and_distance_only_appears_on_a_live_game() -> None:
     from yahoo_fantasy_football.league_state import nfl_game_rows
 

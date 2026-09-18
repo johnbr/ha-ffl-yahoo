@@ -164,3 +164,26 @@ its own users — which is the only definition of "correct" that matters here.
 No capture yet of: a completed week (does `pfWeek` populate once games go
 final?), a bye week, a stat correction large enough to cross a defence band, or
 overtime. Add them when a capture turns one up rather than inventing the shape.
+
+## `yahoo_relay_games_2026_w2_reset.txt`
+
+Captured 2026-09-18 ~11:50 PT, verbatim, from the same relay:
+
+```
+https://relay-stream.sports.yahoo.com/nfl/games.txt
+```
+
+This is the games feed **the morning after** a game. The relay restarts each
+morning — the header's `source_sequence_number` is back to `1`, stamped
+08:04 PT — and comes back with the schedule only: the previous night's Det at
+Buf (`20260917002`) is listed `S`, 0-0, no clock, exactly like the fifteen
+games still to come. Its `plays-2.txt` at the same moment still held all 187
+plays.
+
+### What it defends against
+
+| Capture | What it pins |
+|---|---|
+| `g\|20260917002\|8\|2\|S\|0\|0\|\|0\|0\|…` | A **played game listed as scheduled**. Read at face value, the games card filed it under "later this week", and every Det and Buf player read as not yet played — projected for their whole day *on top of* the points they had scored, and counted among the starters still to play. |
+| `h\|2\|8\|0\|10\|7\|14` / `h\|2\|2\|14\|13\|7\|7` | The **line-score rows survive the restart**, one cell per period, and sum to the real result (31-41). This is where a forgotten game's final score comes from — see `settle_forgotten_games`. |
+| `h\|26\|17\|0\|7\|0` in the week-1 capture | The same row mid-game has one cell per period *played so far*, the current one included — so three cells is a game in progress, not a result. |
