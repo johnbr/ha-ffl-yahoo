@@ -465,6 +465,24 @@ test("an empty matchup says so rather than rendering a bare grid", () => {
   assert.match(renderRosters([]), /No roster available/);
 });
 
+test("a player yet to play keeps a legible name; only the points are dimmed", () => {
+  // Most of the week most of a lineup is yet to play, so dimming the name
+  // greyed out most of the card's names. The 0.00 is the part that has not
+  // happened.
+  assert.match(rule(".ffl-p-pre .ffl-lu-pts"), /opacity/);
+  assert.doesNotMatch(CARD_CSS, /\.ffl-p-pre \.ffl-lu-name/);
+});
+
+test("the expanded panel's quiet lines read in the muted colour, not the theme's secondary", () => {
+  // The secondary colour is a mid-grey on a dark theme, and at 0.66rem it read
+  // as faint. One token, mixed from the primary colour, for all of them.
+  assert.match(rule(".ffl-row-detail"), /--ffl-muted:\s*var\(--ffl-muted-color, color-mix\(in srgb, var\(--primary-text-color\) 75%/);
+  for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj", ".ffl-win-pct", ".ffl-h-text"]) {
+    assert.match(rule(selector), /color:\s*var\(--ffl-muted\)/, `${selector} uses the muted colour`);
+    assert.doesNotMatch(rule(selector), /secondary-text-color/, `${selector} no longer uses the secondary colour`);
+  }
+});
+
 /* -------------------------------------------------------------- history */
 
 test("history renders newest-first as given", () => {
