@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.14.0...v0.14.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* settle games the relay forgets overnight; brighten the expanded lineup ([#17](https://github.com/johnbr/ha-ffl-yahoo/issues/17)) ([ecacb4a](https://github.com/johnbr/ha-ffl-yahoo/commit/ecacb4a9f4dd12ca099c08cca816a80db63af2d0))
+
 ## [0.14.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.13.0...v0.14.0) (2026-09-18)
 
 
