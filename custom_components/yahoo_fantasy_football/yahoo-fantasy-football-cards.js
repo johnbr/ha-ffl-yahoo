@@ -137,22 +137,42 @@ function isToday(epoch) {
 }
 
 /**
- * ``1:25 PM`` for a kickoff today, ``Sun 1:25 PM`` for one on another day.
+ * ``1:25`` for a kickoff today, ``Sun 1:25`` for one on another day.
  *
  * The weekday only when it carries information: the games shown by default
  * all fall on one day, but the folded list spans the week, and a bare time
  * there would not say which evening it meant.
+ *
+ * AM/PM likewise: a football fan reads ``10:00`` and ``5:15`` without help,
+ * so the marker is dropped — except from 11 PM to 7 AM, where it is the only
+ * thing separating a London morning (``6:30 AM`` on the west coast) from
+ * something that never happens. In a 24-hour locale there is no marker to
+ * drop and the time is left alone.
  */
 function fmtKickoff(epoch) {
   const seconds = Number(epoch);
   if (!Number.isFinite(seconds) || seconds <= 0) return "";
   try {
     const when = new Date(seconds * 1000);
-    const time = when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const time = fmtClock(when);
     return isToday(seconds) ? time : `${when.toLocaleDateString([], { weekday: "short" })} ${time}`;
   } catch (err) {
     return "";
   }
+}
+
+function fmtClock(when) {
+  const hours = when.getHours();
+  const ambiguous = hours >= 23 || hours < 7;
+  const parts = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).formatToParts(when);
+  // ICU puts a narrow no-break space before the marker; a plain one reads
+  // the same and matches what toLocaleTimeString prints elsewhere.
+  return parts
+    .filter((p) => ambiguous || p.type !== "dayPeriod")
+    .map((p) => p.value)
+    .join("")
+    .replace(/\u202f/g, " ")
+    .trim();
 }
 
 /* -------------------------------------------------------------- websocket */

@@ -108,10 +108,8 @@ test("a player yet to play shows when, not just whom", () => {
   when.setHours(10, 0, 0, 0);
   const kickoff = Math.floor(when.getTime() / 1000);
   const html = renderPlayerBlock(P({ game: "vs Min", game_state: "pre", kickoff, points: 0, stat_line: "" }), "home");
-  const expected = `${when.toLocaleDateString([], { weekday: "short" })} ${when.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })} vs Min`;
+  const expected = `${fmtKickoff(kickoff)} vs Min`;
+  assert.match(expected, /^[A-Z][a-z]{2} \d/, "weekday, then the time");
   assert.ok(html.includes(escapeHtml(expected)), `expected "${expected}" in ${html}`);
 });
 
@@ -1116,6 +1114,28 @@ test("only the final fold dims the games beneath it", () => {
   assert.match(CARD_CSS, /\.ffl-nfl-fold-final\.ffl-nfl-fold-open ~ \.ffl-nfl-game/);
   // ...and no unscoped version that would catch the later-this-week fold too.
   assert.doesNotMatch(CARD_CSS, /(?<![\w-])\.ffl-nfl-fold-open ~ \.ffl-nfl-game/);
+});
+
+test("a kickoff drops AM/PM except in the small hours", () => {
+  // What the locale prints in full, so the assertions hold in any locale
+  // the runner is in — a 24-hour one has no marker to drop.
+  const full = (epoch) =>
+    new Date(epoch * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\u202f/g, " ");
+  const period = (epoch) =>
+    new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" })
+      .formatToParts(new Date(epoch * 1000))
+      .some((p) => p.type === "dayPeriod");
+  if (!period(at(0, 13))) return; // 24-hour locale: nothing to test
+
+  for (const hour of [7, 10, 13, 17, 20, 22]) {
+    const out = fmtKickoff(at(0, hour));
+    assert.doesNotMatch(out, /[AP]M/i, `${hour}:00 reads bare, got "${out}"`);
+    assert.ok(full(at(0, hour)).startsWith(out), `"${out}" is "${full(at(0, hour))}" minus the marker`);
+  }
+  for (const hour of [23, 0, 3, 6]) {
+    // A London kickoff at 6:30 on the west coast, or a 23:00 somewhere east.
+    assert.equal(fmtKickoff(at(0, hour)), full(at(0, hour)), `${hour}:00 keeps its marker`);
+  }
 });
 
 test("a kickoff on another day carries its weekday", () => {
