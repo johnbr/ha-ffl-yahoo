@@ -185,6 +185,16 @@ RED_ZONE_YARDS = 20
 # ``playsId`` is the home team id for NFL, i.e. the same column as homeTeamId.
 GAME_PLAYS_ID = 3
 
+# ``h`` — one row per club per game: its line score, one cell per period
+# played so far, ``h|<playsId>|<teamId>|q1|q2|...``. A club in the third
+# quarter has three cells; a finished game has four, or five with overtime.
+#
+# Worth parsing for one reason: the relay keeps these rows through its morning
+# restart, when it has already forgotten the game's status and totals — see
+# :func:`settle_forgotten_games`.
+LINE_ROW: dict[str, int] = {"playsId": 1, "teamId": 2}
+LINE_SCORES_FROM = 3
+
 # Yahoo's NFL club ids, as they appear in the relay's game rows and on every
 # player's ``teamId``. The relay prints ids only, so without this table a game
 # blurb reads "@ 29" instead of "@ Car". Ids 31 and 32 were never issued —
@@ -351,6 +361,7 @@ class GameState:
         "home_score",
         "period",
         "plays_id",
+        "quarters",
         "start_time",
         "status",
         "team_with_ball",
@@ -359,6 +370,9 @@ class GameState:
 
     def __init__(self, cells: list[str]) -> None:
         get = lambda i: cells[i] if i < len(cells) else ""  # noqa: E731
+        # {club id: points per period played}, from the ``h`` rows that follow
+        # the game's own — see :func:`parse_relay_games`.
+        self.quarters: dict[str, tuple[int, ...]] = {}
         self.game_id = get(GAME_ROW["gameId"])
         self.away = get(GAME_ROW["awayTeamId"])
         self.home = get(GAME_ROW["homeTeamId"])
@@ -414,6 +428,11 @@ class GameState:
         if self.state == "in":
             return f"Q{self.period} {self.clock} {mine}-{theirs} {versus}"
         if self.state == "post":
+            if not (mine and theirs):
+                # Over, score unknown — a game the relay forgot without leaving
+                # its line score behind (see settle_forgotten_games). "Final"
+                # alone beats "Final 0-0", which is a claim.
+                return f"Final {versus}"
             try:
                 result = "W" if int(mine) > int(theirs) else "L" if int(mine) < int(theirs) else "T"
             except ValueError:
@@ -736,13 +755,80 @@ def parse_relay_games(text: str) -> dict[str, GameState]:
     player's NFL team, never from a game.
     """
     games: dict[str, GameState] = {}
-    for cells in _relay_lines(text):
+    rows = _relay_lines(text)
+    for cells in rows:
         if cells[0] != "g":
             continue
         game = GameState(cells)
         games[game.away] = game
         games[game.home] = game
+    # Line scores come on their own rows after the game's, keyed by club — so
+    # a second pass rather than a reliance on the order.
+    for cells in rows:
+        if cells[0] != "h":
+            continue
+        club = _cell(cells, LINE_ROW["teamId"])
+        game = games.get(club)
+        if game is None or game.plays_id != _cell(cells, LINE_ROW["playsId"]):
+            continue
+        try:
+            game.quarters[club] = tuple(int(c) for c in cells[LINE_SCORES_FROM:])
+        except ValueError:
+            continue
     return games
+
+
+# How long after kickoff a game the relay still calls "scheduled" is taken to
+# have been played anyway.
+#
+# The relay restarts each morning and comes back with the schedule only
+# (observed 2026-09-18, 08:04 PT: sequence number back to 1, the previous
+# night's Det at Buf listed ``S``, 0-0, no clock — while its play feed still
+# held all 187 plays and its line-score rows still summed to 31-41). Nothing
+# in the game row says the game happened, so the kickoff is the evidence, and
+# four hours is longer than any game that is still in progress: a long one
+# runs three and a quarter, and one that is actually still on says ``P``.
+#
+# What is at stake is not the games card: every player in the forgotten game
+# reads as not yet played, so the FFL card projects their full day ON TOP of
+# the points they already scored — 81 scored, 140 projected, 221 "live" — and
+# counts them among the starters still to play. Observed on the morning after.
+FORGOTTEN_AFTER_SECONDS = 4 * 3600
+
+# A line score with this many periods is a whole game; overtime is a fifth.
+FULL_GAME_PERIODS = 4
+
+
+def settle_forgotten_games(games: dict[str, GameState], now: float) -> list[GameState]:
+    """Mark the games the relay has forgotten as final, in place.
+
+    Two signals, either sufficient: a full line score on a game still listed
+    as scheduled — which is a game that has been played, whatever the status
+    letter says — or a kickoff more than :data:`FORGOTTEN_AFTER_SECONDS` ago.
+    The line score also supplies the final score; without one the score is
+    left blank rather than at the feed's 0-0, so the card can say "Final"
+    without saying "nil-nil".
+
+    Returns the games it settled, for the log.
+    """
+    settled: list[GameState] = []
+    for game in {id(g): g for g in games.values()}.values():
+        if game.state != "pre":
+            continue
+        away = game.quarters.get(game.away, ())
+        home = game.quarters.get(game.home, ())
+        played = len(away) >= FULL_GAME_PERIODS and len(home) >= FULL_GAME_PERIODS
+        start = _epoch(game.start_time)
+        stale = start is not None and now - start >= FORGOTTEN_AFTER_SECONDS
+        if not (played or stale):
+            continue
+        game.status = "FO" if max(len(away), len(home)) > FULL_GAME_PERIODS else "F"
+        if played:
+            game.away_score, game.home_score = str(sum(away)), str(sum(home))
+        else:
+            game.away_score = game.home_score = ""
+        settled.append(game)
+    return settled
 
 
 def games_in_order(games: dict[str, GameState]) -> list[GameState]:
@@ -1049,6 +1135,15 @@ def league_from_payloads(
     stats_by_player = parse_relay_stats(stats_text)
     defense_by_team = parse_relay_defense(stats_text)
     games = parse_relay_games(games_text)
+    # Before the rosters are built: a player's state, note and live projection
+    # all come from their game's, and a forgotten game says "not yet".
+    settled = settle_forgotten_games(games, now)
+    if settled:
+        _LOGGER.debug(
+            "relay lists %d played game(s) as scheduled; settled: %s",
+            len(settled),
+            ", ".join(f"{g.game_id} {g.away_score or '?'}-{g.home_score or '?'}" for g in settled),
+        )
     teams = league.get("teams") or {}
 
     matchups: list[WebMatchup] = []

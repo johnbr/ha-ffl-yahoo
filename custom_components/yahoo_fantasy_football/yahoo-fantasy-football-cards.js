@@ -1456,7 +1456,18 @@ const CARD_CSS = `
   .ffl-plays-open > .ffl-row { background: none; }
   .ffl-row-play.ffl-play-open { background: var(--secondary-background-color); }
 
-  .ffl-row-detail { padding: 4px 2px 12px; }
+  /* The quiet lines of the expanded panels — slot and club, projection, game
+     note, stat line, the play history's text — read in this rather than the
+     theme's secondary colour. On a dark theme that is a mid-grey, and at
+     0.66rem it read as faint rather than as quiet; a lineup is mostly these
+     lines, so the whole panel looked dimmed. Mixed from the primary colour
+     three-quarters of the way, so it still sits a step below the name and
+     the points. --ffl-muted-color is the theme's hook, like the winner
+     colour. */
+  .ffl-row-detail {
+    padding: 4px 2px 12px;
+    --ffl-muted: var(--ffl-muted-color, color-mix(in srgb, var(--primary-text-color) 75%, var(--secondary-text-color)));
+  }
 
   /* Same three tracks as the row and the play line, so each side's numbers
      land under their own team instead of floating mid-card. */
@@ -1482,7 +1493,7 @@ const CARD_CSS = `
     white-space: normal; overflow-wrap: anywhere;
   }
   .ffl-team.ffl-leader .ffl-team-name { font-weight: 700; }
-  .ffl-team-proj { font-size: 0.72rem; color: var(--secondary-text-color); }
+  .ffl-team-proj { font-size: 0.72rem; color: var(--ffl-muted); }
   .ffl-team-live { font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* One colour vocabulary for "against expectation", used by team totals and
@@ -1498,7 +1509,7 @@ const CARD_CSS = `
     display: flex; align-items: center; gap: 8px;
     padding: 2px 2px 10px; font-size: 0.75rem; font-variant-numeric: tabular-nums;
   }
-  .ffl-win-pct { flex: 0 0 auto; color: var(--secondary-text-color); }
+  .ffl-win-pct { flex: 0 0 auto; color: var(--ffl-muted); }
   .ffl-win-pct.ffl-win-fav { color: var(--primary-text-color); font-weight: 700; }
   .ffl-win-track {
     flex: 1 1 auto; display: flex; gap: 2px; height: 6px;
@@ -1564,12 +1575,12 @@ const CARD_CSS = `
     font-variant-numeric: tabular-nums; color: var(--primary-text-color);
   }
   .ffl-lu-meta {
-    flex: 1 1 auto; min-width: 0; font-size: 0.7rem; color: var(--secondary-text-color);
+    flex: 1 1 auto; min-width: 0; font-size: 0.7rem; color: var(--ffl-muted);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .ffl-lu-proj { flex: 0 0 auto; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--secondary-text-color); }
+  .ffl-lu-proj { flex: 0 0 auto; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--ffl-muted); }
   .ffl-lu-game {
-    font-size: 0.66rem; color: var(--secondary-text-color);
+    font-size: 0.66rem; color: var(--ffl-muted);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* The stat line WRAPS. It is the one line in the block whose length is
@@ -1579,7 +1590,7 @@ const CARD_CSS = `
      slot stretches to match, so the two sides stay on one row. */
   .ffl-lu-stat {
     font-size: 0.66rem; font-style: italic; line-height: 1.25;
-    color: var(--secondary-text-color);
+    color: var(--ffl-muted);
     white-space: normal; overflow-wrap: anywhere;
   }
 
@@ -1613,9 +1624,13 @@ const CARD_CSS = `
      whole block rather than colouring text: the points already use colour. */
   .ffl-p-live { background: rgba(76, 175, 80, 0.13); }
   .ffl-p-live { background: color-mix(in srgb, var(--success-color, #43a047) 14%, transparent); }
-  .ffl-p-pre .ffl-lu-name, .ffl-p-pre .ffl-lu-pts { opacity: .65; }
+  /* Before kickoff only the POINTS are dimmed — the 0.00 that has not
+     happened yet. The name used to dim with them, and since most of the
+     week most of a lineup is yet to play, that greyed out most of the names
+     on the card. The kickoff line under the name already says "not yet". */
+  .ffl-p-pre .ffl-lu-pts { opacity: .65; }
 
-  .ffl-bench summary { cursor: pointer; font-size: 0.75rem; color: var(--secondary-text-color); padding: 8px 4px 4px; }
+  .ffl-bench summary { cursor: pointer; font-size: 0.75rem; color: var(--ffl-muted); padding: 8px 4px 4px; }
 
   .ffl-history { list-style: none; margin: 0; padding: 0 4px; }
   .ffl-history li {
@@ -1623,7 +1638,7 @@ const CARD_CSS = `
     padding: 6px 2px; border-bottom: 1px solid var(--divider-color); font-size: 0.85rem;
   }
   .ffl-h-player { font-weight: 600; flex: 0 0 auto; }
-  .ffl-h-text { flex: 1 1 auto; color: var(--secondary-text-color); }
+  .ffl-h-text { flex: 1 1 auto; color: var(--ffl-muted); }
   .ffl-h-delta { flex: 0 0 auto; font-weight: 700; color: var(--success-color); font-variant-numeric: tabular-nums; }
   .ffl-history li.ffl-correction .ffl-h-delta { color: var(--error-color); }
 `;
