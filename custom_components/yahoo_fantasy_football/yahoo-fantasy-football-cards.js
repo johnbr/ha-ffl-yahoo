@@ -1640,6 +1640,12 @@ const CARD_CSS = `
      of the week most of a lineup is yet to play, that greyed out most of the
      card. The kickoff line under the name already says "not yet". */
   .ffl-p-pre .ffl-lu-pts { font-weight: 500; }
+  /* A FINAL score is in the same gold as a decided matchup and a won NFL
+     game: one colour for "this number is settled", wherever it appears.
+     Weight alone separated a final from a live score, and on a Sunday
+     afternoon a lineup is a mix of both. --ffl-final-color lets a theme
+     split the two golds; by default they are one. */
+  .ffl-p-final .ffl-lu-pts { color: var(--ffl-final-color, var(--ffl-winner-color, #fbc02d)); }
 
   .ffl-bench summary { cursor: pointer; font-size: 0.75rem; color: var(--ffl-muted); padding: 8px 4px 4px; }
 
