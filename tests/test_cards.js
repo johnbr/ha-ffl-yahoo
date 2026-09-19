@@ -475,6 +475,14 @@ test("a player yet to play keeps a legible name; only the points are lightened, 
   assert.doesNotMatch(CARD_CSS, /\.ffl-p-pre \.ffl-lu-name/);
 });
 
+test("a final score is gold, the same gold as a decided matchup", () => {
+  // Weight alone did not separate a final from a live score on a Sunday
+  // afternoon, when a lineup is a mix of both. Falls back to the winner
+  // colour so one token recolours every settled number.
+  assert.match(rule(".ffl-p-final .ffl-lu-pts"), /color:\s*var\(--ffl-final-color, var\(--ffl-winner-color, #fbc02d\)\)/);
+  assert.doesNotMatch(CARD_CSS, /\.ffl-p-live \.ffl-lu-pts \{[^}]*color/);
+});
+
 test("points that have happened are heavier than the bold name", () => {
   // Black, not bold: a scan down the lineup finds the real scores by weight,
   // and the yet-to-play 0.00 sits two steps lighter.
