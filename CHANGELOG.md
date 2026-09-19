@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.14.2...v0.15.0) (2026-09-19)
+
+
+### Features
+
+* show a player's final score in gold ([#21](https://github.com/johnbr/ha-ffl-yahoo/issues/21)) ([4869ae2](https://github.com/johnbr/ha-ffl-yahoo/commit/4869ae2d9b39e23d8c040e1ad8794d9c14a2a912))
+
 ## [0.14.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.14.1...v0.14.2) (2026-09-19)
 
 
