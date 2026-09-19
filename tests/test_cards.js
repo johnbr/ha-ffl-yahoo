@@ -465,22 +465,40 @@ test("an empty matchup says so rather than rendering a bare grid", () => {
   assert.match(renderRosters([]), /No roster available/);
 });
 
-test("a player yet to play keeps a legible name; only the points are dimmed", () => {
+test("a player yet to play keeps a legible name; only the points are lightened, by weight", () => {
   // Most of the week most of a lineup is yet to play, so dimming the name
   // greyed out most of the card's names. The 0.00 is the part that has not
-  // happened.
-  assert.match(rule(".ffl-p-pre .ffl-lu-pts"), /opacity/);
+  // happened — and it is lighter in WEIGHT, not faded: a 65% opacity read as
+  // grey next to everything else that was brightened.
+  assert.match(rule(".ffl-p-pre .ffl-lu-pts"), /font-weight:\s*500/);
+  assert.doesNotMatch(rule(".ffl-p-pre .ffl-lu-pts"), /opacity/);
   assert.doesNotMatch(CARD_CSS, /\.ffl-p-pre \.ffl-lu-name/);
 });
 
-test("the expanded panel's quiet lines read in the muted colour, not the theme's secondary", () => {
-  // The secondary colour is a mid-grey on a dark theme, and at 0.66rem it read
-  // as faint. One token, mixed from the primary colour, for all of them.
-  assert.match(rule(".ffl-row-detail"), /--ffl-muted:\s*var\(--ffl-muted-color, color-mix\(in srgb, var\(--primary-text-color\) 75%/);
+test("points that have happened are heavier than the bold name", () => {
+  // Black, not bold: a scan down the lineup finds the real scores by weight,
+  // and the yet-to-play 0.00 sits two steps lighter.
+  assert.match(rule(".ffl-lu-pts"), /font-weight:\s*900/);
+});
+
+test("the expanded panel's quiet lines read in the primary colour at medium weight", () => {
+  // The secondary colour, then a 75% mix towards it, both read as grey: a
+  // lineup is mostly these lines, at 0.66–0.72rem, and a regular-weight face
+  // that small goes faint before its colour does. Size and weight carry the
+  // hierarchy now; the token stays as the theme's hook.
+  assert.match(rule(".ffl-row-detail"), /--ffl-muted:\s*var\(--ffl-muted-color, var\(--primary-text-color\)\)/);
   for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj", ".ffl-win-pct", ".ffl-h-text"]) {
     assert.match(rule(selector), /color:\s*var\(--ffl-muted\)/, `${selector} uses the muted colour`);
     assert.doesNotMatch(rule(selector), /secondary-text-color/, `${selector} no longer uses the secondary colour`);
   }
+  for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj"]) {
+    assert.match(rule(selector), /font-weight:\s*500/, `${selector} is medium weight`);
+  }
+});
+
+test("the flex slot is uncoloured, not faded", () => {
+  // A grey-blue next to the saturated position colours read as dimmed.
+  assert.match(rule(".ffl-slot-flex"), /color:\s*var\(--primary-text-color\)/);
 });
 
 /* -------------------------------------------------------------- history */

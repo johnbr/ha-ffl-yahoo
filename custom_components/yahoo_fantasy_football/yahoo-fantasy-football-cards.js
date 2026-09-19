@@ -1457,16 +1457,18 @@ const CARD_CSS = `
   .ffl-row-play.ffl-play-open { background: var(--secondary-background-color); }
 
   /* The quiet lines of the expanded panels — slot and club, projection, game
-     note, stat line, the play history's text — read in this rather than the
-     theme's secondary colour. On a dark theme that is a mid-grey, and at
-     0.66rem it read as faint rather than as quiet; a lineup is mostly these
-     lines, so the whole panel looked dimmed. Mixed from the primary colour
-     three-quarters of the way, so it still sits a step below the name and
-     the points. --ffl-muted-color is the theme's hook, like the winner
-     colour. */
+     note, stat line, the play history's text — read in the PRIMARY colour,
+     at medium weight. They were the theme's secondary colour, then a mix
+     three-quarters of the way from the primary towards it, and both read as
+     grey: a lineup is mostly these lines, at 0.66–0.72rem, and a regular-
+     weight face that small goes faint before its colour does. Size and
+     weight now carry the step below the name and the points — those are
+     bold and black — rather than a lighter ink. --ffl-muted-color is the
+     theme's hook, like the winner colour, for a theme that wants them
+     dimmer. */
   .ffl-row-detail {
     padding: 4px 2px 12px;
-    --ffl-muted: var(--ffl-muted-color, color-mix(in srgb, var(--primary-text-color) 75%, var(--secondary-text-color)));
+    --ffl-muted: var(--ffl-muted-color, var(--primary-text-color));
   }
 
   /* Same three tracks as the row and the play line, so each side's numbers
@@ -1493,7 +1495,7 @@ const CARD_CSS = `
     white-space: normal; overflow-wrap: anywhere;
   }
   .ffl-team.ffl-leader .ffl-team-name { font-weight: 700; }
-  .ffl-team-proj { font-size: 0.72rem; color: var(--ffl-muted); }
+  .ffl-team-proj { font-size: 0.72rem; font-weight: 500; color: var(--ffl-muted); }
   .ffl-team-live { font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* One colour vocabulary for "against expectation", used by team totals and
@@ -1570,17 +1572,21 @@ const CARD_CSS = `
     color: var(--primary-text-color);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* Points that have HAPPENED are the heaviest thing in the block — Roboto
+     Black, a step past the bold name — so a scan down the lineup finds the
+     scores that are real. The one that has not happened yet is lightened
+     below (.ffl-p-pre). */
   .ffl-lu-pts {
-    flex: 0 0 auto; font-size: 0.82rem; font-weight: 700;
+    flex: 0 0 auto; font-size: 0.82rem; font-weight: 900;
     font-variant-numeric: tabular-nums; color: var(--primary-text-color);
   }
   .ffl-lu-meta {
-    flex: 1 1 auto; min-width: 0; font-size: 0.7rem; color: var(--ffl-muted);
+    flex: 1 1 auto; min-width: 0; font-size: 0.7rem; font-weight: 500; color: var(--ffl-muted);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .ffl-lu-proj { flex: 0 0 auto; font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--ffl-muted); }
+  .ffl-lu-proj { flex: 0 0 auto; font-size: 0.72rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ffl-muted); }
   .ffl-lu-game {
-    font-size: 0.66rem; color: var(--ffl-muted);
+    font-size: 0.66rem; font-weight: 500; color: var(--ffl-muted);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* The stat line WRAPS. It is the one line in the block whose length is
@@ -1589,7 +1595,7 @@ const CARD_CSS = `
      the part a manager opens the lineup to read. The paired block across the
      slot stretches to match, so the two sides stay on one row. */
   .ffl-lu-stat {
-    font-size: 0.66rem; font-style: italic; line-height: 1.25;
+    font-size: 0.66rem; font-weight: 500; font-style: italic; line-height: 1.25;
     color: var(--ffl-muted);
     white-space: normal; overflow-wrap: anywhere;
   }
@@ -1616,7 +1622,11 @@ const CARD_CSS = `
   .ffl-slot-te { color: #ef7fc0; }
   .ffl-slot-k { color: #b98cff; }
   .ffl-slot-def { color: #8fd6d0; }
-  .ffl-slot-flex { color: #9aa6b2; }
+  /* The flex slot is any of several positions, so it gets no position
+     colour — but the grey-blue it used to have read as dimmed next to the
+     coloured slots. The plain text colour says "uncoloured" without saying
+     "faded". */
+  .ffl-slot-flex { color: var(--primary-text-color); }
   .ffl-slot-bn { color: var(--secondary-text-color); }
 
   /* A player whose NFL game is in progress is the only one whose number can
@@ -1624,11 +1634,12 @@ const CARD_CSS = `
      whole block rather than colouring text: the points already use colour. */
   .ffl-p-live { background: rgba(76, 175, 80, 0.13); }
   .ffl-p-live { background: color-mix(in srgb, var(--success-color, #43a047) 14%, transparent); }
-  /* Before kickoff only the POINTS are dimmed — the 0.00 that has not
-     happened yet. The name used to dim with them, and since most of the
-     week most of a lineup is yet to play, that greyed out most of the names
-     on the card. The kickoff line under the name already says "not yet". */
-  .ffl-p-pre .ffl-lu-pts { opacity: .65; }
+  /* Before kickoff only the POINTS change — the 0.00 that has not happened
+     yet drops to medium weight, in full colour, against the black of a score
+     that has. It used to fade to 65%, and the name faded with it; since most
+     of the week most of a lineup is yet to play, that greyed out most of the
+     card. The kickoff line under the name already says "not yet". */
+  .ffl-p-pre .ffl-lu-pts { font-weight: 500; }
 
   .ffl-bench summary { cursor: pointer; font-size: 0.75rem; color: var(--ffl-muted); padding: 8px 4px 4px; }
 
