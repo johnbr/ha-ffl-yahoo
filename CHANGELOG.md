@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.14.1...v0.14.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* whiten the expanded lineup's quiet lines and weight the real scores ([#19](https://github.com/johnbr/ha-ffl-yahoo/issues/19)) ([07bbe3f](https://github.com/johnbr/ha-ffl-yahoo/commit/07bbe3f4eba489da4f96f3a770e97ff753700d5a))
+
 ## [0.14.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.14.0...v0.14.1) (2026-09-18)
 
 
