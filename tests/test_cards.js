@@ -441,13 +441,52 @@ test("slots are colour-coded by position", () => {
   assert.ok(renderLineup([{ starters: [P({ slot: "W/R/T" })] }, {}]).includes("ffl-slot-flex"));
 });
 
-test("a player block shows points, position, club, projection and stat line", () => {
+test("a player block shows the name with its club, points, projection and stat line", () => {
   const html = renderPlayerBlock(P({}), "home");
-  assert.ok(html.includes("Josh Allen"));
+  // "Josh Allen (Buf)" — the club rides with the name, joined so a wrapped
+  // name cannot strand it. The position is NOT repeated: the slot chip in
+  // the middle column already says it, and the line that carried "QB · Buf"
+  // was a row per player spent on what the reader could already see.
+  assert.match(html, /Josh Allen&nbsp;<span class="ffl-lu-club">\(Buf\)<\/span>/);
+  // The integration's short form is what prints when it is sent — "J. Allen
+  // (Buf)", the way the play line names a player — and the full name only
+  // when it is not (an older integration).
+  const short = renderPlayerBlock(P({ short_name: "J. Allen" }), "home");
+  assert.match(short, /J\. Allen&nbsp;<span class="ffl-lu-club">\(Buf\)<\/span>/);
+  assert.ok(!short.includes("Josh Allen"));
+  assert.ok(!html.includes("QB · Buf") && !html.includes("ffl-lu-meta"));
   assert.ok(html.includes("20.47"), "actual points");
-  assert.ok(html.includes("QB · Buf"));
   assert.ok(html.includes("1 Rush TD, 123 Pass Yds"));
   assert.ok(html.includes("Final W 26-7 @ Pit"));
+  // No club known (an older integration): a bare name, no empty brackets.
+  const bare = renderPlayerBlock(P({ nfl_team: "" }), "home");
+  assert.ok(!bare.includes("ffl-lu-club") && !bare.includes("()"));
+});
+
+test("the numbers are a column of their own, anchored to the top of the row", () => {
+  // Points over projection, beside the text rather than on its lines, so a
+  // wrapped stat line or a missing one on EITHER side cannot move them:
+  // the two sides' figures start where the row starts.
+  const html = renderPlayerBlock(P({}), "home");
+  const text = html.indexOf('class="ffl-lu-text"');
+  const nums = html.indexOf('class="ffl-lu-nums"');
+  assert.ok(text !== -1 && nums !== -1 && text < nums, "text stack, then the numbers");
+  assert.match(html, /<div class="ffl-lu-nums">\s*<span class="ffl-lu-pts">20\.47<\/span>\s*<span class="ffl-lu-proj[^"]*">/);
+  assert.match(rule(".ffl-lu-block"), /align-items:\s*flex-start/);
+  assert.doesNotMatch(rule(".ffl-lu-block"), /justify-content:\s*center/);
+  assert.doesNotMatch(rule(".ffl-lu-block"), /flex-direction:\s*column/);
+  // The away side is the same block mirrored: numbers still nearest the chip.
+  assert.match(rule(".ffl-lu-away"), /flex-direction:\s*row-reverse/);
+  assert.match(rule(".ffl-lu-away .ffl-lu-nums"), /align-items:\s*flex-start/);
+  // Name and points share a size and line-height, so the first line of both
+  // columns sits on one baseline.
+  assert.match(rule(".ffl-lu-name"), /font-size:\s*0\.82rem/);
+  assert.match(rule(".ffl-lu-pts"), /font-size:\s*0\.82rem/);
+  assert.match(rule(".ffl-lu-name"), /line-height:\s*1\.25/);
+  assert.match(rule(".ffl-lu-pts"), /line-height:\s*1\.25/);
+  // The name wraps rather than ellipsising the club off its end.
+  assert.match(rule(".ffl-lu-name"), /white-space:\s*normal/);
+  assert.doesNotMatch(rule(".ffl-lu-name"), /text-overflow/);
 });
 
 test("a player block shows the live projection, coloured, once it has moved", () => {
@@ -469,6 +508,11 @@ test("game state drives a per-block class", () => {
   assert.ok(renderPlayerBlock(P({ game_state: "in" }), "home").includes("ffl-p-live"));
   assert.ok(renderPlayerBlock(P({ game_state: "unknown" }), "home").includes("ffl-p-pre"));
   assert.ok(renderPlayerBlock(P({ game_state: "post" }), "home").includes("ffl-p-final"));
+  // Delayed: a real score that is neither settled nor moving gets none of
+  // the three treatments — in particular not .ffl-p-pre's lighter weight.
+  const held = renderPlayerBlock(P({ game_state: "delayed" }), "home");
+  assert.ok(held.includes("ffl-p-held") && !held.includes("ffl-p-pre") && !held.includes("ffl-p-live"));
+  assert.doesNotMatch(CARD_CSS, /\.ffl-p-held/, "no rule: the defaults are the point");
 });
 
 test("an empty matchup says so rather than rendering a bare grid", () => {
@@ -537,11 +581,11 @@ test("the expanded panel's quiet lines read in the primary colour at medium weig
   // that small goes faint before its colour does. Size and weight carry the
   // hierarchy now; the token stays as the theme's hook.
   assert.match(rule(".ffl-row-detail"), /--ffl-muted:\s*var\(--ffl-muted-color, var\(--primary-text-color\)\)/);
-  for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj", ".ffl-win-pct", ".ffl-h-text"]) {
+  for (const selector of [".ffl-lu-club", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj", ".ffl-win-pct", ".ffl-h-text"]) {
     assert.match(rule(selector), /color:\s*var\(--ffl-muted\)/, `${selector} uses the muted colour`);
     assert.doesNotMatch(rule(selector), /secondary-text-color/, `${selector} no longer uses the secondary colour`);
   }
-  for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj"]) {
+  for (const selector of [".ffl-lu-club", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj"]) {
     assert.match(rule(selector), /font-weight:\s*500/, `${selector} is medium weight`);
   }
 });
@@ -1143,6 +1187,28 @@ test("while a game is live, the live games are all that shows", () => {
     "every scheduled game folds"
   );
   assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
+});
+
+test("a delayed game stays in view and does not fold today's other games", () => {
+  // Cle at TB, 2026-09-20, held at Q4 2:00 by weather: the integration now
+  // calls it "delayed". Unmapped, it fell into the scheduled bucket and the
+  // card folded a game with a score and two minutes left under "later this
+  // week". It sits with the live games — but it is not RUNNING, so on its
+  // own it must not hide tonight's game the way a running one does.
+  const held = { ...GAME_LIVE, game_id: "held", state: "delayed", clock_text: "Delayed · Q4 2:00" };
+  const { live, soon, later } = nflCard()._split([held, ...IDLE_SLATE]);
+  assert.deepEqual(live.map((g) => g.game_id), ["held"]);
+  assert.deepEqual(soon.map((g) => g.game_id), ["tonight1"], "tonight still shows");
+  assert.ok(!later.some((g) => g.game_id === "held"), "not under 'later this week'");
+  // Beside a running game it folds the slate as usual.
+  const withLive = nflCard()._split([held, ...SLATE]);
+  assert.deepEqual(withLive.live.map((g) => g.game_id), ["held", "live1"]);
+  assert.deepEqual(withLive.soon, []);
+  // Rendered without the live styling, clock text as the integration sent it.
+  const html = renderNflGame(held);
+  assert.ok(html.includes("Delayed · Q4 2:00"));
+  assert.ok(!html.includes("ffl-nfl-live") && !html.includes("ffl-nfl-clock-live"));
+  assert.ok(!html.includes("ffl-nfl-field"), "no field bar for a stopped game");
 });
 
 test("once nothing is live, only today's games show, with the rest folded", () => {

@@ -224,7 +224,16 @@ GAME_STATUS: dict[str, str] = {
     "P": "in",       # in progress
     "F": "post",     # final
     "FO": "post",    # final, overtime
-    "D": "post",     # delayed/postponed - nothing more will score
+    # A game that has stopped and will resume. "U" is Yahoo's SUSPENDED —
+    # seen live 2026-09-20, Cle at TB held at Q4 2:00 by weather, which
+    # sports.yahoo.com labelled "Susp" — and "D" is presumed to be its
+    # DELAYED. Neither is over: the clock, the score and the ball spot all
+    # stand where they were, and the players still have a game to finish.
+    # Unmapped, "U" read as unknown, which the games card folded under
+    # "later this week" and the fantasy side did not count as still to play
+    # — so a matchup could have been declared final with two minutes left.
+    "U": "delayed",
+    "D": "delayed",
 }
 
 
@@ -449,6 +458,8 @@ class GameState:
             return versus
         if self.state == "in":
             return f"{clock_text(self.period, self.clock)} {mine}-{theirs} {versus}"
+        if self.state == "delayed":
+            return f"Delayed {mine}-{theirs} {versus}"
         if self.state == "post":
             if not (mine and theirs):
                 # Over, score unknown — a game the relay forgot without leaving
@@ -481,7 +492,9 @@ def remaining_fraction(game: GameState | None) -> float:
     state = game.state
     if state == "pre":
         return 1.0
-    if state != "in":
+    # A delayed game's clock stands where it stopped, and that is exactly how
+    # much of it is left to play.
+    if state not in ("in", "delayed"):
         return 0.0
     try:
         period = int(game.period or 1)
@@ -1020,11 +1033,22 @@ def shorten_stat_delta(text: str) -> str:
     return ", ".join(out)
 
 
+# Stats the roster's line leaves out even when they are non-zero. The count
+# of carries says nothing a manager opened the lineup to learn — the yards
+# and the touchdowns are what score — and on a running back's line it was
+# the first thing printed. Receptions stay: they score on their own in a PPR
+# league. Only the ROSTER line omits these; a scoring event's delta still
+# names every stat that moved, since there "1 Rush" may be the whole story
+# of a play whose text has not landed yet.
+_STAT_LINE_OMIT: frozenset[str] = frozenset({"rushingAttempts"})
+
+
 def stat_line(stats: dict[str, float]) -> str:
     """``3 Rec, 26 Rec Yds`` — Yahoo's own phrasing for a live stat line.
 
     Zero-valued stats are dropped, so a line grows as a player actually does
-    something instead of printing a wall of noughts.
+    something instead of printing a wall of noughts. So are the stats in
+    :data:`_STAT_LINE_OMIT`, whatever their value.
     """
     # A shutout is a defence's headline stat and its value is zero, so the
     # usual "drop the noughts" rule would hide the best line of the night.
@@ -1033,6 +1057,8 @@ def stat_line(stats: dict[str, float]) -> str:
 
     parts = []
     for name, label in _STAT_LINE:
+        if name in _STAT_LINE_OMIT:
+            continue
         value = stats.get(name, 0.0)
         if not value and name not in keep_zero:
             continue
@@ -1169,10 +1195,11 @@ def _team(team: dict[str, Any], roster: list[WebPlayer]) -> WebTeam:
         points=round(sum(p.points or 0.0 for p in starters), 2),
         projected=float(projected) if projected not in (None, "") else None,
         live_projected=live,
-        # "in" counts: a player on the field can still move the score. A
-        # missing game (``unknown`` — a bye, or a feed that arrived short)
-        # does not, or a bye-week starter would keep a matchup open all week.
-        remaining=sum(1 for p in starters if p.game_state in ("pre", "in")),
+        # "in" counts: a player on the field can still move the score, and so
+        # does "delayed" — the game is stopped, not over. A missing game
+        # (``unknown`` — a bye, or a feed that arrived short) does not, or a
+        # bye-week starter would keep a matchup open all week.
+        remaining=sum(1 for p in starters if p.game_state in ("pre", "in", "delayed")),
         remaining_var=round(
             sum(max(0.0, (p.live_projected or 0.0) - (p.points or 0.0)) ** 2 for p in starters), 4
         ),

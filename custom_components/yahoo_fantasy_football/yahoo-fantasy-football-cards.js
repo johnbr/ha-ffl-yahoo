@@ -641,7 +641,17 @@ function slotClass(slot) {
 
 function renderPlayerBlock(player, align) {
   if (!player) return `<div class="ffl-lu-block ffl-lu-${align} ffl-lu-empty"></div>`;
-  const stateCls = player.game_state === "post" ? "final" : player.game_state === "in" ? "live" : "pre";
+  // A delayed game's points have happened but are neither settled nor
+  // moving: full weight, no gold, no live shading — the class exists so the
+  // "not yet" lightening of .ffl-p-pre does not apply to a real score.
+  const stateCls =
+    player.game_state === "post"
+      ? "final"
+      : player.game_state === "in"
+        ? "live"
+        : player.game_state === "delayed"
+          ? "held"
+          : "pre";
   // One number, not two: at this width the colour carries the comparison that
   // a second figure would otherwise have to spell out.
   const live = hasLive(player.live_projected, player.projected);
@@ -664,22 +674,35 @@ function renderPlayerBlock(player, align) {
     player.game_state === "pre" && player.kickoff
       ? [fmtKickoff(player.kickoff), player.game].filter(Boolean).join(" ")
       : player.game;
+  // "C. Williams (Chi)": the first initial and the surname, as the play line
+  // prints a player, with the club joined by a non-breaking space so a
+  // wrapped name never strands "(Chi)" on a line of its own. The position
+  // is not repeated: the slot chip beside the block already says it, and
+  // the line that used to carry both was a whole row per player spent on
+  // things the reader could already see. The full name is the fallback for
+  // an integration that does not send the short one.
+  const name = player.short_name || player.name;
+  const club = player.nfl_team
+    ? `&nbsp;<span class="ffl-lu-club">(${escapeHtml(player.nfl_team)})</span>`
+    : "";
+  // Two columns, not lines: the text stack and, beside it toward the slot
+  // chip, the numbers — points over projection. Every block's numbers start
+  // at the top of its row, so the two sides' figures line up whatever the
+  // text next to them does (a wrapped name, a two-line stat line, no stat
+  // line at all). Stacked in lines, a taller opponent used to push them.
   return `
     <div class="ffl-lu-block ffl-lu-${align} ffl-p-${stateCls}">
-      <div class="ffl-lu-line">
-        <span class="ffl-lu-name">${escapeHtml(player.name)}${status}${ball}${rz}</span>
-        <span class="ffl-lu-pts">${fmtPoints(player.points)}</span>
+      <div class="ffl-lu-text">
+        <div class="ffl-lu-name">${escapeHtml(name)}${club}${status}${ball}${rz}</div>
+        ${game ? `<div class="ffl-lu-game">${escapeHtml(game)}</div>` : ""}
+        ${player.stat_line ? `<div class="ffl-lu-stat">${escapeHtml(player.stat_line)}</div>` : ""}
       </div>
-      <div class="ffl-lu-line">
-        <span class="ffl-lu-meta">${escapeHtml(player.slot)}${
-          player.nfl_team ? ` · ${escapeHtml(player.nfl_team)}` : ""
-        }</span>
+      <div class="ffl-lu-nums">
+        <span class="ffl-lu-pts">${fmtPoints(player.points)}</span>
         <span class="ffl-lu-proj${live ? trendClass(player.live_projected, player.projected) : ""}">${fmtPoints(
           proj
         )}</span>
       </div>
-      ${game ? `<div class="ffl-lu-game">${escapeHtml(game)}</div>` : ""}
-      ${player.stat_line ? `<div class="ffl-lu-stat">${escapeHtml(player.stat_line)}</div>` : ""}
     </div>`;
 }
 
@@ -1094,9 +1117,15 @@ class FflNflGamesCard extends FflBaseCard {
     const pre = [];
     const done = [];
     for (const game of rows) {
-      (game.state === "post" ? done : game.state === "in" ? live : pre).push(game);
+      // A delayed game stays in view with the live ones: it has a score and
+      // a clock, and it is today's. It just is not RUNNING — so on its own
+      // it does not fold today's other games away the way a running game
+      // does, and it gets none of the live styling.
+      (game.state === "post" ? done : game.state === "in" || game.state === "delayed" ? live : pre).push(
+        game
+      );
     }
-    if (live.length) return { live, soon: [], later: pre, done };
+    if (live.some((g) => g.state === "in")) return { live, soon: [], later: pre, done };
     const soon = pre.filter((g) => !localDayKey(g.start_time) || isToday(g.start_time));
     const later = pre.filter((g) => !soon.includes(g));
     return { live, soon, later, done };
@@ -1547,9 +1576,22 @@ const CARD_CSS = `
     display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     column-gap: 6px; align-items: stretch;
   }
+  /* Text beside numbers, both anchored to the TOP of the row. The block used
+     to be a column of lines, vertically centred, with the points on the name
+     line and the projection on the line below: any difference in height
+     between the two sides — one stat line wrapping, one player yet to play
+     with no stat line at all — floated the shorter side's numbers to a
+     different height from its opponent's. Now the numbers are a column of
+     their own, pinned toward the slot chip, and start where the row starts
+     on both sides. */
   .ffl-lu-block {
     min-width: 0; padding: 5px 4px; border-top: 1px solid var(--divider-color);
-    display: flex; flex-direction: column; justify-content: center; gap: 1px;
+    display: flex; align-items: flex-start; gap: 6px;
+  }
+  .ffl-lu-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .ffl-lu-nums {
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+    font-variant-numeric: tabular-nums;
   }
   .ffl-lu-slot {
     display: flex; align-items: center; justify-content: center;
@@ -1559,29 +1601,26 @@ const CARD_CSS = `
   }
   .ffl-lineup > :nth-child(-n+3) { border-top: none; }
 
-  .ffl-lu-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
   /* The away side is the same markup read backwards — mirroring in CSS keeps
      one block renderer instead of two that can drift apart. */
-  .ffl-lu-away { text-align: end; }
-  .ffl-lu-away .ffl-lu-line { flex-direction: row-reverse; }
+  .ffl-lu-away { flex-direction: row-reverse; text-align: end; }
+  .ffl-lu-away .ffl-lu-nums { align-items: flex-start; }
+  /* The name WRAPS now that nothing shares its line: with the numbers in
+     their own column there is no points figure to keep on the name's row,
+     and an ellipsis would have taken the club off the end first. */
   .ffl-lu-name {
-    flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 0.82rem;
+    font-weight: 600; font-size: 0.82rem; line-height: 1.25;
     color: var(--primary-text-color);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    white-space: normal; overflow-wrap: anywhere;
   }
+  .ffl-lu-club { font-weight: 500; color: var(--ffl-muted); }
   /* Points that have HAPPENED are the heaviest thing in the block — Roboto
      Black, a step past the bold name — so a scan down the lineup finds the
      scores that are real. The one that has not happened yet is lightened
-     below (.ffl-p-pre). */
-  .ffl-lu-pts {
-    flex: 0 0 auto; font-size: 0.82rem; font-weight: 900;
-    font-variant-numeric: tabular-nums; color: var(--primary-text-color);
-  }
-  .ffl-lu-meta {
-    flex: 1 1 auto; min-width: 0; font-size: 0.7rem; font-weight: 500; color: var(--ffl-muted);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .ffl-lu-proj { flex: 0 0 auto; font-size: 0.72rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ffl-muted); }
+     below (.ffl-p-pre). Same size and line-height as the name, so the two
+     share a baseline on the row's first line. */
+  .ffl-lu-pts { font-size: 0.82rem; font-weight: 900; line-height: 1.25; color: var(--primary-text-color); }
+  .ffl-lu-proj { font-size: 0.72rem; font-weight: 500; line-height: 1.25; color: var(--ffl-muted); }
   .ffl-lu-game {
     font-size: 0.66rem; font-weight: 500; color: var(--ffl-muted);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
