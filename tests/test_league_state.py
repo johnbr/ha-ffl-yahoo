@@ -596,6 +596,27 @@ def test_overtime_is_not_printed_as_a_quarter_number() -> None:
     assert _clock_text(_game_row("P", period="5", clock="8:11")) == "OT 8:11"
 
 
+def test_a_delayed_game_says_so_and_where_the_clock_stopped() -> None:
+    """Cle at TB, 2026-09-20: held at Q4 2:00 by weather, status "U". It
+    used to print a bare "Q4 2:00" as if it were running."""
+    from yahoo_fantasy_football.league_state import _clock_text, _situation, _yards_to_goal
+
+    game = _game_row("U", period="4", clock="2:00")
+    assert _clock_text(game) == "Delayed · Q4 2:00"
+    # No ball in play: nothing derived from the spot is printed.
+    assert _situation(game) == "" and _yards_to_goal(game) is None
+
+
+def test_a_delayed_game_keeps_the_near_game_cadence() -> None:
+    """It restarts without notice; polling as if it were about to kick off
+    is what catches the restart. Idle would miss the last two minutes."""
+    from dataclasses import replace
+
+    m = DATA.matchups[0]
+    held = replace(m, players=[replace(m.players[0], game_state_hint="delayed"), *m.players[1:]])
+    assert poll_interval(replace(DATA, matchups=[held])) == SCAN_INTERVAL_NEAR_GAME_SECONDS
+
+
 def _spot(to_goal: str, ball: str):
     """A live game with the ball at a given distance from the goal.
 

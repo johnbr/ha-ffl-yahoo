@@ -44,7 +44,9 @@ def poll_interval(data: LeagueData | None) -> int:
     states = {p.game_state for m in data.matchups for p in m.players}
     if "in" in states:
         return SCAN_INTERVAL_LIVE_SECONDS
-    if "pre" in states or "unknown" in states:
+    # A delayed game restarts without notice; polling as if it were about to
+    # kick off is what catches the restart.
+    if states & {"pre", "unknown", "delayed"}:
         return SCAN_INTERVAL_NEAR_GAME_SECONDS
     return SCAN_INTERVAL_IDLE_SECONDS
 
@@ -266,6 +268,10 @@ def _clock_text(game: Any) -> str:
         return "Final"
     if state == "pre":
         return ""  # the card formats the kickoff time in the viewer's zone
+    if state == "delayed":
+        # Where the clock stopped is worth keeping: "with two minutes left"
+        # is the first thing anyone asks about a delayed game.
+        return f"Delayed · {clock_text(getattr(game, 'period', ''), getattr(game, 'clock', ''))}".rstrip(" ·")
     # Half time and overtime are named by the same rule the lineup's player
     # blurb uses, so the two cards never disagree about the same game.
     return clock_text(getattr(game, "period", ""), getattr(game, "clock", ""))

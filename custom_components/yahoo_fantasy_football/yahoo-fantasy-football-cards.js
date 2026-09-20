@@ -641,7 +641,17 @@ function slotClass(slot) {
 
 function renderPlayerBlock(player, align) {
   if (!player) return `<div class="ffl-lu-block ffl-lu-${align} ffl-lu-empty"></div>`;
-  const stateCls = player.game_state === "post" ? "final" : player.game_state === "in" ? "live" : "pre";
+  // A delayed game's points have happened but are neither settled nor
+  // moving: full weight, no gold, no live shading — the class exists so the
+  // "not yet" lightening of .ffl-p-pre does not apply to a real score.
+  const stateCls =
+    player.game_state === "post"
+      ? "final"
+      : player.game_state === "in"
+        ? "live"
+        : player.game_state === "delayed"
+          ? "held"
+          : "pre";
   // One number, not two: at this width the colour carries the comparison that
   // a second figure would otherwise have to spell out.
   const live = hasLive(player.live_projected, player.projected);
@@ -1107,9 +1117,15 @@ class FflNflGamesCard extends FflBaseCard {
     const pre = [];
     const done = [];
     for (const game of rows) {
-      (game.state === "post" ? done : game.state === "in" ? live : pre).push(game);
+      // A delayed game stays in view with the live ones: it has a score and
+      // a clock, and it is today's. It just is not RUNNING — so on its own
+      // it does not fold today's other games away the way a running game
+      // does, and it gets none of the live styling.
+      (game.state === "post" ? done : game.state === "in" || game.state === "delayed" ? live : pre).push(
+        game
+      );
     }
-    if (live.length) return { live, soon: [], later: pre, done };
+    if (live.some((g) => g.state === "in")) return { live, soon: [], later: pre, done };
     const soon = pre.filter((g) => !localDayKey(g.start_time) || isToday(g.start_time));
     const later = pre.filter((g) => !soon.includes(g));
     return { live, soon, later, done };

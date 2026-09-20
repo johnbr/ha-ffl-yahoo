@@ -508,6 +508,11 @@ test("game state drives a per-block class", () => {
   assert.ok(renderPlayerBlock(P({ game_state: "in" }), "home").includes("ffl-p-live"));
   assert.ok(renderPlayerBlock(P({ game_state: "unknown" }), "home").includes("ffl-p-pre"));
   assert.ok(renderPlayerBlock(P({ game_state: "post" }), "home").includes("ffl-p-final"));
+  // Delayed: a real score that is neither settled nor moving gets none of
+  // the three treatments — in particular not .ffl-p-pre's lighter weight.
+  const held = renderPlayerBlock(P({ game_state: "delayed" }), "home");
+  assert.ok(held.includes("ffl-p-held") && !held.includes("ffl-p-pre") && !held.includes("ffl-p-live"));
+  assert.doesNotMatch(CARD_CSS, /\.ffl-p-held/, "no rule: the defaults are the point");
 });
 
 test("an empty matchup says so rather than rendering a bare grid", () => {
@@ -1182,6 +1187,28 @@ test("while a game is live, the live games are all that shows", () => {
     "every scheduled game folds"
   );
   assert.deepEqual(done.map((g) => g.game_id), ["done1", "done2"]);
+});
+
+test("a delayed game stays in view and does not fold today's other games", () => {
+  // Cle at TB, 2026-09-20, held at Q4 2:00 by weather: the integration now
+  // calls it "delayed". Unmapped, it fell into the scheduled bucket and the
+  // card folded a game with a score and two minutes left under "later this
+  // week". It sits with the live games — but it is not RUNNING, so on its
+  // own it must not hide tonight's game the way a running one does.
+  const held = { ...GAME_LIVE, game_id: "held", state: "delayed", clock_text: "Delayed · Q4 2:00" };
+  const { live, soon, later } = nflCard()._split([held, ...IDLE_SLATE]);
+  assert.deepEqual(live.map((g) => g.game_id), ["held"]);
+  assert.deepEqual(soon.map((g) => g.game_id), ["tonight1"], "tonight still shows");
+  assert.ok(!later.some((g) => g.game_id === "held"), "not under 'later this week'");
+  // Beside a running game it folds the slate as usual.
+  const withLive = nflCard()._split([held, ...SLATE]);
+  assert.deepEqual(withLive.live.map((g) => g.game_id), ["held", "live1"]);
+  assert.deepEqual(withLive.soon, []);
+  // Rendered without the live styling, clock text as the integration sent it.
+  const html = renderNflGame(held);
+  assert.ok(html.includes("Delayed · Q4 2:00"));
+  assert.ok(!html.includes("ffl-nfl-live") && !html.includes("ffl-nfl-clock-live"));
+  assert.ok(!html.includes("ffl-nfl-field"), "no field bar for a stopped game");
 });
 
 test("once nothing is live, only today's games show, with the rest folded", () => {

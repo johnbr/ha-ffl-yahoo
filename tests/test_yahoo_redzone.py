@@ -454,6 +454,42 @@ def test_a_finished_game_has_nothing_left() -> None:
     assert remaining_fraction(_Game("post", "4", "0:00")) == 0.0
 
 
+# The row Yahoo served for Cle at TB on 2026-09-20, held at Q4 2:00 by weather
+# with the Browns up 23-19: status "U", which its own scoreboard called "Susp".
+DELAYED_ROW = "g|20260920027|5|27|U|26|4|2:00|23|19|1789923600|2|3|28|27|1|3|4|23|43|0|0|1|1|3|0|1"
+
+
+def test_a_delayed_game_is_stopped_not_over(games_text: str) -> None:
+    """Unmapped, "U" read as unknown: the games card folded the game under
+    "later this week" and the fantasy side stopped counting its players as
+    still to play, so a matchup could go final with two minutes left."""
+    assert GAME_STATUS["U"] == "delayed"
+    game = parse_relay_games(games_text + DELAYED_ROW + "\n")["27"]
+    assert game.state == "delayed"
+    # The clock stands where it stopped, and that is what is left to play.
+    assert remaining_fraction(game) == pytest.approx(2 / 60)
+    # Nobody is on the field, so nobody has the ball.
+    assert not game.has_ball("27") and not game.in_red_zone("27")
+    # The blurb under a player says so, score and all.
+    assert game.note_for("27") == "Delayed 19-23 vs Cle"
+    assert game.note_for("5") == "Delayed 23-19 @ TB"
+    # A stopped game is not a running one.
+    assert active_game_count(parse_relay_games(games_text + DELAYED_ROW + "\n")) == 1
+    assert "5" not in live_clubs(parse_relay_games(games_text + DELAYED_ROW + "\n"))
+
+
+def test_a_starter_in_a_delayed_game_is_still_to_play() -> None:
+    """The matchup's "final" flag is remaining == 0 on both sides; a delayed
+    game's starters must hold it open."""
+    from yahoo_fantasy_football.yahoo_redzone import _team
+
+    def player(state):
+        return type("P", (), {"game_state": state, "points": 1.0, "live_projected": 1.0, "starter": True})()
+
+    team = _team({"id": "1", "name": "x", "projectedPoints": 0}, [player("post"), player("delayed"), player("in")])
+    assert team.remaining == 2
+
+
 def test_the_clock_drives_the_remaining_fraction() -> None:
     # 14:57 left in the 2nd: one quarter gone plus three seconds.
     assert remaining_fraction(_Game("in", "2", "14:57")) == pytest.approx(44.95 / 60)
