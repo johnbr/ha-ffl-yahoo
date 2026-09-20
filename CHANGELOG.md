@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.15.1...v0.16.0) (2026-09-20)
+
+
+### Features
+
+* rebuild the lineup block, trim the stat line, and handle a delayed NFL game ([#25](https://github.com/johnbr/ha-ffl-yahoo/issues/25)) ([30f1bdd](https://github.com/johnbr/ha-ffl-yahoo/commit/30f1bdd62a93ce50f4741d2350e25a871e5916b5))
+
 ## [0.15.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.15.0...v0.15.1) (2026-09-20)
 
 
