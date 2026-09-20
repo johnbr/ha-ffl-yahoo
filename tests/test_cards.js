@@ -306,6 +306,16 @@ test("both foot children are pinned to one grid row", () => {
   assert.match(rule(".ffl-rowprojs"), /grid-row:\s*1/);
 });
 
+test("the row's play reads in primary ink, like the NFL card's last play", () => {
+  // It was the theme's secondary grey at regular weight, and on a dark
+  // theme it disappeared into the divider. Same recipe as .ffl-nfl-last.
+  assert.match(rule(".ffl-row-play"), /color:\s*var\(--primary-text-color\)/);
+  assert.match(rule(".ffl-row-play"), /font-weight:\s*500/);
+  assert.doesNotMatch(rule(".ffl-row-play"), /secondary-text-color/);
+  // A correction still overrides it in red.
+  assert.match(rule(".ffl-row-play.ffl-correction"), /color:\s*var\(--error-color\)/);
+});
+
 test("the play sits on the scoring side's own track", () => {
   const away = renderRowPlay({ text: "x", short_text: "x", delta: 1, side: "away" }, "w1.m1");
   const home = renderRowPlay({ text: "x", short_text: "x", delta: 1, side: "home" }, "w1.m1");

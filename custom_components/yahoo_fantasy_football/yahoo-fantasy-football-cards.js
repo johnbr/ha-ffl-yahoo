@@ -1313,7 +1313,12 @@ const CARD_CSS = `
        read as a data problem rather than a layout one. */
     grid-column: 1; grid-row: 1;
     min-width: 0; padding: 1px 4px; font-size: 0.8rem; line-height: 1.2;
-    color: var(--secondary-text-color); cursor: pointer; border-radius: 6px;
+    /* Primary ink at medium weight, the recipe the NFL card's last play got
+       for the same complaint: this is the matchup's newest play, the thing
+       the row exists to show, and in the theme's secondary grey it read as
+       a caption. Size and the projections' heavier weight beside it still
+       rank it below the scores. */
+    color: var(--primary-text-color); font-weight: 500; cursor: pointer; border-radius: 6px;
   }
   .ffl-row-play:hover, .ffl-row-play:focus-visible { background: var(--secondary-background-color); outline: none; }
   /* Reads inward from the scoring team's edge — position alone says which
