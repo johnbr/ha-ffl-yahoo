@@ -18,6 +18,7 @@ from .const import (
 )
 from .plays import PlayFeed, ScoringEvent, describe, short_describe, short_parts
 from .web_client import LeagueData
+from .yahoo_redzone import clock_text
 
 # How many plays ride along in entity attributes. The full history is served on
 # demand over WebSocket instead — attributes are pushed to every connected
@@ -262,18 +263,9 @@ def _clock_text(game: Any) -> str:
         return "Final"
     if state == "pre":
         return ""  # the card formats the kickoff time in the viewer's zone
-    period = str(getattr(game, "period", "") or "")
-    clock = str(getattr(game, "clock", "") or "")
-    # A game sitting on 0:00 in the second quarter is at half time, and saying
-    # so is both shorter and what a reader is actually asking. The feed has no
-    # separate state for it — it just stops the clock — so this is the only
-    # place it can be named.
-    if period == "2" and clock.strip() in {"0:00", "00:00"}:
-        return "Halftime"
-    if not period:
-        return clock
-    quarter = f"Q{period}" if period.isdigit() and int(period) <= 4 else "OT"
-    return f"{quarter} {clock}".strip()
+    # Half time and overtime are named by the same rule the lineup's player
+    # blurb uses, so the two cards never disagree about the same game.
+    return clock_text(getattr(game, "period", ""), getattr(game, "clock", ""))
 
 
 def _yards_to_goal(game: Any) -> int | None:

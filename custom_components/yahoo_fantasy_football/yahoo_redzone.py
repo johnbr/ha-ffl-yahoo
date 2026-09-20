@@ -347,6 +347,28 @@ def _defense_stats(raw: dict[str, float]) -> dict[str, float]:
     return stats
 
 
+def clock_text(period: str, clock: str) -> str:
+    """Where a running game stands: ``Q3 6:24``, ``Halftime``, ``OT 8:11``.
+
+    One rule for both cards. The games card's clock and the blurb under a
+    player in the expanded lineup are the same fact about the same game, and
+    they used to be formatted twice — the lineup printed ``Q2 0:00`` under a
+    player whose game the card beside it called ``Halftime``.
+
+    The feed has no separate state for half time — it parks the second
+    quarter on 0:00 — so this is the only place it can be named, and naming it
+    is both shorter and what a reader is actually asking. Any period past the
+    fourth is overtime, which the feed numbers ``5``.
+    """
+    period, clock = str(period or ""), str(clock or "").strip()
+    if period == "2" and clock in {"0:00", "00:00"}:
+        return "Halftime"
+    if not period:
+        return clock
+    quarter = f"Q{period}" if period.isdigit() and int(period) <= 4 else "OT"
+    return f"{quarter} {clock}".strip()
+
+
 class GameState:
     """One NFL game as the relay reports it, in the terms the cards want."""
 
@@ -426,7 +448,7 @@ class GameState:
         if self.state == "pre":
             return versus
         if self.state == "in":
-            return f"Q{self.period} {self.clock} {mine}-{theirs} {versus}"
+            return f"{clock_text(self.period, self.clock)} {mine}-{theirs} {versus}"
         if self.state == "post":
             if not (mine and theirs):
                 # Over, score unknown — a game the relay forgot without leaving
@@ -578,11 +600,18 @@ class RelayPlay:
 
 
 def parse_relay_players(text: str) -> dict[str, str]:
-    """``{player_id: "First Last"}`` for everyone in today's games.
+    """``{player_id: "First Last"}`` for everyone who has appeared this week.
 
     Yahoo's play descriptions name people by id only, and the league seed knows
     just the ~140 players somebody rosters — not the defender who made the
     tackle. This feed is what makes a play description readable.
+
+    It is not a roster. It tracks the stats feed: a player is added the first
+    time a stat line is written for them (measured 2026-09-20, Sunday 10:36 PT:
+    16-24 names per club in the first quarter, 36 per club for the game played
+    on Thursday, three names added in 46 s across eight games). So a player's
+    first touch of the day names an id that an older copy of this dictionary
+    cannot resolve — see :func:`play_ids_needed` for how a caller finds out.
     """
     names: dict[str, str] = {}
     for cells in _relay_lines(text):
@@ -652,13 +681,44 @@ def humanize_play(text: str, names: dict[str, str]) -> str:
     """
     sentences = []
     for sentence in text.split("|"):
-        raw = [c.strip() for c in sentence.split(", ") if c.strip()]
-        kept = [c for c in raw if not _PURE_TACKLE.match(c)]
+        kept = _clauses(sentence)
         resolved = [_PLAY_REF.sub(lambda m: names.get(m.group(1), _UNKNOWN), c) for c in kept]
         joined = ", ".join(c for c in resolved if _UNKNOWN not in c)
         if joined:
             sentences.append(joined)
     return ". ".join(sentences)
+
+
+def _clauses(sentence: str) -> list[str]:
+    """A sentence's clauses, minus a pure tackle, ids still bracketed."""
+    raw = [c.strip() for c in sentence.split(", ") if c.strip()]
+    return [c for c in raw if not _PURE_TACKLE.match(c)]
+
+
+def play_ids_needed(text: str) -> tuple[str, ...]:
+    """The ids :func:`humanize_play` must resolve to keep every clause of ``text``.
+
+    Everyone the play names except a pure tackler: that clause is dropped
+    before any name is looked up, so a tackler the dictionary has never heard
+    of costs nothing — and the dictionary does omit some, since it tracks the
+    stats feed and a tackle alone does not always write a stat line (one
+    Tennessee defender was in the play feed from the first quarter and never
+    in the dictionary, 2026-09-20). Every other id is what makes the play
+    readable: an unresolved subject drops the play's sentence entirely, which
+    on the games card was a down missing from the list.
+
+    This is the signal ``RedzoneClient.async_players`` refetches on. Reported
+    unfiltered by what the dictionary knows, so a caller can ask before it has
+    one.
+    """
+    return tuple(
+        dict.fromkeys(
+            pid
+            for sentence in text.split("|")
+            for clause in _clauses(sentence)
+            for pid in _PLAY_REF.findall(clause)
+        )
+    )
 
 
 # A word that can be part of a tackler's name in already-humanised text:

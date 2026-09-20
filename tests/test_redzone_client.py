@@ -6,9 +6,13 @@ happen when Yahoo misbehaves — is exercised without a live Yahoo.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from conftest import FIXTURES
 from yahoo_fantasy_football.redzone_client import (
+    PLAYERS_RETRY_SECONDS,
+    PLAYERS_TTL_SECONDS,
     PLAYS_MIN_INTERVAL_SECONDS,
     PLAYS_RECHECK_SECONDS,
     SEED_TTL_SECONDS,
@@ -277,3 +281,96 @@ async def test_without_a_conditional_fetcher_the_feed_is_fetched_whole():
     assert await client.async_plays("2", now=100.0) == PLAYS_V1
     assert await client.async_plays("2", now=100.0) == PLAYS_V1
     assert sum("plays-2" in u for u in log) == 2
+
+
+# -- the player dictionary: cached by age, refetched when it is missing a name --
+
+PLAYERS_V1 = "# nfl/players.txt\nm|1|8|QB|Jared|Goff|-|16\n"
+PLAYERS_V2 = PLAYERS_V1 + "m|2|8|RB|Jahmyr|Gibbs|-|26\n"
+
+
+class _Dictionary:
+    """A players feed that grows as the games are played."""
+
+    def __init__(self, body: str) -> None:
+        self.body = body
+        self.asks = 0
+
+    async def fetch(self, url: str) -> str:
+        if "players" in url:
+            self.asks += 1
+            await asyncio.sleep(0)  # a real fetch yields; concurrent askers interleave here
+            return self.body
+        return _bodies()["redzone"]
+
+
+@pytest.mark.asyncio
+async def test_a_name_the_dictionary_lacks_refetches_it():
+    """A player's first touch of the day names an id the copy in hand has never
+    seen; the play is unrenderable until the dictionary is read again."""
+    feed = _Dictionary(PLAYERS_V1)
+    client = RedzoneClient(feed.fetch, LEAGUE)
+
+    first = await client.async_players(100.0, needed=("1",))
+    assert first == {"1": "Jared Goff"} and feed.asks == 1
+
+    feed.body = PLAYERS_V2
+    later = 100.0 + PLAYERS_RETRY_SECONDS
+    assert await client.async_players(later, needed=("1", "2")) == {"1": "Jared Goff", "2": "Jahmyr Gibbs"}
+    assert feed.asks == 2, "an unknown id is the signal the dictionary has grown"
+
+
+@pytest.mark.asyncio
+async def test_a_refetch_for_a_missing_name_is_floored():
+    """An id that never resolves must not turn every poll into a full fetch."""
+    feed = _Dictionary(PLAYERS_V1)
+    client = RedzoneClient(feed.fetch, LEAGUE)
+    await client.async_players(100.0)
+
+    for tick in range(1, 4):
+        await client.async_players(100.0 + tick * PLAYERS_RETRY_SECONDS / 4, needed=("99",))
+    assert feed.asks == 1, "three polls inside the floor, none of them a fetch"
+
+    await client.async_players(100.0 + PLAYERS_RETRY_SECONDS, needed=("99",))
+    assert feed.asks == 2
+    await client.async_players(100.0 + PLAYERS_RETRY_SECONDS + 10, needed=("99",))
+    assert feed.asks == 2, "and the floor restarts from that fetch"
+
+
+@pytest.mark.asyncio
+async def test_a_dictionary_that_knows_every_name_is_kept_by_age():
+    feed = _Dictionary(PLAYERS_V1)
+    client = RedzoneClient(feed.fetch, LEAGUE)
+    first = await client.async_players(100.0)
+
+    for tick in range(1, 20):
+        got = await client.async_players(100.0 + tick * PLAYERS_RETRY_SECONDS, needed=("1",))
+        assert got is first, "same object until something replaces it — callers compare by identity"
+    assert feed.asks == 1
+
+    await client.async_players(100.0 + PLAYERS_TTL_SECONDS, needed=("1",))
+    assert feed.asks == 2, "age alone still refreshes the quiet case"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_dictionary_refetch_keeps_the_copy_in_hand():
+    feed = _Dictionary(PLAYERS_V1)
+    client = RedzoneClient(feed.fetch, LEAGUE)
+    first = await client.async_players(100.0)
+
+    feed.body = ""
+    assert await client.async_players(100.0 + PLAYERS_RETRY_SECONDS, needed=("2",)) is first
+
+
+@pytest.mark.asyncio
+async def test_eight_games_asking_at_once_is_one_fetch():
+    """The last-play refresh gathers every live game; they share the read."""
+    feed = _Dictionary(PLAYERS_V1)
+    client = RedzoneClient(feed.fetch, LEAGUE)
+    await client.async_players(100.0)
+
+    feed.body = PLAYERS_V2
+    later = 100.0 + PLAYERS_RETRY_SECONDS
+    got = await asyncio.gather(*(client.async_players(later, needed=("2",)) for _ in range(8)))
+    assert feed.asks == 2
+    assert all(d is got[0] for d in got), "one dictionary object, handed to all eight"

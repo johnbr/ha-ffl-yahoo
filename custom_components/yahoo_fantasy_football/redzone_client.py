@@ -48,7 +48,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
 from .web_client import (  # noqa: F401  (LeagueIsPrivate re-exported for callers)
@@ -105,12 +105,27 @@ MIN_BODY = 40
 # during a game — points move constantly, lineups do not.
 SEED_TTL_SECONDS = 180.0
 
-# How long the NFL player dictionary is reused.
+# How long the NFL player dictionary is reused when nothing says it has grown.
 #
-# It answers "who is [42654]", which changes when somebody is signed, not
-# during a game. Refetching 34 KB of it on every poll to learn nothing would
-# undo the point of caching the seed.
+# It answers "who is [42654]". It was cached on the belief that the answer
+# changes when somebody is signed, not during a game — but the dictionary is
+# a running list of everyone who has recorded a stat this week, and on a
+# Sunday morning it gains a name every few seconds (see
+# ``parse_relay_players``). Under a pure age TTL a player's first touch named
+# an id the cached copy could not resolve, and the play stayed unrenderable
+# until the next refetch: half an hour of a down missing from the games
+# card's list, and the last-play line sitting a play behind. So age is no
+# longer the only trigger: an id the caller needs and the copy lacks is one
+# too (``async_players``). This TTL is what remains for the quiet case.
 PLAYERS_TTL_SECONDS = 1800.0
+
+# The floor between two refetches of the dictionary prompted by an id it
+# lacks. Bounds the cost when an id is never going to resolve (a tackler
+# without a stat line is filtered out before it gets here, but the filter is
+# a heuristic about Yahoo's feed, not a guarantee): one ~17 KB gzip fetch per
+# this many seconds at worst. Short, because this is the wait a reader sees
+# between a play landing and the down appearing in the list.
+PLAYERS_RETRY_SECONDS = 30.0
 
 # How often a play feed is fetched whole regardless of ``If-Modified-Since``.
 #
@@ -164,6 +179,10 @@ class RedzoneClient:
         self._seed_at: float = 0.0
         self._players: dict[str, str] | None = None
         self._players_at: float = 0.0
+        # Eight live games ask for the dictionary in one gather; the first
+        # fetches, the rest wait and find it fresh. Without this, one lacking
+        # id was eight simultaneous full fetches.
+        self._players_lock = asyncio.Lock()
         self._plays: dict[str, _PlaysCache] = {}
 
     # -- internals ---------------------------------------------------------
@@ -222,20 +241,35 @@ class RedzoneClient:
         self._seed, self._seed_at = payload, now
         return payload
 
-    async def async_players(self, now: float) -> dict[str, str]:
-        """``{player_id: name}`` for everyone in today's games, cached.
+    async def async_players(self, now: float, needed: Iterable[str] = ()) -> dict[str, str]:
+        """``{player_id: name}`` for everyone who has played this week, cached.
+
+        ``needed`` is every id the caller is about to look up (see
+        ``play_ids_needed``). One the cached copy lacks means the dictionary
+        has grown since it was read, and it is refetched — no sooner than
+        :data:`PLAYERS_RETRY_SECONDS` after the last read, so an id that never
+        resolves cannot turn every poll into a full fetch. Without ``needed``
+        only age decides, which is right for a caller with no text in hand.
+
+        The same object comes back until a refetch replaces it, so a caller
+        can tell "still the copy I rendered with" by identity.
 
         Best-effort: a play description with unresolved ids degrades to a
         shorter sentence, which is a far better outcome than failing a refresh
         over it.
         """
-        if self._players is not None and (now - self._players_at) < PLAYERS_TTL_SECONDS:
+        async with self._players_lock:
+            cached = self._players
+            if cached is not None:
+                age = now - self._players_at
+                lacking = any(pid not in cached for pid in needed)
+                if age < PLAYERS_TTL_SECONDS and not (lacking and age >= PLAYERS_RETRY_SECONDS):
+                    return cached
+            body = await self._get_optional(relay_url("players", self.sport))
+            if not body:
+                return cached or {}
+            self._players, self._players_at = parse_relay_players(body), now
             return self._players
-        body = await self._get_optional(relay_url("players", self.sport))
-        if not body:
-            return self._players or {}
-        self._players, self._players_at = parse_relay_players(body), now
-        return self._players
 
     async def async_plays(self, plays_id: str, now: float) -> str:
         """One game's play-by-play feed, or ``""`` if it is not being served.

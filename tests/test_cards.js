@@ -306,6 +306,16 @@ test("both foot children are pinned to one grid row", () => {
   assert.match(rule(".ffl-rowprojs"), /grid-row:\s*1/);
 });
 
+test("the row's play reads in primary ink, like the NFL card's last play", () => {
+  // It was the theme's secondary grey at regular weight, and on a dark
+  // theme it disappeared into the divider. Same recipe as .ffl-nfl-last.
+  assert.match(rule(".ffl-row-play"), /color:\s*var\(--primary-text-color\)/);
+  assert.match(rule(".ffl-row-play"), /font-weight:\s*500/);
+  assert.doesNotMatch(rule(".ffl-row-play"), /secondary-text-color/);
+  // A correction still overrides it in red.
+  assert.match(rule(".ffl-row-play.ffl-correction"), /color:\s*var\(--error-color\)/);
+});
+
 test("the play sits on the scoring side's own track", () => {
   const away = renderRowPlay({ text: "x", short_text: "x", delta: 1, side: "away" }, "w1.m1");
   const home = renderRowPlay({ text: "x", short_text: "x", delta: 1, side: "home" }, "w1.m1");
@@ -481,6 +491,38 @@ test("a final score is gold, the same gold as a decided matchup", () => {
   // colour so one token recolours every settled number.
   assert.match(rule(".ffl-p-final .ffl-lu-pts"), /color:\s*var\(--ffl-final-color, var\(--ffl-winner-color, #fbc02d\)\)/);
   assert.doesNotMatch(CARD_CSS, /\.ffl-p-live \.ffl-lu-pts \{[^}]*color/);
+});
+
+test("a player's projection wears the trend colour, and nothing overrides it", () => {
+  // The class was always applied; the colour never showed. `.ffl-lu-proj`
+  // sets a resting grey at the same specificity as `.ffl-up`, so whichever
+  // is declared later wins — and since the lineup rebuild that was the grey.
+  const live = renderPlayerBlock(
+    { name: "P. Nacua", slot: "WR", points: 6.5, projected: 19.97, live_projected: 16.49, game_state: "in" },
+    "home"
+  );
+  assert.match(live, /class="ffl-lu-proj ffl-down">16\.49</);
+  const up = renderPlayerBlock(
+    { name: "K. Williams", slot: "RB", points: 13.1, projected: 13.94, live_projected: 20.07, game_state: "in" },
+    "away"
+  );
+  assert.match(up, /class="ffl-lu-proj ffl-up">20\.07</);
+  // Before kickoff the two figures are equal: no trend class, the resting grey.
+  const pre = renderPlayerBlock(
+    { name: "C. Williams", slot: "QB", points: 0, projected: 18.2, live_projected: 18.2, game_state: "pre" },
+    "home"
+  );
+  assert.match(pre, /class="ffl-lu-proj">18\.20</);
+
+  // The trend rules are the stylesheet's last word on colour: no rule after
+  // them sets one, so no resting colour can be declared later and win.
+  const trend = CARD_CSS.indexOf(".ffl-up {");
+  assert.ok(trend !== -1);
+  for (const selector of [".ffl-lu-proj", ".ffl-team-proj", ".ffl-rowproj", ".ffl-team-live"]) {
+    assert.ok(CARD_CSS.indexOf(selector + " {") < trend, `${selector} must be declared before .ffl-up`);
+  }
+  const after = CARD_CSS.slice(CARD_CSS.indexOf("}", CARD_CSS.indexOf(".ffl-flat {")));
+  assert.doesNotMatch(after, /color:/);
 });
 
 test("points that have happened are heavier than the bold name", () => {
