@@ -441,13 +441,52 @@ test("slots are colour-coded by position", () => {
   assert.ok(renderLineup([{ starters: [P({ slot: "W/R/T" })] }, {}]).includes("ffl-slot-flex"));
 });
 
-test("a player block shows points, position, club, projection and stat line", () => {
+test("a player block shows the name with its club, points, projection and stat line", () => {
   const html = renderPlayerBlock(P({}), "home");
-  assert.ok(html.includes("Josh Allen"));
+  // "Josh Allen (Buf)" — the club rides with the name, joined so a wrapped
+  // name cannot strand it. The position is NOT repeated: the slot chip in
+  // the middle column already says it, and the line that carried "QB · Buf"
+  // was a row per player spent on what the reader could already see.
+  assert.match(html, /Josh Allen&nbsp;<span class="ffl-lu-club">\(Buf\)<\/span>/);
+  // The integration's short form is what prints when it is sent — "J. Allen
+  // (Buf)", the way the play line names a player — and the full name only
+  // when it is not (an older integration).
+  const short = renderPlayerBlock(P({ short_name: "J. Allen" }), "home");
+  assert.match(short, /J\. Allen&nbsp;<span class="ffl-lu-club">\(Buf\)<\/span>/);
+  assert.ok(!short.includes("Josh Allen"));
+  assert.ok(!html.includes("QB · Buf") && !html.includes("ffl-lu-meta"));
   assert.ok(html.includes("20.47"), "actual points");
-  assert.ok(html.includes("QB · Buf"));
   assert.ok(html.includes("1 Rush TD, 123 Pass Yds"));
   assert.ok(html.includes("Final W 26-7 @ Pit"));
+  // No club known (an older integration): a bare name, no empty brackets.
+  const bare = renderPlayerBlock(P({ nfl_team: "" }), "home");
+  assert.ok(!bare.includes("ffl-lu-club") && !bare.includes("()"));
+});
+
+test("the numbers are a column of their own, anchored to the top of the row", () => {
+  // Points over projection, beside the text rather than on its lines, so a
+  // wrapped stat line or a missing one on EITHER side cannot move them:
+  // the two sides' figures start where the row starts.
+  const html = renderPlayerBlock(P({}), "home");
+  const text = html.indexOf('class="ffl-lu-text"');
+  const nums = html.indexOf('class="ffl-lu-nums"');
+  assert.ok(text !== -1 && nums !== -1 && text < nums, "text stack, then the numbers");
+  assert.match(html, /<div class="ffl-lu-nums">\s*<span class="ffl-lu-pts">20\.47<\/span>\s*<span class="ffl-lu-proj[^"]*">/);
+  assert.match(rule(".ffl-lu-block"), /align-items:\s*flex-start/);
+  assert.doesNotMatch(rule(".ffl-lu-block"), /justify-content:\s*center/);
+  assert.doesNotMatch(rule(".ffl-lu-block"), /flex-direction:\s*column/);
+  // The away side is the same block mirrored: numbers still nearest the chip.
+  assert.match(rule(".ffl-lu-away"), /flex-direction:\s*row-reverse/);
+  assert.match(rule(".ffl-lu-away .ffl-lu-nums"), /align-items:\s*flex-start/);
+  // Name and points share a size and line-height, so the first line of both
+  // columns sits on one baseline.
+  assert.match(rule(".ffl-lu-name"), /font-size:\s*0\.82rem/);
+  assert.match(rule(".ffl-lu-pts"), /font-size:\s*0\.82rem/);
+  assert.match(rule(".ffl-lu-name"), /line-height:\s*1\.25/);
+  assert.match(rule(".ffl-lu-pts"), /line-height:\s*1\.25/);
+  // The name wraps rather than ellipsising the club off its end.
+  assert.match(rule(".ffl-lu-name"), /white-space:\s*normal/);
+  assert.doesNotMatch(rule(".ffl-lu-name"), /text-overflow/);
 });
 
 test("a player block shows the live projection, coloured, once it has moved", () => {
@@ -537,11 +576,11 @@ test("the expanded panel's quiet lines read in the primary colour at medium weig
   // that small goes faint before its colour does. Size and weight carry the
   // hierarchy now; the token stays as the theme's hook.
   assert.match(rule(".ffl-row-detail"), /--ffl-muted:\s*var\(--ffl-muted-color, var\(--primary-text-color\)\)/);
-  for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj", ".ffl-win-pct", ".ffl-h-text"]) {
+  for (const selector of [".ffl-lu-club", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj", ".ffl-win-pct", ".ffl-h-text"]) {
     assert.match(rule(selector), /color:\s*var\(--ffl-muted\)/, `${selector} uses the muted colour`);
     assert.doesNotMatch(rule(selector), /secondary-text-color/, `${selector} no longer uses the secondary colour`);
   }
-  for (const selector of [".ffl-lu-meta", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj"]) {
+  for (const selector of [".ffl-lu-club", ".ffl-lu-proj", ".ffl-lu-game", ".ffl-lu-stat", ".ffl-team-proj"]) {
     assert.match(rule(selector), /font-weight:\s*500/, `${selector} is medium weight`);
   }
 });

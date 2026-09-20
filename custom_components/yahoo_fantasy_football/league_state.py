@@ -16,7 +16,7 @@ from .const import (
     SCAN_INTERVAL_LIVE_SECONDS,
     SCAN_INTERVAL_NEAR_GAME_SECONDS,
 )
-from .plays import PlayFeed, ScoringEvent, describe, short_describe, short_parts
+from .plays import PlayFeed, ScoringEvent, abbreviate_name, describe, short_describe, short_parts
 from .web_client import LeagueData
 from .yahoo_redzone import clock_text
 
@@ -204,6 +204,9 @@ def _player_dict(player: Any) -> dict[str, Any]:
     return {
         "player_id": player.player_id,
         "name": player.name,
+        # "J. Allen", the form the play line uses — the lineup prints this
+        # one. A defence is a single word ("Ravens") and passes through.
+        "short_name": abbreviate_name(player.name),
         "slot": player.slot,
         "points": player.points,
         "projected": player.projected,

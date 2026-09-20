@@ -165,6 +165,7 @@ def test_the_popup_carries_the_fields_the_card_renders() -> None:
         "game_state",
     }
     assert starter["name"] == "Josh Allen"
+    assert starter["short_name"] == "J. Allen", "the lineup prints the play line's short form"
     assert starter["projected"] == pytest.approx(25.38)
     assert starter["kickoff"] is None, "the HTML tier has no kickoff to offer"
 
