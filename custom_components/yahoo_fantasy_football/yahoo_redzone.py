@@ -347,6 +347,28 @@ def _defense_stats(raw: dict[str, float]) -> dict[str, float]:
     return stats
 
 
+def clock_text(period: str, clock: str) -> str:
+    """Where a running game stands: ``Q3 6:24``, ``Halftime``, ``OT 8:11``.
+
+    One rule for both cards. The games card's clock and the blurb under a
+    player in the expanded lineup are the same fact about the same game, and
+    they used to be formatted twice — the lineup printed ``Q2 0:00`` under a
+    player whose game the card beside it called ``Halftime``.
+
+    The feed has no separate state for half time — it parks the second
+    quarter on 0:00 — so this is the only place it can be named, and naming it
+    is both shorter and what a reader is actually asking. Any period past the
+    fourth is overtime, which the feed numbers ``5``.
+    """
+    period, clock = str(period or ""), str(clock or "").strip()
+    if period == "2" and clock in {"0:00", "00:00"}:
+        return "Halftime"
+    if not period:
+        return clock
+    quarter = f"Q{period}" if period.isdigit() and int(period) <= 4 else "OT"
+    return f"{quarter} {clock}".strip()
+
+
 class GameState:
     """One NFL game as the relay reports it, in the terms the cards want."""
 
@@ -426,7 +448,7 @@ class GameState:
         if self.state == "pre":
             return versus
         if self.state == "in":
-            return f"Q{self.period} {self.clock} {mine}-{theirs} {versus}"
+            return f"{clock_text(self.period, self.clock)} {mine}-{theirs} {versus}"
         if self.state == "post":
             if not (mine and theirs):
                 # Over, score unknown — a game the relay forgot without leaving

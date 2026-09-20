@@ -16,6 +16,7 @@ from yahoo_fantasy_football.yahoo_redzone import (
     GAME_STATUS,
     NFL_STAT_NAMES,
     active_game_count,
+    clock_text,
     describe_delta,
     humanize_play,
     league_from_payloads,
@@ -165,6 +166,22 @@ def test_game_note_reads_from_the_asking_teams_side(games_text: str):
     assert away.endswith("@ Sea")
     # Same game, so the scores are the same pair the other way round.
     assert home.split()[2] == "-".join(reversed(away.split()[2].split("-")))
+
+
+def test_a_player_at_half_time_says_so(games_text: str):
+    """The lineup used to print "Q2 0:00" under a player whose game the card
+    beside it called "Halftime"; both now speak the same rule."""
+    text = games_text.replace("|P|26|3|14:52|", "|P|26|2|0:00|")
+    game = parse_relay_games(text)["26"]
+    assert game.note_for("26") == "Halftime 0-7 vs NE"
+    assert game.note_for("17") == "Halftime 7-0 @ Sea"
+
+    assert clock_text("3", "14:52") == "Q3 14:52"
+    assert clock_text("2", "0:00") == "Halftime"
+    assert clock_text("2", "00:00") == "Halftime"
+    assert clock_text("4", "0:00") == "Q4 0:00", "the end of regulation is not half time"
+    assert clock_text("5", "8:11") == "OT 8:11", "the feed numbers overtime as a fifth period"
+    assert clock_text("", "12:00") == "12:00"
 
 
 def test_comment_lines_are_not_data(stats_text: str):
