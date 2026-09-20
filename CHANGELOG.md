@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.15.0...v0.15.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* stop missing downs on the NFL card; lineup colour, halftime and play-line polish ([#23](https://github.com/johnbr/ha-ffl-yahoo/issues/23)) ([d87ef3a](https://github.com/johnbr/ha-ffl-yahoo/commit/d87ef3aafde05f5a8d655a3cfabc4f52b9cde50e))
+
 ## [0.15.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.14.2...v0.15.0) (2026-09-19)
 
 
