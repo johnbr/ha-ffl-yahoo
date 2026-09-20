@@ -1498,14 +1498,6 @@ const CARD_CSS = `
   .ffl-team-proj { font-size: 0.72rem; font-weight: 500; color: var(--ffl-muted); }
   .ffl-team-live { font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  /* One colour vocabulary for "against expectation", used by team totals and
-     by individual players alike: ahead of the pre-game projection is green,
-     behind it is red, exactly level is grey — which before kickoff is
-     everything, and once a game is running is almost nothing. */
-  .ffl-up { color: var(--success-color, #43a047); }
-  .ffl-down { color: var(--error-color, #db4437); }
-  .ffl-flat { color: var(--secondary-text-color); }
-
   /* Projected winner. Our own estimate, not Yahoo's licensed market number. */
   .ffl-winbar {
     display: flex; align-items: center; gap: 8px;
@@ -1658,6 +1650,21 @@ const CARD_CSS = `
   .ffl-h-text { flex: 1 1 auto; color: var(--ffl-muted); }
   .ffl-h-delta { flex: 0 0 auto; font-weight: 700; color: var(--success-color); font-variant-numeric: tabular-nums; }
   .ffl-history li.ffl-correction .ffl-h-delta { color: var(--error-color); }
+
+  /* One colour vocabulary for "against expectation", used by team totals and
+     by individual players alike: ahead of the pre-game projection is green,
+     behind it is red, exactly level is grey — which before kickoff is
+     everything, and once a game is running is almost nothing.
+
+     LAST on purpose. These are state classes laid over elements that have a
+     resting colour of their own at the same specificity (.ffl-lu-proj is
+     muted, .ffl-team-proj is muted), and at equal specificity the later rule
+     wins. Declared above the lineup rules, a player's red or green was set
+     and then silently overwritten by the grey — from the lineup rebuild
+     until 2026-09-20, the colour was never once visible on a player. */
+  .ffl-up { color: var(--success-color, #43a047); }
+  .ffl-down { color: var(--error-color, #db4437); }
+  .ffl-flat { color: var(--secondary-text-color); }
 `;
 
 /* ------------------------------------------------------------- registration */
