@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import replace
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any
 
@@ -33,7 +34,7 @@ from .league_state import down_and_distance, play_dict, poll_interval
 from .plays import PlayFeed, ScoringEvent, abbreviate_name, diff_snapshots, match_relay_play
 from .redzone_client import USER_AGENT, RedzoneClient
 from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
-from .yahoo_redzone import humanize_play, parse_relay_plays, to_snapshot
+from .yahoo_redzone import RelayPlay, humanize_play, parse_relay_plays, play_ids_needed, to_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,9 +100,9 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self.feed = PlayFeed()
         self._previous = None
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")
-        # {plays_id: (feed body it was rendered from, rows)} — the games card's
-        # lists, re-rendered only when the feed actually changed.
-        self._nfl_plays: dict[str, tuple[str, list[dict[str, Any]]]] = {}
+        # The games card's lists, re-rendered only when what they were
+        # rendered from changed.
+        self._nfl_plays: dict[str, _GamePlays] = {}
         # {plays_id: newest play text} for live games, refreshed every poll.
         self._nfl_last_plays: dict[str, str] = {}
         # (the player dictionary it came from, its abbreviated twin).
@@ -268,12 +269,6 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             for event in events
         ]
 
-        try:
-            names = await self.client.async_players(now)
-        except Exception as err:  # cosmetic, never fatal
-            _LOGGER.debug("Could not read the player dictionary: %s", err)
-            return events
-
         # Fetched concurrently: these are different games and nothing here
         # depends on another's result, so paying eight round trips end to end
         # would be latency added to the scores themselves — this runs inside
@@ -292,6 +287,15 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 feeds[feed_id] = parse_relay_plays(result)
             except Exception as err:  # cosmetic, never fatal
                 _LOGGER.debug("Could not parse plays for game %s: %s", feed_id, err)
+
+        # The dictionary is read AFTER the feeds, told every id they name: a
+        # player's first touch of the day is not in the copy fetched before
+        # it, and the play that names them is unrenderable until it is.
+        try:
+            names = await self.client.async_players(now, _ids_needed(feeds.values()))
+        except Exception as err:  # cosmetic, never fatal
+            _LOGGER.debug("Could not read the player dictionary: %s", err)
+            return events
 
         def described(event: ScoringEvent) -> ScoringEvent:
             plays = feeds.get(data.plays_feeds.get(event.nfl_team or "", ""))
@@ -323,8 +327,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         and caches, and that module's whole contract is that it does neither.
 
         The client decides whether anything is fetched (see ``async_plays``);
-        this only re-renders when the body it is handed is not the one the rows
-        were rendered from, so a ``304`` costs no parsing either.
+        this only re-renders when the body or the dictionary it is handed is
+        not the one the rows were rendered from, so a ``304`` costs no parsing
+        either. The dictionary counts because a row is dropped when it names a
+        player the dictionary lacks — a name arriving is what brings a missing
+        down back, and it can arrive while the feed stands still.
 
         Returns ``[]`` rather than raising: an unreadable feed should leave the
         expanded game empty, not fail the card.
@@ -336,13 +343,18 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         cached = self._nfl_plays.get(plays_id)
 
         try:
-            names = await self.client.async_players(now)
             body = await self.client.async_plays(plays_id, now)
+            if cached is not None and cached.body == body:
+                plays, needed = cached.plays, cached.needed
+            else:
+                plays = parse_relay_plays(body)
+                needed = _ids_needed([plays])
+            names = await self.client.async_players(now, needed)
         except Exception as err:  # a missing feed is not worth failing over
             _LOGGER.debug("Could not read plays for NFL game %s: %s", plays_id, err)
-            return cached[1][:limit] if cached else []
-        if cached and cached[0] == body:
-            return cached[1][:limit]
+            return cached.rows[:limit] if cached else []
+        if cached is not None and cached.body == body and cached.names is names:
+            return cached.rows[:limit]
 
         # The expanded list is the one place names are shortened — a dozen
         # rows of "Jahmyr Gibbs rushed up the middle" is wider than the card
@@ -351,7 +363,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         # fantasy history keep the full sentence.
         short_names = self._short_names(names)
         rows: list[dict[str, Any]] = []
-        for play in reversed(parse_relay_plays(body)):  # newest first, the way a reader scans
+        for play in reversed(plays):  # newest first, the way a reader scans
             text = humanize_play(play.text, names)
             if not text:
                 continue
@@ -365,7 +377,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                     "clock": play.clock,
                 }
             )
-        self._nfl_plays[plays_id] = (body, rows)
+        self._nfl_plays[plays_id] = _GamePlays(body, plays, needed, names, rows)
         return rows[:limit]
 
     def _short_names(self, names: dict[str, str]) -> dict[str, str]:
@@ -380,6 +392,24 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
     @property
     def league_data(self) -> LeagueData | None:
         return self.data if isinstance(self.data, LeagueData) else None
+
+
+@dataclass
+class _GamePlays:
+    """One game's rendered play list and everything it was rendered from."""
+
+    body: str
+    plays: list[RelayPlay]
+    needed: frozenset[str]
+    """Every id the plays name, tacklers aside — what the dictionary must know."""
+    names: dict[str, str]
+    """The dictionary object the rows were rendered with, compared by identity."""
+    rows: list[dict[str, Any]]
+
+
+def _ids_needed(feeds: Iterable[list[RelayPlay]]) -> frozenset[str]:
+    """Every id ``humanize_play`` would look up across these games' plays."""
+    return frozenset(pid for plays in feeds for play in plays for pid in play_ids_needed(play.text))
 
 
 def _interval(data: LeagueData | None) -> timedelta:

@@ -27,6 +27,7 @@ from yahoo_fantasy_football.yahoo_redzone import (
     parse_relay_players,
     parse_relay_plays,
     parse_relay_stats,
+    play_ids_needed,
     plays_feeds,
     redzone_url,
     relay_sequence,
@@ -586,6 +587,23 @@ def test_a_clause_naming_a_stranger_is_dropped_whole(plays_text: str) -> None:
     assert humanize_play(plays[1].text, {"42654": "Jadarian Price"}) == (
         "Jadarian Price rushed to the right for 13 yard gain"
     )
+
+
+def test_a_play_says_whose_names_it_needs() -> None:
+    """The ids whose absence from the dictionary would cost a clause — so the
+    tackler is not one, and a subject nobody knows is the whole play gone."""
+    assert play_ids_needed("[1] rushed to the right for 13 yard gain, tackled by [2]") == ("1",)
+    assert play_ids_needed("[1] passed to [3] to the left for 30 yard gain, tackled by [2] and [4]") == (
+        "1",
+        "3",
+    )
+    # More than attribution: that tackle is kept, so its name is needed.
+    assert play_ids_needed(
+        "[1] rushed to the left for 3 yard loss, tackled by [2] in the end zone for a safety"
+    ) == ("1", "2")
+    # Both sentences of a two-sentence play; a repeat is reported once.
+    assert play_ids_needed("[1] pass intercepted|[5] intercepted [1] for 5 yards") == ("1", "5")
+    assert play_ids_needed("Chicago committed 5 yard penalty (False Start)") == ()
 
 
 def test_stored_text_loses_its_tackler_too() -> None:
