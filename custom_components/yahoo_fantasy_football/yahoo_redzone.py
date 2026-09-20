@@ -1020,11 +1020,22 @@ def shorten_stat_delta(text: str) -> str:
     return ", ".join(out)
 
 
+# Stats the roster's line leaves out even when they are non-zero. The count
+# of carries says nothing a manager opened the lineup to learn — the yards
+# and the touchdowns are what score — and on a running back's line it was
+# the first thing printed. Receptions stay: they score on their own in a PPR
+# league. Only the ROSTER line omits these; a scoring event's delta still
+# names every stat that moved, since there "1 Rush" may be the whole story
+# of a play whose text has not landed yet.
+_STAT_LINE_OMIT: frozenset[str] = frozenset({"rushingAttempts"})
+
+
 def stat_line(stats: dict[str, float]) -> str:
     """``3 Rec, 26 Rec Yds`` — Yahoo's own phrasing for a live stat line.
 
     Zero-valued stats are dropped, so a line grows as a player actually does
-    something instead of printing a wall of noughts.
+    something instead of printing a wall of noughts. So are the stats in
+    :data:`_STAT_LINE_OMIT`, whatever their value.
     """
     # A shutout is a defence's headline stat and its value is zero, so the
     # usual "drop the noughts" rule would hide the best line of the night.
@@ -1033,6 +1044,8 @@ def stat_line(stats: dict[str, float]) -> str:
 
     parts = []
     for name, label in _STAT_LINE:
+        if name in _STAT_LINE_OMIT:
+            continue
         value = stats.get(name, 0.0)
         if not value and name not in keep_zero:
             continue

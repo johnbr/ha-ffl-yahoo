@@ -248,6 +248,19 @@ def test_stat_line_drops_the_noughts(stats_text: str):
     assert "Int" not in line
 
 
+def test_stat_line_counts_the_yards_not_the_carries(stats_text: str):
+    """"5 Rush, 36 Rush Yds" told a manager how many times the ball was handed
+    off, which is not what they opened the lineup for. Yards and touchdowns
+    score; the count of carries does not, and it led every runner's line."""
+    stats = parse_relay_stats(stats_text)
+    assert stats["40881"]["rushingAttempts"] == 5, "the number is still parsed and still scores"
+    assert stat_line(stats["40881"]) == "10 Comp, 66 Pass Yds, 1 Pass TD, 36 Rush Yds"
+    assert stat_line(stats["33508"]) == "18 Rush Yds, 1 Rec, 5 Rec Yds"
+    # A scoring event's delta is a different reading and keeps every stat
+    # that moved — see describe_delta.
+    assert "1 Rush" in describe_delta({}, {"rushingAttempts": 1, "rushingYards": 3})
+
+
 def test_a_shutout_still_prints(stats_text: str):
     """Zero points allowed is a defence's best line, not an absent one."""
     line = stat_line(parse_relay_defense(stats_text)["17"])
