@@ -172,6 +172,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         Every failure is swallowed: a missing line is cosmetic where a failed
         refresh would blank the scores.
+
+        The line carries the SHORT names ("J. Goff passed to J. Gibbs"), the
+        same form as the expanded play list under it and the matchup rows'
+        play line: it sits under two clubs and a clock on a phone-width card,
+        and full names were the one thing on it that wrapped.
         """
         live = [
             str(game.plays_id)
@@ -193,7 +198,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 if plays_id in self._nfl_last_plays:
                     last_plays[plays_id] = self._nfl_last_plays[plays_id]
                 continue
-            last_plays[plays_id] = result[0].get("text", "")
+            last_plays[plays_id] = result[0].get("short_text") or result[0].get("text", "")
             sequence = _sequence(result[0].get("play_id", ""))
             if sequence is not None:
                 self._plays_floor[plays_id] = sequence
@@ -356,11 +361,12 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         if cached is not None and cached.body == body and cached.names is names:
             return cached.rows[:limit]
 
-        # The expanded list is the one place names are shortened — a dozen
-        # rows of "Jahmyr Gibbs rushed up the middle" is wider than the card
-        # on a phone — and the one place a play is prefixed with the down
-        # and distance it was run from. The always-on last-play line and the
-        # fantasy history keep the full sentence.
+        # Names are shortened for the games card — a dozen rows of "Jahmyr
+        # Gibbs rushed up the middle" is wider than the card on a phone, and
+        # the always-on last-play line under each game reads the same way —
+        # and the expanded list is the one place a play is prefixed with the
+        # down and distance it was run from. The fantasy history keeps the
+        # full sentence.
         short_names = self._short_names(names)
         rows: list[dict[str, Any]] = []
         for play in reversed(plays):  # newest first, the way a reader scans
