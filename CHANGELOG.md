@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.17.0...v0.17.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* fold the pieces of one play into one scoring row ([#29](https://github.com/johnbr/ha-ffl-yahoo/issues/29)) ([dc7c3a8](https://github.com/johnbr/ha-ffl-yahoo/commit/dc7c3a88711b71d07e7737a24b1739ad3bc8e18a))
+
 ## [0.17.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.16.0...v0.17.0) (2026-09-22)
 
 
