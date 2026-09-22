@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.16.0...v0.17.0) (2026-09-22)
+
+
+### Features
+
+* shorten the names on the NFL card's last-play line ([#27](https://github.com/johnbr/ha-ffl-yahoo/issues/27)) ([ebff958](https://github.com/johnbr/ha-ffl-yahoo/commit/ebff95808b4981c6054d242b3514cdb2e5d68a99))
+
 ## [0.16.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.15.1...v0.16.0) (2026-09-20)
 
 
