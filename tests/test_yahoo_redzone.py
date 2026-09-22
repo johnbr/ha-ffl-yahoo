@@ -23,6 +23,7 @@ from yahoo_fantasy_football.yahoo_redzone import (
     league_name,
     live_clubs,
     live_projection,
+    merge_stat_deltas,
     parse_relay_defense,
     parse_relay_games,
     parse_relay_players,
@@ -912,3 +913,22 @@ def test_league_from_payloads_settles_forgotten_games_before_the_rosters(
     # A club with a game still to come reads as before.
     assert players["40900"].game_state == "pre"  # Caleb Williams, Chi
     assert data.active_games == 0
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "expected"),
+    [
+        ("1 Rec", "19 Rec Yds", "1 Rec, 19 Rec Yds"),
+        ("1 Rec, 19 Rec Yds", "1 Rec Yds", "1 Rec, 20 Rec Yds"),
+        ("2 Rush Yds", "1 Rush Yds", "3 Rush Yds"),
+        ("10 Rec Yds, 1 Rec TD", "1 Rec", "1 Rec, 10 Rec Yds, 1 Rec TD"),
+        ("26 Rec Yds", "1 Fum Lost", "26 Rec Yds, 1 Fum Lost"),
+        ("1 Rush, 2 Rush Yds", "-2 Rush Yds", "1 Rush"),
+        ("", "1 Comp", "1 Comp"),
+        ("1 Comp", "", "1 Comp"),
+        ("3 Oddities", "1 Comp", "1 Comp, 3 Oddities"),
+    ],
+)
+def test_merge_stat_deltas_sums_the_pieces_of_one_play(first, second, expected):
+    """Two pieces of a play's stat line read as the one line describe_delta would print."""
+    assert merge_stat_deltas(first, second) == expected

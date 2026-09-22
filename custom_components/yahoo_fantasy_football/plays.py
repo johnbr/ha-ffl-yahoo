@@ -20,6 +20,13 @@ It also has three limits worth stating plainly:
   enrichment can attach both descriptions to it (see ``enrich_events``).
 * **Corrections look like plays.** Yahoo revises stats during and after games,
   which produces negative deltas. These are flagged, never presented as scores.
+* **One play lands in pieces.** Yahoo's stat feed moves a category at a time,
+  a poll apart: a 19-yard catch arrives as ``1 Rec`` (+1.00), then ``19 Rec
+  Yds`` (+1.90), then a re-measured ``1 Rec Yds`` (+0.10) — three events for
+  one play, each captioned with the same sentence once the text lands
+  (observed live 2026-09-21, on every reception of the night). The feed folds
+  a later piece into the row already showing its play, so one play is one row
+  (see ``PlayFeed.add`` and ``PlayFeed.fold``).
 
 This module is pure — no network, no Home Assistant, no clock of its own
 (timestamps arrive on the snapshots). All of it is unit-testable.
@@ -46,6 +53,18 @@ DEFAULT_HISTORY = 200
 
 # Lineup slots whose points do not count toward the fantasy team's score.
 BENCH_SLOTS = frozenset({"BN", "IR", "IR+", "IR-R", "NA"})
+
+# How long after an event is raised the text of its play can still be on the
+# way. Measured at 15-20 s (2026-09-17); a minute is the margin for a slow
+# night. An event still without a play of its own after this, and with none
+# in the feed to wait for, was a piece of the play before it.
+PLAY_TEXT_LAG_SECONDS = 60.0
+
+# The longest a play's stats have been seen to keep landing after the first
+# piece: a 3-yard rush credited as 2 yards, and the third a hundred seconds
+# later (2026-09-21). A piece further than this from its play is a stat
+# correction in all but name, and stays its own row.
+SPLIT_TICK_SECONDS = 180.0
 
 
 class Matcher(Protocol):
@@ -153,6 +172,12 @@ class ScoringEvent:
     the player is their *previous* one. Without the floor that previous play
     was matched, pinned, and shown as the description of a play it was not.
     ``None`` when the feed's state was unknown, which falls back to newest-wins.
+    """
+    absorbed: tuple[str, ...] = ()
+    """Ids of the later pieces of this play folded into this event.
+
+    Kept so a restart that re-ingests the transition behind a piece does not
+    raise it again as a row of its own: the feed treats these ids as seen.
     """
 
     @property
@@ -438,6 +463,23 @@ def match_relay_play(
     return None
 
 
+def play_above_floor(event: ScoringEvent, plays: list[Any]) -> bool:
+    """Whether the feed holds a play, above the event's floor, that names its player.
+
+    The question :meth:`PlayFeed.fold` needs answered before it acts: an
+    event still unmatched after the text lag either has a play in the feed it
+    cannot render yet (a name the dictionary lacks), or has no play of its
+    own at all. Only the second is a piece of the play before it. An unknown
+    floor answers yes — nothing can be ruled out from nothing.
+    """
+    if event.play_floor is None:
+        return True
+    player_id = event.player_key.rsplit(".p.", 1)[-1]
+    return any(
+        play.sequence > event.play_floor and player_id in play.player_ids for play in plays
+    )
+
+
 def describe(event: ScoringEvent) -> str:
     """One-line banner text for an event.
 
@@ -513,6 +555,7 @@ class PlayFeed:
         self._events: deque[ScoringEvent] = deque(maxlen=maxlen)
         self._seen: set[str] = set()
         self._week: int | None = None
+        self._version = 0
 
     def __len__(self) -> int:
         return len(self._events)
@@ -521,11 +564,22 @@ class PlayFeed:
     def week(self) -> int | None:
         return self._week
 
+    @property
+    def version(self) -> int:
+        """Counts every change to the history, so a caller knows when to persist it."""
+        return self._version
+
     def add(self, events: list[ScoringEvent]) -> list[ScoringEvent]:
         """Append new events, dropping ones already recorded. Returns what stuck.
 
         A new week clears the feed: history is per-week, and carrying last
         week's plays into this week's banner would be worse than losing them.
+
+        An event that is a later piece of a play already on the feed — the
+        same player, matched to the same play — is folded into that row
+        rather than appended, and the row as it now reads is what is
+        returned in its place: the running total under the id the caller
+        already knows, not a second event for the same play.
         """
         added: list[ScoringEvent] = []
         for event in events:
@@ -535,12 +589,17 @@ class PlayFeed:
 
             if event.event_id in self._seen:
                 continue
+            host = self._row_showing(event)
+            if host is not None:
+                added.append(self._absorb(host, event))
+                continue
             if len(self._events) == self._events.maxlen and self._events:
                 # deque eviction must also release the id, or a long game
                 # eventually refuses to record anything.
                 self._seen.discard(self._events[0].event_id)
             self._events.append(event)
             self._seen.add(event.event_id)
+            self._version += 1
             added.append(event)
         return added
 
@@ -551,13 +610,89 @@ class PlayFeed:
         29 yards" — and fills in the detail a moment later. Re-matching a
         recent event against the current feed is how the better wording reaches
         a card that is already showing the worse one.
+
+        A revision that lands the event on a play another of the player's
+        rows already shows makes the two one row, whichever was matched
+        first: the older keeps its place and its id, the younger is folded in.
         """
         for index, event in enumerate(self._events):
             if event.event_id == event_id:
                 updated = replace(event, plays=tuple(plays))
                 self._events[index] = updated
-                return updated
+                self._version += 1
+                other = self._row_showing(updated)
+                if other is None:
+                    return updated
+                if self._events.index(other) < index:
+                    host, piece = other, updated
+                else:
+                    host, piece = updated, other
+                merged = self._absorb(host, piece)
+                del self._events[self._events.index(piece)]
+                return merged
         return None
+
+    def fold(self, event_id: str) -> ScoringEvent | None:
+        """Fold an event that never got a play of its own into its player's last play.
+
+        The other way a piece arrives: the play's text had already landed
+        when the piece did, so the floor (rightly) refused to match the piece
+        to it, and the piece sat as "1 Rush Yds +0.10" — a run that never
+        happened — until, minutes later, newest-wins pinned it to whatever
+        the player did next. The caller decides WHEN this is safe (the text
+        lag has passed and the feed holds nothing above the floor that names
+        the player, see :func:`play_above_floor`); this decides WHETHER: the
+        player's nearest older row must be showing a play, and be within
+        :data:`SPLIT_TICK_SECONDS` of the piece. Otherwise nothing is known
+        and the piece stays. Returns the row as it now reads, or ``None``.
+        """
+        index = next((i for i, e in enumerate(self._events) if e.event_id == event_id), None)
+        if index is None:
+            return None
+        piece = self._events[index]
+        if piece.correction or piece.plays:
+            return None
+        for host in reversed(list(self._events)[:index]):
+            if host.player_key != piece.player_key or host.correction:
+                continue
+            if not host.plays or piece.timestamp - host.timestamp > SPLIT_TICK_SECONDS:
+                return None
+            merged = self._absorb(host, piece)
+            del self._events[index]
+            return merged
+        return None
+
+    def _row_showing(self, event: ScoringEvent) -> ScoringEvent | None:
+        """Another of the player's rows already matched to this event's play."""
+        if event.correction or not event.plays or not event.plays[-1].play_id:
+            return None
+        play_id = event.plays[-1].play_id
+        for other in reversed(self._events):
+            if (
+                other.event_id != event.event_id
+                and other.player_key == event.player_key
+                and not other.correction
+                and other.plays
+                and other.plays[-1].play_id == play_id
+            ):
+                return other
+        return None
+
+    def _absorb(self, host: ScoringEvent, piece: ScoringEvent) -> ScoringEvent:
+        """Fold ``piece`` into ``host`` in place; the piece's id counts as seen."""
+        from .yahoo_redzone import merge_stat_deltas
+
+        merged = replace(
+            host,
+            delta=round(host.delta + piece.delta, 2),
+            new_points=piece.new_points if piece.timestamp >= host.timestamp else host.new_points,
+            stat_delta=merge_stat_deltas(host.stat_delta, piece.stat_delta),
+            absorbed=(*host.absorbed, piece.event_id, *piece.absorbed),
+        )
+        self._events[self._events.index(host)] = merged
+        self._seen.add(piece.event_id)
+        self._version += 1
+        return merged
 
     def start_week(self, week: int | None) -> bool:
         """Make ``week`` the feed's week. Returns whether an older week was cleared.
@@ -580,6 +715,7 @@ class PlayFeed:
     def clear(self) -> None:
         self._events.clear()
         self._seen.clear()
+        self._version += 1
 
     def recent(
         self,
@@ -646,6 +782,7 @@ class PlayFeed:
                 continue
             feed._events.append(event)
             feed._seen.add(event.event_id)
+            feed._seen.update(event.absorbed)
         return feed
 
 
@@ -669,6 +806,7 @@ def _event_from_dict(raw: dict[str, Any]) -> ScoringEvent:
         if text:
             plays.append(play if text == play.text else replace(play, text=text))
     data["plays"] = tuple(plays)
+    data["absorbed"] = tuple(data.get("absorbed") or ())
     return ScoringEvent(**data)
 
 

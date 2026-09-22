@@ -1087,6 +1087,37 @@ def describe_delta(before: dict[str, float], after: dict[str, float]) -> str:
     return ", ".join(parts)
 
 
+def merge_stat_deltas(first: str, second: str) -> str:
+    """``1 Rec`` + ``19 Rec Yds`` -> ``1 Rec, 19 Rec Yds``; ``2 Rush Yds`` + ``1 Rush Yds`` -> ``3 Rush Yds``.
+
+    Two pieces of one play's stat line, as one. Yahoo lands a play's stats a
+    category at a time (see :mod:`plays`), and the event that folds a later
+    piece into the first holds only the rendered lines, not the numbers
+    behind them — so the lines are summed by label and re-emitted in the
+    order :func:`describe_delta` uses. A label the table does not know keeps
+    its place after the ones it does; a category that sums to nothing is
+    dropped, the way a zero never printed in the first place.
+    """
+    totals: dict[str, float] = {}
+    for text in (first, second):
+        for part in (text or "").split(","):
+            value, _, label = part.strip().partition(" ")
+            if not label:
+                continue
+            try:
+                totals[label] = totals.get(label, 0.0) + float(value)
+            except ValueError:
+                totals[label] = totals.get(label, 0.0)
+    order = {label: index for index, (_, label) in enumerate(_STAT_LINE)}
+    parts = []
+    for label in sorted(totals, key=lambda name: order.get(name, len(order))):
+        value = totals[label]
+        if not value:
+            continue
+        parts.append(f"{value:+g} {label}" if value < 0 else f"{value:g} {label}")
+    return ", ".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Assembly
 # ---------------------------------------------------------------------------

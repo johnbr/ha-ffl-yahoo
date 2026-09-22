@@ -44,12 +44,17 @@ One refresh is **three requests for the whole league**, whatever its size.
   integration can beat it.
 - **Stat corrections happen.** Yahoo revises stats during and after games; these are flagged as
   corrections and never presented as scores.
+- **One play lands in pieces.** Yahoo's stat feed moves a category at a time, a poll apart: a
+  19-yard catch arrives as `1 Rec`, then `19 Rec Yds`, then a re-measured yard. The pieces are folded
+  into one row per play, so the history reads one catch for +2.90 rather than three lines of the same
+  sentence.
 - **The relay forgets finished games overnight.** It restarts each morning with the schedule only,
   so last night's game comes back listed as scheduled, 0-0. Its line-score rows survive the restart,
   and a game listed as scheduled with a full line score is treated as final with that score — so the
   NFL card files it under "final" and the players who played are not projected for their day twice.
-- **Real play-by-play exists but is not used yet.** `relay-stream.sports.yahoo.com/nfl/plays-<id>.txt`
-  carries full play text with Yahoo player ids inline. A capture is in `tests/fixtures/`.
+- **Real play-by-play captions the events.** `relay-stream.sports.yahoo.com/nfl/plays-<id>.txt`
+  carries full play text with Yahoo player ids inline; it is what the history and the NFL card's
+  play list show, matched to each scoring event by player id. A capture is in `tests/fixtures/`.
 
 ## Installation
 
