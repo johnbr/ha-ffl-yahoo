@@ -31,7 +31,15 @@ from .const import (
     EVENT_SCORING_PLAY,
 )
 from .league_state import down_and_distance, play_dict, poll_interval
-from .plays import PlayFeed, ScoringEvent, abbreviate_name, diff_snapshots, match_relay_play
+from .plays import (
+    PLAY_TEXT_LAG_SECONDS,
+    PlayFeed,
+    ScoringEvent,
+    abbreviate_name,
+    diff_snapshots,
+    match_relay_play,
+    play_above_floor,
+)
 from .redzone_client import USER_AGENT, RedzoneClient
 from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
 from .yahoo_redzone import RelayPlay, humanize_play, parse_relay_plays, play_ids_needed, to_snapshot
@@ -230,14 +238,21 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             for event in self.feed.recent(50, include_corrections=True)
             if now - event.timestamp <= PLAY_REVISION_SECONDS
         ]
+        version = self.feed.version
         if events or revisable:
             events = await self._describe(data, events, revisable, now)
-        if not events:
-            return
 
+        # A later piece of a play already on the feed comes back from ``add``
+        # as that play's row with the piece folded in, under the id the bus
+        # has already carried: a listener sees the play's running total, not
+        # a second event for the same play.
         for event in self.feed.add(events):
             self.hass.bus.async_fire(EVENT_SCORING_PLAY, play_dict(event))
-        self.hass.async_create_task(self._async_save_history())
+        # Saved whenever the history changed, not only when something was
+        # added: a revision or a fold with no new event in the same poll used
+        # to wait for the next one, and a restart in between lost it.
+        if self.feed.version != version:
+            self.hass.async_create_task(self._async_save_history())
 
     async def _describe(
         self,
@@ -321,6 +336,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             updated = described(event)
             if updated is not event:
                 self.feed.revise(event.event_id, updated.plays)
+            elif _late_piece(event, feeds.get(data.plays_feeds.get(event.nfl_team or "", "")), now):
+                self.feed.fold(event.event_id)
         return [described(event) for event in events]
 
     async def async_game_plays(
@@ -398,6 +415,25 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
     @property
     def league_data(self) -> LeagueData | None:
         return self.data if isinstance(self.data, LeagueData) else None
+
+
+def _late_piece(event: ScoringEvent, plays: list[RelayPlay] | None, now: float) -> bool:
+    """Whether an event still without a play is a piece of the one before it.
+
+    Yahoo lands one play's stats a category at a time (see :mod:`plays`).
+    When the play's text was already in the feed before a later piece
+    arrived, the floor keeps the piece from matching it — correctly, since
+    the same rule is what stops a fresh event taking its player's PREVIOUS
+    play. So the piece waits: once the text lag has passed and the feed
+    still holds nothing above the floor that names the player, the piece has
+    no play of its own and belongs to the last one. An unreadable feed
+    answers no — nothing is folded on a guess.
+    """
+    if event.plays or event.correction or plays is None:
+        return False
+    if now - event.timestamp < PLAY_TEXT_LAG_SECONDS:
+        return False
+    return not play_above_floor(event, plays)
 
 
 @dataclass

@@ -907,3 +907,223 @@ def test_revising_an_event_that_is_not_there_is_harmless() -> None:
     from yahoo_fantasy_football.plays import PlayFeed
 
     assert PlayFeed().revise("nope", ()) is None
+
+
+# ---------------------------------------------------------------------------
+# One play, in pieces
+# ---------------------------------------------------------------------------
+#
+# Yahoo lands a play's stats a category at a time, a poll apart. Observed
+# live 2026-09-21 (Rams-Giants), on every reception of the night: a 19-yard
+# catch arrived as "1 Rec" +1.00, then "19 Rec Yds" +1.90, then "1 Rec Yds"
+# +0.10, ten seconds apart, and each piece was captioned with the same
+# sentence once the text landed. One play is one row.
+
+
+def _pinned(play_id: str, text: str = "Matthew Stafford passed to Davante Adams") -> MatchedPlay:
+    return MatchedPlay(text=text, role="", confidence=1.0, play_id=play_id)
+
+
+def _piece(event_id: str, at: float, delta: float, stat: str, *, plays=(), **kw):
+    from yahoo_fantasy_football.plays import ScoringEvent
+
+    return ScoringEvent(
+        event_id=event_id,
+        week=2,
+        timestamp=at,
+        player_key=kw.pop("player_key", "802904.p.27581"),
+        player_name=kw.pop("player_name", "Davante Adams"),
+        team_key="802904.t.1",
+        matchup_id="w2.m1",
+        nfl_team="LAR",
+        position="WR",
+        delta=delta,
+        old_points=kw.pop("old_points", 0.0),
+        new_points=kw.pop("new_points", delta),
+        starter=True,
+        correction=kw.pop("correction", False),
+        plays=tuple(plays),
+        stat_delta=stat,
+        **kw,
+    )
+
+
+def test_a_later_piece_of_the_same_play_joins_its_row() -> None:
+    feed = PlayFeed()
+    first = _piece("e1", 100.0, 1.0, "1 Rec", plays=[_pinned("14.30")], new_points=1.0)
+    assert feed.add([first]) == [first]
+
+    second = _piece("e2", 110.0, 1.9, "19 Rec Yds", plays=[_pinned("14.30")], new_points=2.9)
+    (row,) = feed.add([second])
+
+    assert len(feed) == 1, "one play, one row"
+    assert row.event_id == "e1", "the row keeps the id the bus already carried"
+    assert row.delta == 2.9
+    assert row.new_points == 2.9
+    assert row.stat_delta == "1 Rec, 19 Rec Yds"
+    assert row.absorbed == ("e2",)
+    assert feed.last_play() == row
+
+
+def test_every_further_piece_keeps_joining() -> None:
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec", plays=[_pinned("14.30")])])
+    feed.add([_piece("e2", 110.0, 1.9, "19 Rec Yds", plays=[_pinned("14.30")])])
+    feed.add([_piece("e3", 120.0, 0.1, "1 Rec Yds", plays=[_pinned("14.30")])])
+
+    (row,) = feed.recent(5)
+    assert row.delta == 3.0
+    assert row.stat_delta == "1 Rec, 20 Rec Yds"
+    assert row.absorbed == ("e2", "e3")
+
+
+def test_pieces_of_different_plays_stay_apart() -> None:
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec", plays=[_pinned("14.30")])])
+    feed.add([_piece("e2", 400.0, 7.4, "1 Rec, 64 Rec Yds", plays=[_pinned("14.45")])])
+    assert len(feed) == 2
+
+
+def test_the_passers_share_of_the_play_is_not_the_receivers() -> None:
+    """One play credits two players; their rows are two rows."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec", plays=[_pinned("14.30")])])
+    feed.add(
+        [
+            _piece(
+                "e2", 100.0, 0.25, "1 Comp", plays=[_pinned("14.30")],
+                player_key="802904.p.8780", player_name="Matthew Stafford",
+            )
+        ]
+    )
+    assert len(feed) == 2
+
+
+def test_a_correction_never_joins_a_play() -> None:
+    """A walked-back yard is shown as what it is, not hidden in the play's total."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 7.4, "1 Rec, 64 Rec Yds", plays=[_pinned("14.45")])])
+    feed.add([_piece("e2", 110.0, -0.1, "-1 Rec Yds", plays=[_pinned("14.45")], correction=True)])
+    assert len(feed) == 2
+    assert feed.recent(1, include_corrections=True)[0].correction
+
+
+def test_a_piece_matched_by_revision_joins_the_row_it_now_shares() -> None:
+    """The text lands after both pieces were raised: the older row wins."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec")])
+    feed.add([_piece("e2", 110.0, 1.9, "19 Rec Yds")])
+    assert len(feed) == 2
+
+    feed.revise("e2", (_pinned("14.30"),))
+    assert len(feed) == 2, "nothing else shows that play yet"
+
+    row = feed.revise("e1", (_pinned("14.30"),))
+    assert len(feed) == 1
+    assert row.event_id == "e1" and row.delta == 2.9 and row.absorbed == ("e2",)
+
+
+def test_a_revision_of_the_younger_piece_folds_it_into_the_older() -> None:
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec", plays=[_pinned("14.30")])])
+    feed.add([_piece("e2", 110.0, 1.9, "19 Rec Yds")])
+
+    row = feed.revise("e2", (_pinned("14.30"),))
+    assert len(feed) == 1
+    assert row.event_id == "e1" and row.delta == 2.9
+
+
+def test_a_folded_piece_stays_folded_across_a_restart() -> None:
+    """Re-ingesting the piece's transition after a restart must not raise it again."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec", plays=[_pinned("14.30")])])
+    feed.add([_piece("e2", 110.0, 1.9, "19 Rec Yds", plays=[_pinned("14.30")])])
+
+    restored = loads(dumps(feed))
+    assert restored.last_play().absorbed == ("e2",)
+    assert restored.add([_piece("e2", 110.0, 1.9, "19 Rec Yds", plays=[_pinned("14.30")])]) == []
+    assert len(restored) == 1 and restored.last_play().delta == 2.9
+
+
+def test_a_piece_with_no_play_of_its_own_folds_into_the_last_one() -> None:
+    """The floor kept it off the play it belongs to; fold() puts it there."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 0.2, "1 Rush, 2 Rush Yds", plays=[_pinned("14.58")])])
+    feed.add([_piece("e2", 200.0, 0.1, "1 Rush Yds", play_floor=59)])
+
+    row = feed.fold("e2")
+    assert row is not None and row.event_id == "e1"
+    assert len(feed) == 1
+    assert row.delta == 0.3
+    assert row.stat_delta == "1 Rush, 3 Rush Yds"
+
+
+def test_a_piece_folds_past_a_correction_in_between() -> None:
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.6, "1 Rec, 6 Rec Yds", plays=[_pinned("14.53")])])
+    feed.add([_piece("e2", 110.0, -0.1, "-1 Rec Yds", correction=True)])
+    feed.add([_piece("e3", 120.0, 0.1, "1 Rec Yds")])
+
+    assert feed.fold("e3").delta == 1.7
+    assert [e.event_id for e in feed.recent(5, include_corrections=True)] == ["e2", "e1"]
+
+
+def test_a_piece_stays_when_the_last_play_is_not_known() -> None:
+    """An unpinned last row says nothing about where this piece belongs."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 2.0, "1 Int", player_key="802904.p.100014", player_name="Rams")])
+    feed.add([_piece("e2", 110.0, 1.1, "11 ST Ret Yds", player_key="802904.p.100014", player_name="Rams")])
+    assert feed.fold("e2") is None
+    assert len(feed) == 2
+
+
+def test_a_piece_stays_when_it_is_too_long_after_the_play() -> None:
+    from yahoo_fantasy_football.plays import SPLIT_TICK_SECONDS
+
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 0.2, "1 Rush, 2 Rush Yds", plays=[_pinned("14.58")])])
+    feed.add([_piece("e2", 100.0 + SPLIT_TICK_SECONDS + 1, 0.1, "1 Rush Yds")])
+    assert feed.fold("e2") is None
+    assert len(feed) == 2
+
+
+def test_fold_leaves_a_matched_event_and_a_correction_alone() -> None:
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 0.2, "1 Rush, 2 Rush Yds", plays=[_pinned("14.58")])])
+    feed.add([_piece("e2", 110.0, 0.5, "5 Rush Yds", plays=[_pinned("14.60")])])
+    feed.add([_piece("e3", 120.0, -0.1, "-1 Rush Yds", correction=True)])
+    assert feed.fold("e2") is None
+    assert feed.fold("e3") is None
+    assert feed.fold("nope") is None
+    assert len(feed) == 3
+
+
+def test_play_above_floor_says_whether_a_piece_has_a_play_to_wait_for() -> None:
+    from yahoo_fantasy_football.plays import play_above_floor
+
+    plays, _ = _relay()
+    mine = [p for p in plays if "40041" in p.player_ids]
+    newest = mine[-1]
+
+    assert play_above_floor(_scoring_event("40041", play_floor=newest.sequence - 1), plays)
+    assert not play_above_floor(_scoring_event("40041", play_floor=newest.sequence), plays)
+    assert play_above_floor(_scoring_event("40041", play_floor=None), plays), "unknown: cannot rule it out"
+    assert not play_above_floor(_scoring_event("99999999", play_floor=0), plays)
+
+
+def test_the_feed_counts_every_change() -> None:
+    """The coordinator persists on a changed count — a revision alone used to be lost."""
+    feed = PlayFeed()
+    assert feed.version == 0
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec")])
+    after_add = feed.version
+    assert after_add > 0
+    feed.add([_piece("e1", 100.0, 1.0, "1 Rec")])
+    assert feed.version == after_add, "a duplicate changes nothing"
+    feed.revise("e1", (_pinned("14.30"),))
+    assert feed.version > after_add
+    after_revise = feed.version
+    feed.revise("nope", ())
+    assert feed.version == after_revise
+    feed.add([_piece("e2", 110.0, 1.9, "19 Rec Yds", plays=[_pinned("14.30")])])
+    assert feed.version > after_revise, "a fold is a change"
