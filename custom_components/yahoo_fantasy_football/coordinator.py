@@ -159,7 +159,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         await self._process_plays(data, now)
         await self._refresh_nfl_last_plays(data, now)
-        self.update_interval = _interval(data)
+        self.update_interval = _interval(data, self.update_interval)
         return data
 
     async def _refresh_nfl_last_plays(self, data: LeagueData, now: float) -> None:
@@ -449,8 +449,14 @@ def _ids_needed(feeds: Iterable[list[RelayPlay]]) -> frozenset[str]:
     return frozenset(pid for plays in feeds for play in plays for pid in play_ids_needed(play.text))
 
 
-def _interval(data: LeagueData | None) -> timedelta:
-    return timedelta(seconds=poll_interval(data))
+def _interval(data: LeagueData | None, previous: timedelta | None = None) -> timedelta:
+    """The next poll's interval, told what the last one was.
+
+    ``previous`` is what keeps a poll that came back without a games feed from
+    slowing the next one down — see :func:`poll_interval`.
+    """
+    was = None if previous is None else int(previous.total_seconds())
+    return timedelta(seconds=poll_interval(data, was))
 
 
 def _sequence(play_id: str) -> int | None:

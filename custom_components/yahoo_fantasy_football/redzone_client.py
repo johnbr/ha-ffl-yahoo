@@ -89,6 +89,19 @@ ConditionalFetcher = Callable[[str, str | None], Awaitable[tuple[str | None, str
 # this is a truncated response or an error page, not data.
 MIN_BODY = 40
 
+# How long a live feed's last good copy stands in for it after a dropped
+# fetch, per feed. Both are held for the same reason — see :meth:`_live_feed`
+# — but they go wrong at very different speeds.
+#
+# ``stats`` only ever accumulates, so a held copy is behind by whatever was
+# scored in the gap and no more. A quarter of an hour of that is survivable,
+# and far closer to the truth than the zero an empty body computes.
+#
+# ``games`` carries a running clock and the score beside it, which a reader
+# checks against a television. Two minutes of a stopped clock still passes for
+# "the poll is a little behind"; past that, holding is its own lie.
+FEED_HOLD_SECONDS: dict[str, float] = {"stats": STALE_AFTER_SECONDS, "games": 120.0}
+
 # How long the league seed is reused between refreshes.
 #
 # The three payloads are wildly different sizes — measured against a real
@@ -179,10 +192,9 @@ class RedzoneClient:
         self._seed_at: float = 0.0
         self._players: dict[str, str] | None = None
         self._players_at: float = 0.0
-        # The last stat feed that actually arrived, held over a failed fetch
-        # of it — see :meth:`_live_stats`.
-        self._stats_body: str = ""
-        self._stats_at: float = 0.0
+        # ``{feed: (last body that arrived, when)}``, held over a failed
+        # fetch of that feed — see :meth:`_live_feed`.
+        self._live: dict[str, tuple[str, float]] = {}
         # Eight live games ask for the dictionary in one gather; the first
         # fetches, the rest wait and find it fresh. Without this, one lacking
         # id was eight simultaneous full fetches.
@@ -212,8 +224,8 @@ class RedzoneClient:
         complete scoreboard of zeroes.
 
         It cannot distinguish that from a fetch that failed, though, and for
-        the stat feed the two want opposite handling: see :meth:`_live_stats`,
-        which every stat body goes through before it is used.
+        a live feed the two want opposite handling: see :meth:`_live_feed`,
+        which every live body goes through before it is used.
         """
         try:
             return await self._get(url)
@@ -221,40 +233,47 @@ class RedzoneClient:
             _LOGGER.debug("live feed %s unavailable: %s", url, err)
             return ""
 
-    def _live_stats(self, body: str, now: float) -> str:
-        """The stat feed, holding the last good copy over a failed fetch of it.
+    def _live_feed(self, feed: str, body: str, now: float) -> str:
+        """One live relay feed, holding its last good copy over a failed fetch.
 
-        Every player's points are COMPUTED from this body, so an empty one
-        scores the whole league zero. Before the week's first kickoff that is
-        the right answer. Mid-game it is catastrophic, and
-        :meth:`_get_optional` cannot tell the two apart on its own — both a
-        feed Yahoo does not serve yet and a request that timed out arrive as
-        ``""``.
+        :meth:`_get_optional` cannot tell a feed Yahoo does not serve yet from
+        one whose fetch just failed — both arrive as ``""``. Before the week's
+        first kickoff the distinction does not matter. Mid-game it decides
+        whether the card tells the truth, and each feed lies differently:
 
-        What it costs to get this wrong, observed live on 2026-09-24: one
-        dropped request read as every live player losing their whole game at
-        once, and the poll after it as every one of them scoring it all back
-        in a single play. Four matchups showed a "play" that was really a
-        player's entire stat line, in place of the plays it was built from.
+        * **stats** — every player's points are COMPUTED from it, so an empty
+          body scores the whole league zero. One dropped request read as every
+          live player losing their game at once, and the poll after it as every
+          one of them scoring it all back in a single play (2026-09-24).
+        * **games** — an empty body is no slate at all, which is not "no game
+          is live" but "no idea". The NFL card's games vanish, every matchup
+          reads final, and the cadence drops to the near-game interval, so the
+          blank outlives by five minutes the request that caused it
+          (2026-09-25, 02:57:44Z to 03:02:44Z exactly).
 
         The distinction the code can actually make: a feed Yahoo serves empty
         still carries its comment header, which clears :data:`MIN_BODY`. So
-        ``""`` here means the fetch failed, never that there are no stats —
-        and the previous body is then the best answer available. Past
-        :data:`STALE_AFTER_SECONDS` it stops being an answer at all, because
-        frozen points under a running clock are their own kind of wrong; the
-        refresh fails and :meth:`async_refresh_or_stale` takes it from there.
+        ``""`` here means the fetch failed, never that the feed is empty — and
+        the copy in hand is the best answer available.
+
+        Past :data:`FEED_HOLD_SECONDS` for that feed it stops being an answer
+        and the refresh fails, which hands the whole poll to
+        :meth:`async_refresh_or_stale`: a coherent payload from a minute ago
+        beats a fresh one with a hole in it, and past
+        :data:`STALE_AFTER_SECONDS` even that gives up and says so.
         """
         if body:
-            self._stats_body, self._stats_at = body, now
+            self._live[feed] = (body, now)
             return body
-        if not self._stats_body:
-            return ""  # nothing has ever arrived — no stats is the truth
-        age = now - self._stats_at
-        if age > STALE_AFTER_SECONDS:
-            raise FetchFailed(f"no stat feed for {age:.0f}s")
-        _LOGGER.debug("stat feed unavailable; reusing the %.0fs-old copy", age)
-        return self._stats_body
+        held = self._live.get(feed)
+        if held is None:
+            return ""  # nothing has ever arrived — an empty feed is the truth
+        last, arrived_at = held
+        age = now - arrived_at
+        if age > FEED_HOLD_SECONDS[feed]:
+            raise FetchFailed(f"no {feed} feed for {age:.0f}s")
+        _LOGGER.debug("%s feed unavailable; reusing the %.0fs-old copy", feed, age)
+        return last
 
     # -- public API --------------------------------------------------------
 
@@ -371,7 +390,8 @@ class RedzoneClient:
             self._get_optional(relay_url("stats", self.sport)),
             self._get_optional(relay_url("games", self.sport)),
         )
-        stats = self._live_stats(stats, now)
+        stats = self._live_feed("stats", stats, now)
+        games = self._live_feed("games", games, now)
 
         try:
             data = league_from_payloads(seed, stats, games, self.league_id, now)
