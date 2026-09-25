@@ -23,6 +23,7 @@ from yahoo_fantasy_football.plays import (
     PlayerSnapshot,
     PlayFeed,
     abbreviate_name,
+    abbreviate_names,
     describe,
     diff_snapshots,
     dumps,
@@ -596,6 +597,76 @@ def test_stored_payload_is_json_serialisable() -> None:
 )
 def test_abbreviate_name(raw: str, expected: str) -> None:
     assert abbreviate_name(raw) == expected
+
+
+def test_two_players_who_abbreviate_alike_keep_their_full_names() -> None:
+    """Atlanta played both Robinsons on 2026-09-24; "B. Robinson" named neither."""
+    names = {"40055": "Bijan Robinson", "34054": "Brian Robinson", "40889": "Michael Penix Jr."}
+
+    assert abbreviate_names(names) == {
+        "40055": "Bijan Robinson",
+        "34054": "Brian Robinson",
+        "40889": "M. Penix Jr.",
+    }
+
+
+def test_ambiguity_is_judged_within_the_scope_rendered() -> None:
+    """One Robinson on the field is unambiguous, whatever the dictionary holds.
+
+    The check is per game precisely so a full Sunday's dictionary does not
+    expand every pair of names that never appear in the same list.
+    """
+    names = {"40055": "Bijan Robinson", "34054": "Brian Robinson"}
+
+    assert abbreviate_names(names, ["40055"]) == {"40055": "B. Robinson"}
+
+
+def test_one_player_under_two_ids_stays_abbreviated() -> None:
+    names = {"1": "Puka Nacua", "2": "Puka Nacua"}
+
+    assert abbreviate_names(names) == {"1": "P. Nacua", "2": "P. Nacua"}
+
+
+def test_an_id_the_dictionary_lacks_is_left_out() -> None:
+    """``humanize_play`` drops the clause naming it, which is still correct."""
+    assert abbreviate_names({"1": "Puka Nacua"}, ["1", "999"]) == {"1": "P. Nacua"}
+
+
+def test_the_games_card_tells_the_two_robinsons_apart() -> None:
+    """The regression, against the capture it was found in.
+
+    Atl at GB, 2026-09-24: Bijan Robinson (40055) and Brian Robinson (34054)
+    both carried the ball. Fourteen rows of this game's play list read
+    "B. Robinson", and the 16-yard carry on it was Brian's — the one nobody in
+    the league rostered — while the reader took it for Bijan's.
+    """
+    from yahoo_fantasy_football.yahoo_redzone import (
+        humanize_play,
+        parse_relay_players,
+        parse_relay_plays,
+        play_ids_needed,
+    )
+
+    plays = parse_relay_plays(
+        (FIXTURES_DIR / "yahoo_relay_plays_9_2026_w3.txt").read_text()
+    )
+    names = parse_relay_players(
+        (FIXTURES_DIR / "yahoo_relay_players_2026_w3.txt").read_text()
+    )
+    # The same scope the coordinator renders with: everyone the plays name
+    # except a pure tackler, since that clause is dropped before any lookup.
+    needed = [pid for play in plays for pid in play_ids_needed(play.text)]
+    short = abbreviate_names(names, needed)
+
+    rendered = [humanize_play(play.text, short) for play in plays]
+    assert not any("B. Robinson" in text for text in rendered), (
+        "an abbreviation that names two players on the field names neither"
+    )
+    assert "Brian Robinson rushed to the left for 16 yard gain" in rendered
+    assert "Bijan Robinson rushed to the left for 55 yard gain" in rendered
+
+    # Everyone else on the field still gets the short form the card is for.
+    assert any(text.startswith("M. Penix Jr. passed to Bijan Robinson") for text in rendered)
 
 
 # ---------------------------------------------------------------------------

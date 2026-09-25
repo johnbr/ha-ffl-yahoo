@@ -36,7 +36,8 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import deque
+from collections import defaultdict, deque
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
@@ -378,6 +379,40 @@ def abbreviate_name(name: str) -> str:
         return name or ""
     first = parts[0] if "." in parts[0] else f"{parts[0][0]}."
     return f"{first} {' '.join(parts[1:])}"
+
+
+def abbreviate_names(
+    names: Mapping[str, str], scope: Iterable[str] | None = None
+) -> dict[str, str]:
+    """``{id: "J. Goff"}``, except where that would name two different players.
+
+    Atlanta played **Bijan** Robinson and **Brian** Robinson in the same game
+    (2026-09-24). Both abbreviate to ``B. Robinson``, so fourteen rows of one
+    game's play list named a running back without saying which one, and a
+    16-yard carry by the one nobody rostered read as the one somebody did.
+    Where an abbreviation is not unique, every name sharing it keeps its full
+    form: shortening is worth having only while it still identifies somebody.
+
+    ``scope`` is the ids about to be rendered — normally one game's. Ambiguity
+    belongs to the list a reader is scanning, not to the dictionary: checked
+    across a full Sunday's players, common surnames would expand pairs that
+    never appear side by side. ``None`` scopes it to the whole mapping.
+
+    Ids ``names`` does not know are left out, exactly as
+    ``{id: abbreviate_name(...)}`` left them out: :func:`humanize_play` drops
+    the clause naming an id it cannot resolve, and that is still the right
+    answer here.
+    """
+    ids = list(names) if scope is None else [pid for pid in scope if pid in names]
+    brief = {pid: abbreviate_name(names[pid]) for pid in ids}
+    # Counted over distinct NAMES, not ids: the same player under two ids is
+    # one person and stays abbreviated.
+    sharing: defaultdict[str, set[str]] = defaultdict(set)
+    for pid, short in brief.items():
+        sharing[short].add(names[pid])
+    return {
+        pid: names[pid] if len(sharing[short]) > 1 else short for pid, short in brief.items()
+    }
 
 
 def _stat_delta(before: dict[str, float], after: dict[str, float]) -> str:

@@ -55,6 +55,15 @@ One refresh is **three requests for the whole league**, whatever its size.
 - **Real play-by-play captions the events.** `relay-stream.sports.yahoo.com/nfl/plays-<id>.txt`
   carries full play text with Yahoo player ids inline; it is what the history and the NFL card's
   play list show, matched to each scoring event by player id. A capture is in `tests/fixtures/`.
+- **A name is only shortened while it still names somebody.** The NFL card's play list runs on
+  `B. Robinson` rather than `Bijan Robinson` to fit a phone. Atlanta played *Bijan* and *Brian*
+  Robinson in the same game, so both Robinsons keep their full names there — the check is per game,
+  which is what stops a Sunday's worth of common surnames expanding along with them.
+- **A dropped live feed holds its last reading rather than scoring zero.** Every point is computed
+  from the stat feed, so one failed fetch of it used to read as the whole league losing their games
+  at once, and the next poll as everyone scoring them all back in a single play. The previous
+  reading stands in for up to 15 minutes; past that the refresh fails instead of freezing points
+  under a running clock.
 
 ## Installation
 

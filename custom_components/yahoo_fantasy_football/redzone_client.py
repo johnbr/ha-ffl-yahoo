@@ -179,6 +179,10 @@ class RedzoneClient:
         self._seed_at: float = 0.0
         self._players: dict[str, str] | None = None
         self._players_at: float = 0.0
+        # The last stat feed that actually arrived, held over a failed fetch
+        # of it — see :meth:`_live_stats`.
+        self._stats_body: str = ""
+        self._stats_at: float = 0.0
         # Eight live games ask for the dictionary in one gather; the first
         # fetches, the rest wait and find it fresh. Without this, one lacking
         # id was eight simultaneous full fetches.
@@ -206,12 +210,51 @@ class RedzoneClient:
         Yahoo serves these empty or not at all. That is not a failure — it
         means nobody has scored yet, and the league seed alone still renders a
         complete scoreboard of zeroes.
+
+        It cannot distinguish that from a fetch that failed, though, and for
+        the stat feed the two want opposite handling: see :meth:`_live_stats`,
+        which every stat body goes through before it is used.
         """
         try:
             return await self._get(url)
         except YahooWebError as err:
             _LOGGER.debug("live feed %s unavailable: %s", url, err)
             return ""
+
+    def _live_stats(self, body: str, now: float) -> str:
+        """The stat feed, holding the last good copy over a failed fetch of it.
+
+        Every player's points are COMPUTED from this body, so an empty one
+        scores the whole league zero. Before the week's first kickoff that is
+        the right answer. Mid-game it is catastrophic, and
+        :meth:`_get_optional` cannot tell the two apart on its own — both a
+        feed Yahoo does not serve yet and a request that timed out arrive as
+        ``""``.
+
+        What it costs to get this wrong, observed live on 2026-09-24: one
+        dropped request read as every live player losing their whole game at
+        once, and the poll after it as every one of them scoring it all back
+        in a single play. Four matchups showed a "play" that was really a
+        player's entire stat line, in place of the plays it was built from.
+
+        The distinction the code can actually make: a feed Yahoo serves empty
+        still carries its comment header, which clears :data:`MIN_BODY`. So
+        ``""`` here means the fetch failed, never that there are no stats —
+        and the previous body is then the best answer available. Past
+        :data:`STALE_AFTER_SECONDS` it stops being an answer at all, because
+        frozen points under a running clock are their own kind of wrong; the
+        refresh fails and :meth:`async_refresh_or_stale` takes it from there.
+        """
+        if body:
+            self._stats_body, self._stats_at = body, now
+            return body
+        if not self._stats_body:
+            return ""  # nothing has ever arrived — no stats is the truth
+        age = now - self._stats_at
+        if age > STALE_AFTER_SECONDS:
+            raise FetchFailed(f"no stat feed for {age:.0f}s")
+        _LOGGER.debug("stat feed unavailable; reusing the %.0fs-old copy", age)
+        return self._stats_body
 
     # -- public API --------------------------------------------------------
 
@@ -328,6 +371,7 @@ class RedzoneClient:
             self._get_optional(relay_url("stats", self.sport)),
             self._get_optional(relay_url("games", self.sport)),
         )
+        stats = self._live_stats(stats, now)
 
         try:
             data = league_from_payloads(seed, stats, games, self.league_id, now)

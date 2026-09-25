@@ -35,7 +35,7 @@ from .plays import (
     PLAY_TEXT_LAG_SECONDS,
     PlayFeed,
     ScoringEvent,
-    abbreviate_name,
+    abbreviate_names,
     diff_snapshots,
     match_relay_play,
     play_above_floor,
@@ -113,8 +113,6 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._nfl_plays: dict[str, _GamePlays] = {}
         # {plays_id: newest play text} for live games, refreshed every poll.
         self._nfl_last_plays: dict[str, str] = {}
-        # (the player dictionary it came from, its abbreviated twin).
-        self._short_names_cache: tuple[dict[str, str], dict[str, str]] | None = None
         # {plays_id: newest play sequence} as of the END of the last poll. A
         # scoring event raised this poll can only have come from a play above
         # it — see ``ScoringEvent.play_floor``.
@@ -384,7 +382,13 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         # and the expanded list is the one place a play is prefixed with the
         # down and distance it was run from. The fantasy history keeps the
         # full sentence.
-        short_names = self._short_names(names)
+        #
+        # Shortened against THIS game's ids, which is what lets two players
+        # who abbreviate alike keep their full names without expanding every
+        # common surname in a full Sunday's dictionary. That scope is per game,
+        # so this is computed per render — cheap, since a render only happens
+        # when the feed or the dictionary moved.
+        short_names = abbreviate_names(names, needed)
         rows: list[dict[str, Any]] = []
         for play in reversed(plays):  # newest first, the way a reader scans
             text = humanize_play(play.text, names)
@@ -402,15 +406,6 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             )
         self._nfl_plays[plays_id] = _GamePlays(body, plays, needed, names, rows)
         return rows[:limit]
-
-    def _short_names(self, names: dict[str, str]) -> dict[str, str]:
-        """``{id: "J. Goff"}`` for the player dictionary, computed once per dictionary."""
-        cached = self._short_names_cache
-        if cached is not None and cached[0] is names:
-            return cached[1]
-        short = {pid: abbreviate_name(name) for pid, name in names.items()}
-        self._short_names_cache = (names, short)
-        return short
 
     @property
     def league_data(self) -> LeagueData | None:
