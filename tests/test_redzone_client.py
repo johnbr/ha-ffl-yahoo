@@ -48,6 +48,10 @@ def _fetcher(bodies: dict[str, str], fail: set[str] | None = None, log: list | N
     return fetch
 
 
+def _scores(data) -> dict[str, float]:
+    return {t.name: t.points for pair in data.standings for t in pair}
+
+
 @pytest.mark.asyncio
 async def test_one_refresh_is_three_requests_whatever_the_league_size():
     log: list[str] = []
@@ -67,6 +71,66 @@ async def test_a_missing_live_feed_is_not_a_failure():
 
     assert len(data.standings) == 5
     assert all(t.points == 0.0 for pair in data.standings for t in pair)
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_stat_feed_does_not_score_the_league_zero():
+    """The bug of 2026-09-24: one failed fetch read as everybody losing their game.
+
+    Points are computed from the stat feed, so an empty body scores every
+    player zero — and the poll after it re-emits their whole game as a single
+    scoring play. Holding the last body over the gap keeps the points still,
+    which is what a poll with no news should look like.
+    """
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    good = await client.async_refresh(now=100.0)
+    scored = _scores(good)
+    assert any(scored.values()), "fixture must have live points for this to mean anything"
+
+    client._fetch = _fetcher(bodies, fail={"stats"})
+    held = await client.async_refresh(now=130.0)
+
+    assert _scores(held) == scored
+    assert held.fetched_at == 130.0, "the rest of the poll is fresh — only the stats are held"
+
+
+@pytest.mark.asyncio
+async def test_a_held_stat_feed_stops_pretending_eventually():
+    """Frozen points under a running clock are their own kind of wrong."""
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    await client.async_refresh(now=100.0)
+
+    client._fetch = _fetcher(bodies, fail={"stats"})
+    with pytest.raises(FetchFailed, match="no stat feed"):
+        await client.async_refresh(now=100.0 + STALE_AFTER_SECONDS + 1)
+
+
+@pytest.mark.asyncio
+async def test_a_recovered_stat_feed_is_preferred_to_the_copy_in_hand():
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    await client.async_refresh(now=100.0)
+
+    client._fetch = _fetcher(bodies, fail={"stats"})
+    await client.async_refresh(now=130.0)
+
+    # Back up, and with a body that moves a starter: Drake Maye's 36 rushing
+    # yards become 136, which is ten points on his team's total.
+    moved = bodies["stats"].replace("r|40881|5|36|0|16|0|0|3", "r|40881|5|136|0|16|0|0|3", 1)
+    assert moved != bodies["stats"], "the mutation must land or this proves nothing"
+    bodies["stats"] = moved
+    client._fetch = _fetcher(bodies)
+    recovered = await client.async_refresh(now=160.0)
+
+    assert _scores(recovered)["Blitz Brigade"] == pytest.approx(22.74)
+
+    # And the hold-over window restarts from the fetch that succeeded, so the
+    # copy it holds from here is the new one, not the one from t=100.
+    client._fetch = _fetcher(bodies, fail={"stats"})
+    later = await client.async_refresh(now=160.0 + STALE_AFTER_SECONDS - 1)
+    assert _scores(later) == _scores(recovered)
 
 
 @pytest.mark.asyncio
