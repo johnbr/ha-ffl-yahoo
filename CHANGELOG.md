@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.18.0...v0.18.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* hold the games feed too, and stop a blank slate slowing its own recovery ([#35](https://github.com/johnbr/ha-ffl-yahoo/issues/35)) ([198f7f0](https://github.com/johnbr/ha-ffl-yahoo/commit/198f7f01b15b75c1ee73a2d7ec67e85699444250))
+
 ## [0.18.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.17.2...v0.18.0) (2026-09-25)
 
 
