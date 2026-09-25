@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.17.1...v0.17.2) (2026-09-25)
+
+
+### Bug Fixes
+
+* name collisions on the NFL card, and a dropped stat feed scoring the league zero ([#31](https://github.com/johnbr/ha-ffl-yahoo/issues/31)) ([0c33968](https://github.com/johnbr/ha-ffl-yahoo/commit/0c339681df285abebda5af643737ff83b77a7aaf))
+
 ## [0.17.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.17.0...v0.17.1) (2026-09-22)
 
 
