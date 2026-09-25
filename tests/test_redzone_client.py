@@ -11,6 +11,7 @@ import asyncio
 import pytest
 from conftest import FIXTURES
 from yahoo_fantasy_football.redzone_client import (
+    FEED_HOLD_SECONDS,
     PLAYERS_RETRY_SECONDS,
     PLAYERS_TTL_SECONDS,
     PLAYS_MIN_INTERVAL_SECONDS,
@@ -103,7 +104,7 @@ async def test_a_held_stat_feed_stops_pretending_eventually():
     await client.async_refresh(now=100.0)
 
     client._fetch = _fetcher(bodies, fail={"stats"})
-    with pytest.raises(FetchFailed, match="no stat feed"):
+    with pytest.raises(FetchFailed, match="no stats feed"):
         await client.async_refresh(now=100.0 + STALE_AFTER_SECONDS + 1)
 
 
@@ -131,6 +132,75 @@ async def test_a_recovered_stat_feed_is_preferred_to_the_copy_in_hand():
     client._fetch = _fetcher(bodies, fail={"stats"})
     later = await client.async_refresh(now=160.0 + STALE_AFTER_SECONDS - 1)
     assert _scores(later) == _scores(recovered)
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_games_feed_does_not_erase_the_slate():
+    """The bug of 2026-09-25: one failed fetch read as "no games exist".
+
+    An empty games body is not "nothing is live", it is "no idea" — the NFL
+    card's whole slate vanishes, every matchup reads final because no starter
+    has a game left, and the cadence drops to the near-game interval, so the
+    blank outlives the request that caused it by five minutes.
+    """
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    good = await client.async_refresh(now=100.0)
+    assert good.active_games == 1, "fixture must have a live game for this to mean anything"
+
+    client._fetch = _fetcher(bodies, fail={"games"})
+    held = await client.async_refresh(now=130.0)
+
+    assert len(held.nfl_games) == len(good.nfl_games)
+    assert held.active_games == good.active_games
+    assert held.live_tick == good.live_tick
+    assert held.plays_feeds == good.plays_feeds, "enrichment needs these to survive the gap"
+
+
+@pytest.mark.asyncio
+async def test_the_games_feed_is_held_on_a_shorter_leash_than_the_stats_feed():
+    """A stopped clock beside a score gives itself away faster than stale points."""
+    assert FEED_HOLD_SECONDS["games"] < FEED_HOLD_SECONDS["stats"]
+
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    await client.async_refresh(now=100.0)
+    client._fetch = _fetcher(bodies, fail={"games"})
+
+    # Inside the window the slate stands; past it the refresh fails, which
+    # hands the poll to async_refresh_or_stale rather than serving a hole.
+    inside = await client.async_refresh(now=100.0 + FEED_HOLD_SECONDS["games"] - 1)
+    assert inside.active_games == 1
+
+    with pytest.raises(FetchFailed, match="no games feed"):
+        await client.async_refresh(now=100.0 + FEED_HOLD_SECONDS["games"] + 1)
+
+
+@pytest.mark.asyncio
+async def test_a_feed_that_never_arrived_is_not_held():
+    """Between seasons there is nothing to hold, and zeroes are the truth."""
+    client = RedzoneClient(_fetcher(_bodies(), fail={"stats", "games"}), LEAGUE)
+    data = await client.async_refresh(now=0.0)
+
+    assert data.nfl_games == [] and data.active_games == 0
+    assert all(t.points == 0.0 for pair in data.standings for t in pair)
+
+
+@pytest.mark.asyncio
+async def test_one_feed_dropping_does_not_hold_the_other():
+    """The two are held independently — a stats blip must not freeze the clock."""
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    await client.async_refresh(now=100.0)
+
+    moved = bodies["games"].replace("|14:52|", "|11:07|", 1)
+    assert moved != bodies["games"], "the mutation must land or this proves nothing"
+    bodies["games"] = moved
+
+    client._fetch = _fetcher(bodies, fail={"stats"})
+    served = await client.async_refresh(now=130.0)
+
+    assert "11:07" in served.live_tick, "the games feed arrived and must be used"
 
 
 @pytest.mark.asyncio

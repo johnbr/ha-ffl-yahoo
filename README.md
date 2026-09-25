@@ -59,11 +59,13 @@ One refresh is **three requests for the whole league**, whatever its size.
   `B. Robinson` rather than `Bijan Robinson` to fit a phone. Atlanta played *Bijan* and *Brian*
   Robinson in the same game, so both Robinsons keep their full names there — the check is per game,
   which is what stops a Sunday's worth of common surnames expanding along with them.
-- **A dropped live feed holds its last reading rather than scoring zero.** Every point is computed
-  from the stat feed, so one failed fetch of it used to read as the whole league losing their games
-  at once, and the next poll as everyone scoring them all back in a single play. The previous
-  reading stands in for up to 15 minutes; past that the refresh fails instead of freezing points
-  under a running clock.
+- **A dropped live feed holds its last reading rather than reading as fact.** Points are computed
+  from the stat feed and the slate comes from the games feed, so a failed fetch of either used to
+  be taken at face value: an empty stat feed as the whole league losing their games at once, an
+  empty games feed as there being no games at all — which blanked the NFL card, marked every
+  matchup final, and slowed the poll that would have undone it. Each feed's last reading stands in
+  for it — 15 minutes for stats, 2 for games, since a stopped clock gives itself away faster than
+  stale points — and past that the refresh fails rather than serving a hole.
 
 ## Installation
 

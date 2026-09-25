@@ -77,6 +77,70 @@ def test_no_data_yet_polls_at_the_middle_cadence() -> None:
     assert poll_interval(None) == SCAN_INTERVAL_NEAR_GAME_SECONDS
 
 
+def _blank_slate():
+    """Every player unknown — what a poll with no games feed produces."""
+    from dataclasses import replace
+
+    return replace(
+        DATA,
+        matchups=[
+            replace(m, players=[replace(p, game_state_hint="unknown") for p in m.players])
+            for m in DATA.matchups
+        ],
+    )
+
+
+def test_a_slate_that_says_nothing_cannot_slow_the_poll_that_would_fix_it() -> None:
+    """The five-minute blank of 2026-09-25.
+
+    A missing games feed reads as every player unknown. Left to set the
+    cadence it took the poll from 10 s to 300, so the blank outlived the
+    dropped request by five minutes — the blank slowed the very poll that
+    would have cleared it.
+    """
+    assert poll_interval(_blank_slate(), SCAN_INTERVAL_LIVE_SECONDS) == SCAN_INTERVAL_LIVE_SECONDS
+
+
+def test_a_blank_slate_does_not_speed_the_poll_up_either() -> None:
+    """Capped at the near-game interval, so a genuinely empty slate stays put."""
+    blank = _blank_slate()
+
+    assert poll_interval(blank, SCAN_INTERVAL_IDLE_SECONDS) == SCAN_INTERVAL_NEAR_GAME_SECONDS
+    assert poll_interval(blank, SCAN_INTERVAL_NEAR_GAME_SECONDS) == SCAN_INTERVAL_NEAR_GAME_SECONDS
+    # With nothing to carry over — the first poll of all — it reads as before.
+    assert poll_interval(blank) == SCAN_INTERVAL_NEAR_GAME_SECONDS
+
+
+def test_only_a_WHOLLY_unknown_slate_gets_the_benefit() -> None:
+    """One unknown player among real ones is a bye, not a missing feed."""
+    from dataclasses import replace
+
+    m = DATA.matchups[0]
+    mixed = replace(
+        m,
+        players=[
+            replace(m.players[0], game_state_hint="unknown"),
+            replace(m.players[1], game_state_hint="post"),
+            *m.players[2:],
+        ],
+    )
+    data = replace(DATA, matchups=[mixed])
+
+    assert poll_interval(data, SCAN_INTERVAL_LIVE_SECONDS) == SCAN_INTERVAL_NEAR_GAME_SECONDS
+
+
+def test_a_live_game_still_wins_over_everything() -> None:
+    """The carried-over interval is a floor on blankness, not an override."""
+    from dataclasses import replace
+
+    m = DATA.matchups[0]
+    live = replace(m, players=[replace(m.players[0], game_state_hint="in"), *m.players[1:]])
+
+    assert poll_interval(replace(DATA, matchups=[live]), SCAN_INTERVAL_IDLE_SECONDS) == (
+        SCAN_INTERVAL_LIVE_SECONDS
+    )
+
+
 # ---------------------------------------------------------------------------
 # Scoreboard rows
 # ---------------------------------------------------------------------------

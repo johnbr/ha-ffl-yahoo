@@ -26,7 +26,7 @@ from .yahoo_redzone import clock_text
 ATTR_RECENT_PLAYS = 10
 
 
-def poll_interval(data: LeagueData | None) -> int:
+def poll_interval(data: LeagueData | None, previous: int | None = None) -> int:
     """Seconds until the next refresh, from what the games are actually doing.
 
     Driven by observed game state rather than a season calendar, so a Thursday
@@ -37,6 +37,10 @@ def poll_interval(data: LeagueData | None) -> int:
     wording of Yahoo's game note is unverified (see :mod:`yahoo_web`), and
     polling too often is a smaller error than a card that stops updating
     mid-game.
+
+    ``previous`` is the interval this poll was reached on. It exists to stop a
+    slate that says nothing from slowing the poll that would have made it say
+    something again — see below.
     """
     if data is None:
         return SCAN_INTERVAL_NEAR_GAME_SECONDS
@@ -44,6 +48,17 @@ def poll_interval(data: LeagueData | None) -> int:
     states = {p.game_state for m in data.matchups for p in m.players}
     if "in" in states:
         return SCAN_INTERVAL_LIVE_SECONDS
+    # A slate where EVERY player is unknown is not an observation about the
+    # games; it is what a missing games feed looks like from in here (see
+    # ``game_state_hint``). Taking the cadence from it is how one dropped
+    # request bought itself five minutes of blank card on 2026-09-25: the
+    # blank slowed the very poll that would have cleared it, from 10 s to 300.
+    #
+    # So a slate like that may never slow the cadence — only a poll that had a
+    # feed to read can. Capped at the near-game interval so it cannot speed one
+    # up either, which leaves a genuinely empty slate exactly where it was.
+    if previous is not None and states and states <= {"unknown"}:
+        return min(previous, SCAN_INTERVAL_NEAR_GAME_SECONDS)
     # A delayed game restarts without notice; polling as if it were about to
     # kick off is what catches the restart.
     if states & {"pre", "unknown", "delayed"}:
