@@ -1214,7 +1214,7 @@ class FflNflGamesCard extends FflBaseCard {
     const liveCount = Number(st.attributes.active_games) || 0;
     const header = `
       <div class="ffl-header">
-        <span class="ffl-header-name">${escapeHtml(this.config.title || "NFL Games")}</span>
+        <span class="ffl-header-name">${escapeHtml(this.config.title || "NFL")}</span>
         ${liveCount ? `<span class="ffl-header-live">${liveCount} live</span>` : ""}
         <span class="ffl-header-week">${rows.length} games</span>
       </div>`;
@@ -1463,9 +1463,10 @@ const CARD_CSS = `
 
   /* Three tracks with the badge in the middle one, so "1 LIVE" sits at the
      card's centre on every card. As a space-between flex row its position
-     depended on how wide the title was, and "NFL Games" pushed it visibly
-     right of where "Kush" left it on the card above. Each part names its
-     column so a missing badge or week cannot shuffle the others over. */
+     depended on how wide the title was, and the old "NFL Games" default
+     pushed it visibly right of where "Kush" left it on the card above. Each
+     part names its column so a missing badge or week cannot shuffle the
+     others over — including a title someone sets by hand. */
   .ffl-header {
     display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: baseline; gap: 12px; padding: 2px 6px 10px; margin-bottom: 6px;
