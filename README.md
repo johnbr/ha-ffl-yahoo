@@ -55,6 +55,10 @@ One refresh is **three requests for the whole league**, whatever its size.
 - **Real play-by-play captions the events.** `relay-stream.sports.yahoo.com/nfl/plays-<id>.txt`
   carries full play text with Yahoo player ids inline; it is what the history and the NFL card's
   play list show, matched to each scoring event by player id. A capture is in `tests/fixtures/`.
+- **A name is only shortened while it still names somebody.** The NFL card's play list runs on
+  `B. Robinson` rather than `Bijan Robinson` to fit a phone. Atlanta played *Bijan* and *Brian*
+  Robinson in the same game, so both Robinsons keep their full names there — the check is per game,
+  which is what stops a Sunday's worth of common surnames expanding along with them.
 
 ## Installation
 

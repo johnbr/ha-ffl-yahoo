@@ -187,3 +187,31 @@ plays.
 | `g\|20260917002\|8\|2\|S\|0\|0\|\|0\|0\|…` | A **played game listed as scheduled**. Read at face value, the games card filed it under "later this week", and every Det and Buf player read as not yet played — projected for their whole day *on top of* the points they had scored, and counted among the starters still to play. |
 | `h\|2\|8\|0\|10\|7\|14` / `h\|2\|2\|14\|13\|7\|7` | The **line-score rows survive the restart**, one cell per period, and sum to the real result (31-41). This is where a forgotten game's final score comes from — see `settle_forgotten_games`. |
 | `h\|26\|17\|0\|7\|0` in the week-1 capture | The same row mid-game has one cell per period *played so far*, the current one included — so three cells is a game in progress, not a result. |
+
+## `yahoo_relay_plays_9_2026_w3.txt` + `yahoo_relay_players_2026_w3.txt`
+
+Captured 2026-09-24 ~18:15 PT, verbatim, midway through the second quarter of
+Atl at GB — the week-3 Thursday opener, and the only live game on the slate,
+which is why the player dictionary is 46 names rather than a Sunday's thousand:
+
+```
+https://relay-stream.sports.yahoo.com/nfl/plays-9.txt
+https://relay-stream.sports.yahoo.com/nfl/players.txt
+```
+
+Public NFL data with no league in it, so nothing needed substituting.
+
+### What it defends against
+
+| Capture | What it pins |
+|---|---|
+| `m\|40055\|1\|RB\|Bijan\|Robinson` and `m\|34054\|1\|RB\|Brian\|Robinson` | **Two players on one club whose names abbreviate identically.** Both are `B. Robinson`, and both carried the ball in this game, so fourteen rows of the play list named a running back without saying which one. The 16-yard carry among them was Brian's — nobody in the league rostered him — and it read as Bijan's, whom somebody did. See `abbreviate_names`. |
+| `p\|9\|49\|1\|10\|61\|1\|2\|12:43\|1\|16\|[34054] rushed to the left for 16 yard gain, tackled by [41007]` | That play, with the ambiguous id inline. Its tackler (`41007`) sits in a pure-tackle clause, so it is outside the scope names are disambiguated against — which is what stops a defender's surname expanding an offensive player's name. |
+| Both Robinsons' rushing rows under one game | A cross-check needing no external source: the play list's nine Bijan carries sum to the 77 yards the stat feed credits him, and the three Brian carries to 31. An attribution bug shows up as arithmetic that stops adding up. |
+
+### Known gaps
+
+One game, a quarter and a half, no D/ST or kicking plays. The collision here is
+a *first-name* one on a single club; a **surname** collision across two clubs in
+the same game (two unrelated `J. Smith`s) is unobserved. The scope rule handles
+it by construction, but no capture pins it.

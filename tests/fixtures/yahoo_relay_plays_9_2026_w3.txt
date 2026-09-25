@@ -1,0 +1,69 @@
+# nfl/plays-9.txt
+# 2026-09-24T18:10:31-0700
+# source_sequence_number=82
+p|9|2|0|0|0|0|1|15:00|8|0|Green Bay kicked off for 59 yards, [34054] returned kickoff for 24 yards
+p|9|3|1|10|70|1|1|14:55|1|4|[40055] rushed to the left for 4 yard gain, tackled by [33983]
+p|9|4|2|6|66|1|1|14:22|2|17|[40889] passed to [40055] to the left for 17 yard gain, tackled by [31205]
+p|9|5|1|10|49|1|1|13:38|3|0|[40889] incomplete pass to the left intended for [33971]
+p|9|6|2|10|49|1|1|13:33|4|0|[40889] pass intercepted down the middle|[32706] intercepted for 5 yards
+p|9|7|1|10|55|9|1|13:27|2|6|[32696] passed to [40102] to the left for 6 yard gain, tackled by [41883]
+p|9|8|2|4|49|9|1|12:52|3|0|[32696] incomplete pass to the left intended for [40971]
+p|9|9|3|4|49|9|1|12:48|3|0|[32696] incomplete pass to the right intended for [33989]
+p|9|10|4|4|49|9|1|12:45|20|-5|Green Bay committed 5 yard penalty (False Start)
+p|9|11|4|9|54|9|1|12:45|7|0|[40767] punted for 41 yards|[32123] returned punt for 4 yards
+p|9|12|1|10|83|1|1|12:33|1|7|[40055] rushed to the right for 7 yard gain, tackled by [41007]
+p|9|13|2|3|76|1|1|11:52|1|3|[40055] rushed to the left for 3 yard gain, tackled by [42699]
+p|9|14|1|10|73|1|1|11:07|3|0|[40889] incomplete pass down the middle intended for [33392]
+p|9|15|2|10|73|1|1|11:03|1|-1|[40055] rushed up the middle for 1 yard loss, tackled by [40439]
+p|9|16|3|11|74|1|1|10:19|3|0|[40889] incomplete pass to the left intended for [42701]
+p|9|17|4|11|74|1|1|10:15|7|0|[31995] punted for 61 yards|[34009] returned punt
+p|9|18|1|10|87|9|1|10:06|1|-1|[41881] rushed to the right for 1 yard loss, tackled by [40115]
+p|9|19|2|11|88|9|1|9:23|3|0|[32696] incomplete pass to the right intended for [41808]
+p|9|20|3|11|88|9|1|9:18|2|45|[32696] passed to [41808] to the right for 45 yard gain, tackled by [31000]
+p|9|21|1|10|43|9|1|8:44|20|-10|Green Bay committed 10 yard penalty (Holding)
+p|9|22|1|20|53|9|1|8:21|2|25|[32696] passed to [40971] to the left for 10 yard gain, tackled by [31000]|Atlanta committed 15 yard penalty (Unnecessary Roughness)
+p|9|23|1|10|28|9|1|7:56|1|6|[40971] rushed to the right for 6 yard gain, tackled by [41883]
+p|9|24|0|0|0|0|1|7:10|24|0|Green Bay timeout
+p|9|25|2|4|22|9|1|7:10|2|8|[32696] passed to [40102] to the right for 8 yard gain, tackled by [32679]
+p|9|26|1|10|14|9|1|6:38|2|9|[32696] passed to [34009] down the middle for 9 yard gain, tackled by [40123]
+p|9|27|2|1|5|9|1|6:03|1|1|[40971] rushed up the middle for 1 yard gain, tackled by [40091]
+p|9|28|1|4|4|9|1|5:17|2|4|[32696] passed to [33989] down the middle for a 4 yard touchdown
+p|9|29|0|0|0|0|1|5:13|10|0|[42838] made PAT
+p|9|30|0|0|0|0|1|5:13|8|0|Green Bay kicked off for 62 yards, [42701] returned kickoff for 22 yards|Atlanta committed 10 yard penalty (Holding)
+p|9|31|1|10|85|1|1|5:07|2|5|[40889] passed to [33392] to the right for 5 yard gain, tackled by [32706]
+p|9|32|2|5|80|1|1|4:32|1|6|[34054] rushed to the left for 6 yard gain, tackled by [31205]
+p|9|33|1|10|74|1|1|3:57|1|9|[34054] rushed to the left for 9 yard gain, tackled by [32706]
+p|9|34|2|1|65|1|1|3:14|3|-10|[40889] incomplete pass down the middle|Atlanta committed 10 yard penalty (Intentional Grounding)
+p|9|35|3|11|75|1|1|3:10|20|15|Green Bay committed 15 yard penalty (Roughing the Passer)
+p|9|36|1|10|60|1|1|3:06|1|55|[40055] rushed to the left for 55 yard gain, tackled by [31205]
+p|9|37|1|5|5|1|1|2:15|1|2|[40055] rushed up the middle for 2 yard gain, tackled by [31205]
+p|9|38|2|3|3|1|1|1:35|1|3|[40055] rushed to the left for a 3 yard touchdown
+p|9|39|0|0|0|0|1|1:32|10|0|[8432] made PAT
+p|9|40|0|0|0|0|1|1:32|8|0|Atlanta kicked off for 55 yards, [34185] returned kickoff for 21 yards
+p|9|41|1|10|69|9|1|1:27|2|-3|[32696] passed to [40971] to the right for 3 yard loss, tackled by [42756]
+p|9|42|2|13|72|9|1|0:41|3|0|[32696] incomplete pass to the left intended for [41808]
+p|9|43|3|13|72|9|1|0:36|2|9|[32696] passed to [40102] to the left for 9 yard gain, tackled by [28510]
+p|9|44|4|4|63|9|1|0:00|25|0|End of 1st Quarter
+p|9|45|4|4|63|9|2|15:00|7|0|[40767] punted for 64 yards|[42701] returned punt for 18 yards
+p|9|46|1|10|83|1|2|14:48|2|7|[40889] passed to [42701] to the left for 7 yard gain, tackled by [40938]
+p|9|47|2|3|76|1|2|14:05|1|4|[40055] rushed to the left for 4 yard gain, tackled by [42674]
+p|9|48|1|10|72|1|2|13:21|2|11|[40889] passed to [33971] to the right for 11 yard gain, tackled by [32706]
+p|9|49|1|10|61|1|2|12:43|1|16|[34054] rushed to the left for 16 yard gain, tackled by [41007]
+p|9|50|1|10|45|1|2|11:58|3|0|[40889] incomplete pass to the left intended for [33963]
+p|9|51|2|10|45|1|2|11:53|1|0|[40055] rushed to the left for no gain, tackled by [42674]
+p|9|52|3|10|45|1|2|11:12|2|4|[40889] passed to [33963] to the right for 4 yard gain, tackled by [40937]
+p|9|53|4|6|41|1|2|10:41|7|0|[31995] punted for 30 yards|[34009] returned punt
+p|9|54|1|10|89|9|2|10:34|1|1|[41881] rushed to the right for 1 yard gain, tackled by [32679]
+p|9|55|2|9|88|9|2|9:51|3|0|[32696] incomplete pass to the right intended for [40102]
+s|9|1|0|7|1|5:17|9|1|4|[32696] passed to [33989] down the middle for a 4 yard touchdown ([42838] made PAT)
+s|9|2|7|7|1|1:35|1|1|4|[40055] rushed to the left for a 3 yard touchdown ([8432] made PAT)
+e|9|1|1|1|14:55|70|1:27|21|Int|4|2|5
+e|9|2|1|9|13:27|55|0:42|1|Punt|3|7|5
+e|9|3|1|1|12:33|83|2:18|9|Punt|5|12|6
+e|9|4|1|9|10:06|87|4:53|87|TD|9|18|12
+e|9|5|1|1|5:07|85|3:41|85|TD|7|30|10
+e|9|6|1|9|1:27|69|1:32|6|Punt|3|40|6
+e|9|7|2|1|14:48|83|4:07|42|Punt|7|46|8
+e|9|8|2|9|10:34|89|0:43|1||2|54|2
+l|9|2|55|8|32696|0
+j|9|P|32696|[32696] incomplete pass to the right intended for [40102]|0|0
