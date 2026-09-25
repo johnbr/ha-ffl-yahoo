@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.17.2...v0.18.0) (2026-09-25)
+
+
+### Features
+
+* title the NFL card "NFL" rather than "NFL Games" ([#33](https://github.com/johnbr/ha-ffl-yahoo/issues/33)) ([c415b56](https://github.com/johnbr/ha-ffl-yahoo/commit/c415b56a23d6f903a2ecb316015d330fd45a36df))
+
 ## [0.17.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.17.1...v0.17.2) (2026-09-25)
 
 
