@@ -141,11 +141,12 @@ def _scored(before: Snap, after: Snap, away: str, home: str) -> tuple[str, int] 
     return None
 
 
-def describe_change(before: Snap, after: Snap, away: str, home: str) -> str:
+def describe_change(before: Snap, after: Snap, away: str, home: str, kickoff: bool = False) -> str:
     """What one games-feed change says happened, or ``""`` if nothing useful.
 
     ``before`` is the situation the play was run from, ``after`` where it
-    left the game.
+    left the game. ``kickoff`` says a score came since the ball last changed
+    hands, so the next change of hands is the kick that follows it.
     """
     scored = _scored(before, after, away, home)
     if scored is not None:
@@ -169,6 +170,8 @@ def describe_change(before: Snap, after: Snap, away: str, home: str) -> str:
 
     if after.team != before.team:
         abbr = team_abbr(after.team)
+        if kickoff:
+            return f"Kickoff, {abbr} ball"
         if before.down == 1 and before.distance == 10:
             # A kickoff looks just like this from in here — the kicking club
             # "has" the ball 65 yards out — so nothing more is claimed.
@@ -235,8 +238,14 @@ class _Game:
     origin: Snap | None = None
     """Where the newest snap was run from — ``None`` once its text is in."""
     origin_at: tuple[int, int] | None = None
+    origin_kickoff: bool = False
+    """``kickoff_due`` as it stood when the snap from ``origin`` was taken."""
     earlier: Snap | None = None
     """Where the snap before that was run from, while its text is out too."""
+    kickoff_due: bool = False
+    """A score since the ball last changed hands. The games feed keeps the
+    scoring drive's last down after a field goal — "4th & 2" at the kicking
+    spot — so without this the kickoff reads as a punt (seen live 2026-10-01)."""
     unclaimed: bool = False
     """A play landed while none was awaited: the next change is its result."""
     text: str = ""
@@ -307,6 +316,7 @@ class PendingPlays:
             # already in, or that had nothing to say, gains nothing from it.
             state.earlier = state.origin
             state.origin, state.origin_at = state.snap, state.seen_at
+            state.origin_kickoff = state.kickoff_due
             state.since = now
             # Its text is already in when a play lands in the same poll —
             # every time this was watched live (2026-10-01), including a
@@ -323,7 +333,11 @@ class PendingPlays:
         # Spent by any change, a refinement included: a play that landed
         # between a change and the rest of it belonged to that change.
         state.unclaimed = False
-        state.text = describe_change(state.origin, snap, away, home) if state.origin else ""
+        if snap.team != state.snap.team and snap.team in {away, home}:
+            state.kickoff_due = False
+        if _scored(state.snap, snap, away, home) is not None:
+            state.kickoff_due = True
+        state.text = describe_change(state.origin, snap, away, home, state.origin_kickoff) if state.origin else ""
         state.snap, state.changed_at, state.seen_at = snap, now, seen_at
 
     def forget_others(self, live: set[str]) -> None:

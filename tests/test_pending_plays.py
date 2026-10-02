@@ -318,5 +318,22 @@ def test_a_timeout_landing_does_not_stand_in_for_the_next_snaps_text() -> None:
     assert pending.text("2") == "No gain"
 
 
+def test_the_change_of_hands_after_a_score_is_a_kickoff() -> None:
+    """Live 2026-10-01: after Cle's field goal the feed sat at "4th & 2" with
+    the ball on the kicking spot, then gave Pit the ball at their own 8."""
+    pending = _tracker(_game(team=BUF, down=4, distance=2, to_goal=26))
+    pending.observe("2", _game(team=BUF, down=4, distance=2, to_goal=26, home=3), None, 30.0)
+    assert pending.text("2") == "Buf field goal"
+    pending.observe("2", _game(team=BUF, down=4, distance=2, to_goal=65, home=3), None, 42.0)
+    pending.observe("2", _game(team=DET, to_goal=92, home=3), None, 200.0)
+    assert pending.text("2") == "Kickoff, Det ball"
+    pending.observe("2", _game(team=DET, to_goal=68, home=3), None, 212.0)
+    assert pending.text("2") == "Kickoff, Det ball"
+    # Only the one: Detroit's next change of hands is a turnover again.
+    pending.observe("2", _game(team=DET, down=2, distance=4, to_goal=62, home=3), None, 260.0)
+    pending.observe("2", _game(team=BUF, to_goal=40, home=3), None, 300.0)
+    assert pending.text("2") == "Turnover, Buf ball"
+
+
 def test_a_kickoff_is_only_a_change_of_possession() -> None:
     assert _describe(_game(to_goal=65), _game(team=BUF, to_goal=99)) == "Change of possession, Buf ball"
