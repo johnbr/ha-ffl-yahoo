@@ -31,7 +31,7 @@ from .const import (
     EVENT_SCORING_PLAY,
 )
 from .league_state import down_and_distance, play_dict, poll_interval
-from .pending_plays import PendingPlays, situation_of
+from .pending_plays import Landed, PendingPlays, situation_of
 from .plays import (
     PLAY_TEXT_LAG_SECONDS,
     PlayFeed,
@@ -236,21 +236,21 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                     # The floor is "as of the end of the last POLL"; the chase
                     # between polls must not move it under the scoring matcher.
                     if only is None and newest is not None:
-                        self._plays_floor[plays_id] = newest[0]
+                        self._plays_floor[plays_id] = newest.sequence
                 self._pending.observe(plays_id, games[plays_id], newest, now)
             self._nfl_last_plays = last_plays
             return (self._nfl_last_plays, self._pending.texts()) != before
 
-    def _landed(self, plays_id: str, play_id: str) -> tuple[int, tuple[str, int, int, int]] | None:
-        """``(sequence, situation it ran from)`` for a play on a game's card."""
+    def _landed(self, plays_id: str, play_id: str) -> Landed | None:
+        """The play on a game's card, and the situation it ran from."""
         sequence = _sequence(play_id)
         cached = self._nfl_plays.get(plays_id)
         if sequence is None or cached is None:
             return None
         for play in reversed(cached.plays):
             if play.sequence == sequence:
-                return sequence, situation_of(play)
-        return sequence, ("", 0, 0, 0)
+                return Landed(sequence, situation_of(play), play.period, play.clock)
+        return Landed(sequence, ("", 0, 0, 0))
 
     def _start_chase(self, now: float) -> None:
         """Re-read the play feeds of games awaiting text, until the next poll."""

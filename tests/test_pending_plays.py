@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from yahoo_fantasy_football.pending_plays import (
     CHASE_FOR_SECONDS,
+    Landed,
     PendingPlays,
     describe_change,
     snap_of,
@@ -14,7 +15,7 @@ from yahoo_fantasy_football.pending_plays import (
 DET, BUF = "8", "2"
 
 
-def _game(team=DET, down=1, distance=10, to_goal=75, away=0, home=0, state="in"):
+def _game(team=DET, down=1, distance=10, to_goal=75, away=0, home=0, state="in", clock=""):
     """A games-feed row, Detroit at Buffalo, as ``GameState`` exposes it."""
     return SimpleNamespace(
         state=state,
@@ -27,6 +28,7 @@ def _game(team=DET, down=1, distance=10, to_goal=75, away=0, home=0, state="in")
         away_score=str(away),
         home_score=str(home),
         period="2",
+        clock=clock,
     )
 
 
@@ -114,12 +116,12 @@ def test_the_first_look_is_a_baseline_with_nothing_to_say() -> None:
 
 def test_a_snap_shows_its_result_until_its_text_lands() -> None:
     start = _game(down=2, distance=6, to_goal=66)
-    pending = _tracker(start, newest=(40, ("", 0, 0, 0)))
-    pending.observe("2", _game(to_goal=49), (40, ("", 0, 0, 0)), 30.0)
+    pending = _tracker(start, newest=Landed(40, ("", 0, 0, 0)))
+    pending.observe("2", _game(to_goal=49), Landed(40, ("", 0, 0, 0)), 30.0)
     assert pending.text("2") == "Gain of 17, 1st down"
     assert pending.awaiting(33.0) == ["2"]
 
-    pending.observe("2", _game(to_goal=49), (41, _ran_from(start)), 45.0)
+    pending.observe("2", _game(to_goal=49), Landed(41, _ran_from(start)), 45.0)
     assert pending.text("2") == ""
     assert pending.awaiting(48.0) == []
 
@@ -166,8 +168,8 @@ def test_a_play_that_is_undone_takes_its_provisional_line_with_it() -> None:
     pending.observe("2", start, None, 80.0)
     assert pending.text("2") == ""
     # The penalty's row is the awaited play, run from where it all started.
-    pending.observe("2", start, (41, _ran_from(start)), 86.0)
-    pending.observe("2", _game(team=BUF, to_goal=23), (41, _ran_from(start)), 92.0)
+    pending.observe("2", start, Landed(41, _ran_from(start)), 86.0)
+    pending.observe("2", _game(team=BUF, to_goal=23), Landed(41, _ran_from(start)), 92.0)
     assert pending.text("2") == ""
 
 
@@ -181,34 +183,34 @@ def test_a_touchdown_whose_score_trails_its_spot_is_still_called() -> None:
 
 def test_no_provisional_when_the_text_beat_the_games_feed() -> None:
     start = _game(down=2, distance=6, to_goal=66)
-    pending = _tracker(start, newest=(40, ("", 0, 0, 0)))
-    pending.observe("2", _game(to_goal=49), (41, _ran_from(start)), 30.0)
+    pending = _tracker(start, newest=Landed(40, ("", 0, 0, 0)))
+    pending.observe("2", _game(to_goal=49), Landed(41, _ran_from(start)), 30.0)
     assert pending.texts() == {}
 
 
 def test_the_previous_plays_text_landing_with_a_new_snap_leaves_the_new_one_pending() -> None:
     first = _game(down=2, distance=6, to_goal=66)
     second = _game(to_goal=49)
-    pending = _tracker(first, newest=(40, ("", 0, 0, 0)))
-    pending.observe("2", second, (40, ("", 0, 0, 0)), 30.0)
+    pending = _tracker(first, newest=Landed(40, ("", 0, 0, 0)))
+    pending.observe("2", second, Landed(40, ("", 0, 0, 0)), 30.0)
     # One poll brings the first play's text AND the second snap.
-    pending.observe("2", _game(down=2, distance=10, to_goal=49), (41, _ran_from(first)), 70.0)
+    pending.observe("2", _game(down=2, distance=10, to_goal=49), Landed(41, _ran_from(first)), 70.0)
     assert pending.text("2") == "No gain"
 
 
 def test_two_snaps_awaiting_text_wait_for_the_second() -> None:
     first = _game(down=2, distance=3, to_goal=3)
     touchdown = _game(down=2, distance=3, to_goal=0, away=6)
-    pending = _tracker(first, newest=(40, ("", 0, 0, 0)))
+    pending = _tracker(first, newest=Landed(40, ("", 0, 0, 0)))
     pending.observe("2", touchdown, None, 30.0)
     pending.observe("2", _game(down=2, distance=3, to_goal=0, away=7), None, 60.0)
     assert pending.text("2") == "Det extra point"
 
     # The touchdown's text lands: the try is still on its way.
-    pending.observe("2", _game(down=2, distance=3, to_goal=0, away=7), (41, _ran_from(first)), 65.0)
+    pending.observe("2", _game(down=2, distance=3, to_goal=0, away=7), Landed(41, _ran_from(first)), 65.0)
     assert pending.text("2") == "Det extra point"
     # The try's row lands.
-    pending.observe("2", _game(down=2, distance=3, to_goal=0, away=7), (42, ("8", 0, 0, 0)), 70.0)
+    pending.observe("2", _game(down=2, distance=3, to_goal=0, away=7), Landed(42, ("8", 0, 0, 0)), 70.0)
     assert pending.text("2") == ""
 
 
@@ -216,11 +218,11 @@ def test_a_re_read_of_the_play_feed_alone_clears_on_landing() -> None:
     """The chase between polls hands the SAME games-feed row back."""
     start = _game(down=3, distance=6, to_goal=66)
     after = _game(down=4, distance=6, to_goal=66)
-    pending = _tracker(start, newest=(40, ("", 0, 0, 0)))
-    pending.observe("2", after, (40, ("", 0, 0, 0)), 30.0)
-    pending.observe("2", after, (40, ("", 0, 0, 0)), 33.0)
+    pending = _tracker(start, newest=Landed(40, ("", 0, 0, 0)))
+    pending.observe("2", after, Landed(40, ("", 0, 0, 0)), 30.0)
+    pending.observe("2", after, Landed(40, ("", 0, 0, 0)), 33.0)
     assert pending.text("2") == "No gain"
-    pending.observe("2", after, (41, _ran_from(start)), 36.0)
+    pending.observe("2", after, Landed(41, _ran_from(start)), 36.0)
     assert pending.text("2") == ""
 
 
@@ -273,3 +275,27 @@ def test_the_games_card_row_carries_the_provisional_line() -> None:
     assert (row["last_play"], row["last_play_provisional"]) == ("Gain of 7", True)
     (row,) = nfl_game_rows(data, {"2": "J. Goff passed to J. Gibbs"})
     assert (row["last_play"], row["last_play_provisional"]) == ("J. Goff passed to J. Gibbs", False)
+
+
+def test_a_play_snapped_after_its_origin_appeared_is_its_text_whatever_the_row_says() -> None:
+    """Live 2026-10-01: after a turnover the next play's row named the OTHER
+    club's last spot as where it ran from, and landed in the same poll as the
+    games feed showing its result. The clock is what ties it to its snap."""
+    cle = _game(team=BUF, to_goal=23, clock="14:11")
+    pending = _tracker(cle, newest=Landed(131, ("", 0, 0, 0), "2", "14:19"))
+    pending.observe("2", _game(team=DET, to_goal=77, clock="14:11"), Landed(131, ("", 0, 0, 0), "2", "14:19"), 25.0)
+    assert pending.text("2") == "Turnover, Det ball"
+
+    after = _game(team=DET, down=2, distance=3, to_goal=70, clock="13:54")
+    pending.observe("2", after, Landed(132, _ran_from(cle), "2", "14:11"), 62.0)
+    assert pending.text("2") == ""
+
+
+def test_the_previous_plays_text_is_not_mistaken_for_the_next_by_its_clock() -> None:
+    first = _game(down=2, distance=6, to_goal=66, clock="9:40")
+    pending = _tracker(first, newest=Landed(40, ("", 0, 0, 0), "2", "9:50"))
+    second = _game(to_goal=49, clock="9:31")
+    pending.observe("2", second, Landed(40, ("", 0, 0, 0), "2", "9:50"), 30.0)
+    # The first play's text (snapped at 9:40) lands with the second's result.
+    pending.observe("2", _game(down=2, distance=10, to_goal=49, clock="9:02"), Landed(41, ("x", 0, 0, 0), "2", "9:40"), 70.0)
+    assert pending.text("2") == "No gain"

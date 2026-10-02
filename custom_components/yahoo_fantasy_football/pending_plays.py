@@ -22,7 +22,7 @@ game per poll and reads the answer back.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from .league_state import down_and_distance
 from .yahoo_redzone import team_abbr
@@ -90,6 +90,26 @@ def snap_of(game: Any) -> Snap:
         away_score=_score(getattr(game, "away_score", None)),
         home_score=_score(getattr(game, "home_score", None)),
     )
+
+
+class Landed(NamedTuple):
+    """The play whose text the card is showing: which, and what it ran from."""
+
+    sequence: int
+    situation: tuple[str, int, int, int]
+    """As :func:`situation_of` reads it."""
+    period: str = ""
+    clock: str = ""
+    """Game clock at the snap, ``"14:11"``."""
+
+
+def game_time(period: Any, clock: Any) -> tuple[int, int] | None:
+    """``(period, seconds elapsed in it)`` — orderable, unlike a clock that runs down."""
+    try:
+        minutes, seconds = str(clock).split(":")
+        return int(period), 15 * 60 - (int(minutes) * 60 + int(seconds))
+    except (TypeError, ValueError):
+        return None
 
 
 def situation_of(play: Any) -> tuple[str, int, int, int]:
@@ -178,6 +198,21 @@ def _yards(gained: int) -> str:
     return "No gain"
 
 
+def _ran_from(play: Landed, origin: Snap, origin_at: tuple[int, int] | None) -> bool:
+    """Whether ``play`` is the one snapped from ``origin``.
+
+    By the situation the row records, or failing that by the clock: a play
+    snapped no earlier than the moment the games feed first showed ``origin``
+    was run from it. The clock is needed because the row's situation is not
+    always the games feed's — the first play after a turnover was recorded
+    live (2026-10-01) as run from the OTHER club's last spot.
+    """
+    if play.situation == origin.situation:
+        return True
+    snapped = game_time(play.period, play.clock)
+    return snapped is not None and origin_at is not None and snapped >= origin_at
+
+
 @dataclass
 class _Game:
     snap: Snap
@@ -185,8 +220,11 @@ class _Game:
     changed_at: float
     landed: int | None = None
     """Sequence of the newest play whose text is on the card."""
+    seen_at: tuple[int, int] | None = None
+    """Game time when ``snap`` first appeared — see :func:`game_time`."""
     origin: Snap | None = None
     """Where the newest snap was run from — ``None`` once its text is in."""
+    origin_at: tuple[int, int] | None = None
     earlier: Snap | None = None
     """Where the snap before that was run from, while its text is out too."""
     text: str = ""
@@ -203,13 +241,13 @@ class PendingPlays:
         self,
         plays_id: str,
         game: Any,
-        newest: tuple[int, tuple[str, int, int, int]] | None,
+        newest: Landed | None,
         now: float,
     ) -> None:
         """Take one poll's view of one game.
 
-        ``newest`` is the play whose text the card is now showing, as
-        ``(sequence, situation it ran from)``, or ``None`` if there is none.
+        ``newest`` is the play whose text the card is now showing, or
+        ``None`` if there is none.
         Called again between polls with the same ``game`` when only the play
         feed has been re-read, which is just the text-landing half of this.
         """
@@ -218,14 +256,16 @@ class PendingPlays:
             return
         away, home = str(game.away), str(game.home)
         snap = snap_of(game)
+        seen_at = game_time(getattr(game, "period", ""), getattr(game, "clock", ""))
         state = self._games.get(plays_id)
         if state is None:
             # A first look has nothing to compare against; it is the baseline.
-            self._games[plays_id] = _Game(snap, float("-inf"), landed=newest[0] if newest else None)
+            landed = newest.sequence if newest else None
+            self._games[plays_id] = _Game(snap, float("-inf"), landed=landed, seen_at=seen_at)
             return
 
-        if newest is not None and (state.landed is None or newest[0] > state.landed):
-            if state.earlier is not None and newest[1] == state.earlier.situation:
+        if newest is not None and (state.landed is None or newest.sequence > state.landed):
+            if state.earlier is not None and newest.situation == state.earlier.situation:
                 # The play BEFORE the awaited one landed; this one still waits.
                 state.earlier = None
             else:
@@ -235,7 +275,7 @@ class PendingPlays:
                 state.origin = state.earlier = None
                 state.text = ""
         if newest is not None:
-            state.landed = newest[0]
+            state.landed = newest.sequence
 
         if snap == state.snap:
             return
@@ -243,19 +283,19 @@ class PendingPlays:
             # Back where the awaited play started: it was undone — a flag, a
             # review. Its text, when it comes, says what really happened.
             state.text = ""
-            state.snap, state.changed_at = snap, now
+            state.snap, state.changed_at, state.seen_at = snap, now, seen_at
             return
         if now - state.changed_at >= REFINE_SECONDS:
             # A new snap. A refinement — the rest of the last change — keeps
             # the origin that change set, or its absence: a play whose text is
             # already in, or that had nothing to say, gains nothing from it.
             state.earlier = state.origin
-            state.origin = state.snap
+            state.origin, state.origin_at = state.snap, state.seen_at
             state.since = now
-            if newest is not None and newest[1] == state.origin.situation:
+            if newest is not None and _ran_from(newest, state.origin, state.origin_at):
                 state.origin = None  # its text beat the games feed here
         state.text = describe_change(state.origin, snap, away, home) if state.origin else ""
-        state.snap, state.changed_at = snap, now
+        state.snap, state.changed_at, state.seen_at = snap, now, seen_at
 
     def forget_others(self, live: set[str]) -> None:
         """Drop every game not in ``live`` — finished, or gone from the feed."""
