@@ -371,8 +371,9 @@ def down_and_distance(down: Any, distance: Any, to_goal: Any = None) -> str:
     """``2nd & 7``, or ``2nd & goal`` — empty when there is no down.
 
     "Goal" whenever the distance reaches the goal line, not only when the feed
-    says so. The games feed updates its fields piecemeal — the spot moves,
-    then the down and distance follow a few seconds later — and in between it
+    says so. The games feed updates its fields piecemeal — here the spot
+    moved, then the down and distance followed a few seconds later (the other
+    order is common too; see ``pending_plays``) — and in between it
     can say things like "4th & 6" with the ball on the 1 (seen live
     2026-09-17; it was 1st & goal). Nothing can be further to go than the
     end zone, so the distance is capped at what the spot allows.
@@ -411,7 +412,9 @@ def _int_or_none(value: Any) -> int | None:
 
 
 def nfl_game_rows(
-    data: LeagueData | None, last_plays: dict[str, str] | None = None
+    data: LeagueData | None,
+    last_plays: dict[str, str] | None = None,
+    pending: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """The week's NFL games, as the games card renders them.
 
@@ -424,15 +427,22 @@ def nfl_game_rows(
     ~20 KB and a full Sunday on the 10 s poll would be a quarter of a megabyte
     every ten seconds. The full per-game play LIST is still not here: those load
     on demand when a game is expanded, the same trade the rosters already make.
+
+    ``pending`` maps a plays-feed id to a provisional result for a snap the
+    games feed has shown and the play feed has not described yet (see
+    :mod:`pending_plays`). It stands in for the last play until the text lands,
+    flagged so the card can say it is provisional.
     """
     if data is None:
         return []
     rows: list[dict[str, Any]] = []
     for game in data.nfl_games:
+        plays_id = str(getattr(game, "plays_id", "") or "")
+        provisional = (pending or {}).get(plays_id) or ""
         rows.append(
             {
                 "game_id": str(game.game_id),
-                "plays_id": str(getattr(game, "plays_id", "") or ""),
+                "plays_id": plays_id,
                 "state": getattr(game, "state", "unknown"),
                 "clock_text": _clock_text(game),
                 "situation": _situation(game),
@@ -440,7 +450,8 @@ def nfl_game_rows(
                 # Numeric twin of ball_on, for the field bar. None whenever
                 # ball_on is empty, by construction.
                 "yards_to_goal": _yards_to_goal(game),
-                "last_play": (last_plays or {}).get(str(getattr(game, "plays_id", "") or "")) or "",
+                "last_play": provisional or (last_plays or {}).get(plays_id) or "",
+                "last_play_provisional": bool(provisional),
                 "start_time": _int_or_none(getattr(game, "start_time", None)),
                 "away": _nfl_side(game, game.away, getattr(game, "away_score", None)),
                 "home": _nfl_side(game, game.home, getattr(game, "home_score", None)),
@@ -461,9 +472,12 @@ def nfl_games_state(data: LeagueData | None) -> str:
 
 
 def nfl_games_attributes(
-    data: LeagueData | None, league_id: str, last_plays: dict[str, str] | None = None
+    data: LeagueData | None,
+    league_id: str,
+    last_plays: dict[str, str] | None = None,
+    pending: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    rows = nfl_game_rows(data, last_plays)
+    rows = nfl_game_rows(data, last_plays, pending)
     return {
         "league_id": league_id,
         "games": rows,

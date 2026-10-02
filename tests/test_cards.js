@@ -974,6 +974,13 @@ test("a game with no last play yet renders no empty line for it", () => {
   assert.ok(!html.includes("ffl-nfl-last"));
 });
 
+test("a provisional last play is set apart, and a real one is not", () => {
+  const html = renderNflGame({ ...GAME_LIVE, last_play: "Gain of 7, 1st down", last_play_provisional: true });
+  assert.ok(html.includes("ffl-nfl-last ffl-nfl-provisional"));
+  assert.ok(html.includes("Gain of 7, 1st down"));
+  assert.ok(!renderNflGame(GAME_LIVE).includes("ffl-nfl-provisional"));
+});
+
 test("the ball spot alone still reads when there is no down and distance", () => {
   const html = renderNflGame({ ...GAME_LIVE, situation: "", ball_on: "50" });
   assert.ok(html.includes(">50<"));
@@ -1125,6 +1132,16 @@ test("a play is prefixed with the down and distance it was run from, names short
   // A timeout has no down: no prefix, and no stray span either.
   assert.equal((html.match(/ffl-nfl-play-down/g) || []).length, 1);
   assert.ok(html.includes(">Buffalo timeout<"));
+});
+
+test("a provisional play heads the list styled apart, with its down and distance", () => {
+  const html = renderNflPlays([
+    { play_id: "", text: "Loss of 3", situation: "2nd & 6", period: "2", clock: "", provisional: true },
+    { play_id: "2.1", text: "Real sentence", period: "2", clock: "9:00" },
+  ]);
+  assert.strictEqual((html.match(/ffl-nfl-provisional/g) || []).length, 1);
+  assert.ok(html.indexOf("Loss of 3") < html.indexOf("Real sentence"));
+  assert.ok(html.includes("2nd &amp; 6"));
 });
 
 test("an integration without short_text still renders the play list", () => {

@@ -610,6 +610,10 @@ class RelayPlay:
     not carry a down-and-distance prefix, so nothing here has to know play
     types.
     """
+    play_type: str = ""
+    """Yahoo's code: ``1`` rush, ``2`` pass, ``8`` kickoff, ``24`` a timeout
+    or the two-minute warning, ``25`` the end of a period — see
+    ``pending_plays.NO_BALL_TYPES``."""
 
 
 def parse_relay_players(text: str) -> dict[str, str]:
@@ -666,6 +670,7 @@ def parse_relay_plays(text: str) -> list[RelayPlay]:
                 down=_cell(cells, PLAY_ROW["down"]),
                 distance=_cell(cells, PLAY_ROW["distance"]),
                 yards_to_goal=_cell(cells, PLAY_ROW["yardsToGoal"]),
+                play_type=_cell(cells, PLAY_ROW["playType"]),
             )
         )
     plays.sort(key=lambda p: p.sequence)

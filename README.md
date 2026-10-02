@@ -55,6 +55,11 @@ One refresh is **three requests for the whole league**, whatever its size.
 - **Real play-by-play captions the events.** `relay-stream.sports.yahoo.com/nfl/plays-<id>.txt`
   carries full play text with Yahoo player ids inline; it is what the history and the NFL card's
   play list show, matched to each scoring event by player id. A capture is in `tests/fixtures/`.
+- **A play's result shows before its text does.** The games feed moves the down, distance and spot
+  several seconds before the play's sentence reaches the play feed. In between, the NFL card reads
+  the result off the two snapshots — `Gain of 7, 1st down`, `No gain`, `Turnover, Buf ball`,
+  `Det touchdown` — in italics, and re-checks that game's play feed every few seconds until Yahoo's
+  sentence lands and replaces it. It cannot name the player or tell a penalty from a gain.
 - **A name is only shortened while it still names somebody.** The NFL card's play list runs on
   `B. Robinson` rather than `Bijan Robinson` to fit a phone. Atlanta played *Bijan* and *Brian*
   Robinson in the same game, so both Robinsons keep their full names there — the check is per game,
