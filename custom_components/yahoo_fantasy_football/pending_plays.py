@@ -36,6 +36,11 @@ from .yahoo_redzone import team_abbr
 # and the cost when they are is one provisional line netting the two together.
 REFINE_SECONDS = 18.0
 
+# Play-feed rows that never move the ball: ``24`` a timeout or the two-minute
+# warning, ``25`` the end of a period (read off the captured feeds). They land
+# between snaps, so they are never a games-feed change's text.
+NO_BALL_TYPES = frozenset({"24", "25"})
+
 # How long the play feed is re-checked for a pending play's text. Past the
 # measured lag with a margin, the same allowance the scoring-play matcher gives
 # (``plays.PLAY_TEXT_LAG_SECONDS``). The provisional line itself does not
@@ -101,6 +106,7 @@ class Landed(NamedTuple):
     period: str = ""
     clock: str = ""
     """Game clock at the snap, ``"14:11"``."""
+    play_type: str = ""
 
 
 def game_time(period: Any, clock: Any) -> tuple[int, int] | None:
@@ -163,6 +169,10 @@ def describe_change(before: Snap, after: Snap, away: str, home: str) -> str:
 
     if after.team != before.team:
         abbr = team_abbr(after.team)
+        if before.down == 1 and before.distance == 10:
+            # A kickoff looks just like this from in here — the kicking club
+            # "has" the ball 65 yards out — so nothing more is claimed.
+            return f"Change of possession, {abbr} ball"
         if before.down == 4:
             # How far the ball went for the club that gave it up: a punt
             # flips the field, a stop on downs or a missed kick barely moves it.
@@ -227,6 +237,8 @@ class _Game:
     origin_at: tuple[int, int] | None = None
     earlier: Snap | None = None
     """Where the snap before that was run from, while its text is out too."""
+    unclaimed: bool = False
+    """A play landed while none was awaited: the next change is its result."""
     text: str = ""
     since: float = 0.0
 
@@ -264,7 +276,11 @@ class PendingPlays:
             self._games[plays_id] = _Game(snap, float("-inf"), landed=landed, seen_at=seen_at)
             return
 
-        if newest is not None and (state.landed is None or newest.sequence > state.landed):
+        fresh = newest is not None and (state.landed is None or newest.sequence > state.landed)
+        moved = fresh and newest.play_type not in NO_BALL_TYPES
+        if fresh and state.origin is None:
+            state.unclaimed = state.unclaimed or moved
+        elif fresh:
             if state.earlier is not None and newest.situation == state.earlier.situation:
                 # The play BEFORE the awaited one landed; this one still waits.
                 state.earlier = None
@@ -292,8 +308,21 @@ class PendingPlays:
             state.earlier = state.origin
             state.origin, state.origin_at = state.snap, state.seen_at
             state.since = now
-            if newest is not None and _ran_from(newest, state.origin, state.origin_at):
-                state.origin = None  # its text beat the games feed here
+            # Its text is already in when a play lands in the same poll —
+            # every time this was watched live (2026-10-01), including a
+            # kickoff whose return showed up as a second change 25 s after the
+            # catch — or landed earlier with nothing awaiting it (a kickoff's
+            # text, 3 s ahead of the games feed), or when the play on the card
+            # ran from here.
+            if (
+                moved
+                or state.unclaimed
+                or (newest is not None and _ran_from(newest, state.origin, state.origin_at))
+            ):
+                state.origin = None
+        # Spent by any change, a refinement included: a play that landed
+        # between a change and the rest of it belonged to that change.
+        state.unclaimed = False
         state.text = describe_change(state.origin, snap, away, home) if state.origin else ""
         state.snap, state.changed_at, state.seen_at = snap, now, seen_at
 

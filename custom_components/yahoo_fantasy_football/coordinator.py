@@ -249,7 +249,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             return None
         for play in reversed(cached.plays):
             if play.sequence == sequence:
-                return Landed(sequence, situation_of(play), play.period, play.clock)
+                return Landed(sequence, situation_of(play), play.period, play.clock, play.play_type)
         return Landed(sequence, ("", 0, 0, 0))
 
     def _start_chase(self, now: float) -> None:
