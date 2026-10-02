@@ -278,6 +278,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             if data is None or not waiting:
                 return
             if await self._refresh_nfl_last_plays(data, now, only=waiting):
+                _LOGGER.debug("Play text for %s landed between polls", ", ".join(waiting))
                 self.async_update_listeners()
 
     @property
