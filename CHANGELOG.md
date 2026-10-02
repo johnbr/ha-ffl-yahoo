@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.18.1...v0.19.0) (2026-10-02)
+
+
+### Features
+
+* show a play's result before Yahoo's text lands, and fetch that text sooner ([#37](https://github.com/johnbr/ha-ffl-yahoo/issues/37)) ([d10bf8e](https://github.com/johnbr/ha-ffl-yahoo/commit/d10bf8e0ba3275af6e3d239b352f473370c0dbe5))
+
 ## [0.18.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.18.0...v0.18.1) (2026-09-25)
 
 
