@@ -133,6 +133,7 @@ class YahooNflGamesSensor(_LeagueEntity):
             self.coordinator.league_data,
             self._league_id,
             self.coordinator.nfl_last_plays,
+            self.coordinator.nfl_pending_plays,
         )
 
 

@@ -156,9 +156,13 @@ def async_register_commands(hass: HomeAssistant) -> None:
             connection.send_error(msg["id"], "not_found", "No such league configured")
             return
 
-        plays = await coordinator.async_game_plays(
-            str(msg["plays_id"]), int(msg.get("limit", 12))
-        )
+        limit = int(msg.get("limit", 12))
+        plays = await coordinator.async_game_plays(str(msg["plays_id"]), limit)
+        # A snap whose text is still on its way heads the list, the same
+        # provisional line the game's last-play line is showing.
+        pending = coordinator.nfl_pending_row(str(msg["plays_id"]))
+        if pending is not None:
+            plays = [pending, *plays][:limit]
         connection.send_result(msg["id"], {"plays_id": str(msg["plays_id"]), "plays": plays})
 
     websocket_api.async_register_command(hass, handle_matchup_detail)

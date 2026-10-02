@@ -151,8 +151,9 @@ PLAYS_RECHECK_SECONDS = 90.0
 # The floor between two asks for the same play feed. The coordinator asks once
 # per poll and the games card asks again for each expanded game a moment later;
 # the second ask is answered from the first's result rather than with a second
-# round trip.
-PLAYS_MIN_INTERVAL_SECONDS = 5.0
+# round trip. Kept under ``coordinator.CHASE_SECONDS``, which re-reads a feed
+# whose text is due every few seconds and must not be answered from cache.
+PLAYS_MIN_INTERVAL_SECONDS = 2.0
 
 
 @dataclass

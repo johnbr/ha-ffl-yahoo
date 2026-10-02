@@ -31,6 +31,7 @@ from .const import (
     EVENT_SCORING_PLAY,
 )
 from .league_state import down_and_distance, play_dict, poll_interval
+from .pending_plays import PendingPlays, situation_of
 from .plays import (
     PLAY_TEXT_LAG_SECONDS,
     PlayFeed,
@@ -67,6 +68,14 @@ MAX_PLAY_FEEDS = 8
 # Ceiling on last-play feeds per refresh. Sixteen is the whole week's slate, so
 # this cannot silently drop a game — it is a runaway guard, not a sample.
 MAX_NFL_LAST_PLAY_FEEDS = 16
+
+# How often a game's play feed is re-read between polls while a snap's text is
+# awaited (see :mod:`pending_plays`). The games feed has already shown the
+# snap, so the text is known to be on its way; waiting for the next 10 s poll
+# added up to ten seconds to a line that is usually 15-20 s late already. Each
+# re-read is a conditional request, answered ``304`` until the text lands, and
+# it stops once the text does or ``CHASE_FOR_SECONDS`` passes.
+CHASE_SECONDS = 3.0
 
 
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
@@ -117,6 +126,12 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         # scoring event raised this poll can only have come from a play above
         # it — see ``ScoringEvent.play_floor``.
         self._plays_floor: dict[str, int] = {}
+        # Each live game's result-so-far for a snap whose text has not landed.
+        self._pending = PendingPlays()
+        # The poll and the chase between polls both write the last-play lines;
+        # one at a time, so an older read can never land on top of a newer.
+        self._nfl_lock = asyncio.Lock()
+        self._chase: asyncio.Task | None = None
 
         super().__init__(
             hass,
@@ -159,10 +174,13 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         await self._process_plays(data, now)
         await self._refresh_nfl_last_plays(data, now)
+        self._start_chase(now)
         self.update_interval = _interval(data, self.update_interval)
         return data
 
-    async def _refresh_nfl_last_plays(self, data: LeagueData, now: float) -> None:
+    async def _refresh_nfl_last_plays(
+        self, data: LeagueData, now: float, only: Iterable[str] | None = None
+    ) -> bool:
         """Newest play text for each LIVE NFL game, for the games card.
 
         Live games only. A finished game's last play is a snapshot nobody is
@@ -179,41 +197,109 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         Every failure is swallowed: a missing line is cosmetic where a failed
         refresh would blank the scores.
 
+        ``only`` narrows it to those games, between polls — see
+        :meth:`_async_chase`. Returns whether any line changed.
+
         The line carries the SHORT names ("J. Goff passed to J. Gibbs"), the
         same form as the expanded play list under it and the matchup rows'
         play line: it sits under two clubs and a clock on a phone-width card,
         and full names were the one thing on it that wrapped.
         """
-        live = [
-            str(game.plays_id)
+        games = {
+            str(game.plays_id): game
             for game in getattr(data, "nfl_games", [])
             if getattr(game, "state", "") == "in" and getattr(game, "plays_id", "")
-        ][:MAX_NFL_LAST_PLAY_FEEDS]
-        if not live:
-            self._nfl_last_plays = {}
-            return
+        }
+        if only is None:
+            live = list(games)[:MAX_NFL_LAST_PLAY_FEEDS]
+        else:
+            live = [plays_id for plays_id in only if plays_id in games]
 
-        results = await asyncio.gather(
-            *(self.async_game_plays(plays_id, 1, now=now) for plays_id in live),
-            return_exceptions=True,
+        async with self._nfl_lock:
+            before = (self._nfl_last_plays, self._pending.texts())
+            if only is None:
+                self._pending.forget_others(set(live))
+            results = await asyncio.gather(
+                *(self.async_game_plays(plays_id, 1, now=now) for plays_id in live),
+                return_exceptions=True,
+            )
+            last_plays = {} if only is None else dict(self._nfl_last_plays)
+            for plays_id, result in zip(live, results, strict=True):
+                newest = None
+                if isinstance(result, BaseException) or not result:
+                    # Keep the line we had rather than blanking it for one bad poll.
+                    if plays_id in self._nfl_last_plays:
+                        last_plays[plays_id] = self._nfl_last_plays[plays_id]
+                else:
+                    last_plays[plays_id] = result[0].get("short_text") or result[0].get("text", "")
+                    newest = self._landed(plays_id, result[0].get("play_id", ""))
+                    # The floor is "as of the end of the last POLL"; the chase
+                    # between polls must not move it under the scoring matcher.
+                    if only is None and newest is not None:
+                        self._plays_floor[plays_id] = newest[0]
+                self._pending.observe(plays_id, games[plays_id], newest, now)
+            self._nfl_last_plays = last_plays
+            return (self._nfl_last_plays, self._pending.texts()) != before
+
+    def _landed(self, plays_id: str, play_id: str) -> tuple[int, tuple[str, int, int, int]] | None:
+        """``(sequence, situation it ran from)`` for a play on a game's card."""
+        sequence = _sequence(play_id)
+        cached = self._nfl_plays.get(plays_id)
+        if sequence is None or cached is None:
+            return None
+        for play in reversed(cached.plays):
+            if play.sequence == sequence:
+                return sequence, situation_of(play)
+        return sequence, ("", 0, 0, 0)
+
+    def _start_chase(self, now: float) -> None:
+        """Re-read the play feeds of games awaiting text, until the next poll."""
+        if self._chase is not None and not self._chase.done():
+            return
+        if not self._pending.awaiting(now):
+            return
+        self._chase = self.entry.async_create_background_task(
+            self.hass, self._async_chase(), f"{DOMAIN} {self.league_id} play text"
         )
-        last_plays: dict[str, str] = {}
-        for plays_id, result in zip(live, results, strict=True):
-            if isinstance(result, BaseException) or not result:
-                # Keep the line we had rather than blanking it for one bad poll.
-                if plays_id in self._nfl_last_plays:
-                    last_plays[plays_id] = self._nfl_last_plays[plays_id]
-                continue
-            last_plays[plays_id] = result[0].get("short_text") or result[0].get("text", "")
-            sequence = _sequence(result[0].get("play_id", ""))
-            if sequence is not None:
-                self._plays_floor[plays_id] = sequence
-        self._nfl_last_plays = last_plays
+
+    async def _async_chase(self) -> None:
+        """Fetch only the play feeds whose text is due, every few seconds.
+
+        Runs alongside the poll rather than speeding it up: the games and
+        stats feeds have nothing new to say between snaps, and the play feeds
+        are the one thing known to be about to change. Ends when no game is
+        waiting; the next poll that finds one starts it again.
+        """
+        while True:
+            await asyncio.sleep(CHASE_SECONDS)
+            now = dt_util.utcnow().timestamp()
+            data = self.league_data
+            waiting = self._pending.awaiting(now)
+            if data is None or not waiting:
+                return
+            if await self._refresh_nfl_last_plays(data, now, only=waiting):
+                self.async_update_listeners()
 
     @property
     def nfl_last_plays(self) -> dict[str, str]:
         """``{plays-feed id: newest play}`` for games in progress."""
         return self._nfl_last_plays
+
+    @property
+    def nfl_pending_plays(self) -> dict[str, str]:
+        """``{plays-feed id: provisional result}`` for snaps whose text is out."""
+        return self._pending.texts()
+
+    def nfl_pending_row(self, plays_id: str) -> dict[str, Any] | None:
+        """The awaited snap as a row of the expanded play list, if there is one."""
+        data = self.league_data
+        game = next(
+            (g for g in getattr(data, "nfl_games", []) if str(getattr(g, "plays_id", "")) == plays_id),
+            None,
+        )
+        if game is None:
+            return None
+        return self._pending.row(plays_id, game)
 
     async def _process_plays(self, data: LeagueData, now: float) -> None:
         """Diff against the previous poll and publish anything new."""

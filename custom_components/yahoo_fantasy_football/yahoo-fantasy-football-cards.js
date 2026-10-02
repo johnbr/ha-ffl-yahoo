@@ -465,9 +465,13 @@ function renderNflGame(game, options = {}) {
   const field = renderNflField(game);
   // The last play spans the whole width under both clubs: it is about the game
   // rather than either side of it, and it is the one line here long enough to
-  // need the room.
+  // need the room. A provisional line — the result read off the down,
+  // distance and spot while Yahoo's sentence is still on its way — is set
+  // apart, because it is a sketch of the play and the sentence will replace it.
   const lastPlay = game.last_play
-    ? `<div class="ffl-nfl-last">${escapeHtml(game.last_play)}</div>`
+    ? `<div class="ffl-nfl-last${game.last_play_provisional ? " ffl-nfl-provisional" : ""}">${escapeHtml(
+        game.last_play
+      )}</div>`
     : "";
   const panel = open
     ? `<div class="ffl-nfl-plays">${options.playsHtml || `<div class="ffl-loading">Loading plays…</div>`}</div>`
@@ -534,7 +538,8 @@ function renderFoldToggle(kind, count, open) {
  * anything that was not a snap (a kickoff, a PAT, a timeout), so those read
  * bare. Names come shortened (`short_text`) because a dozen full sentences
  * do not fit a phone; the full `text` is the fallback for an older
- * integration that does not send the short form.
+ * integration that does not send the short form. A `provisional` row is the
+ * snap whose sentence has not arrived yet, styled like the last-play line.
  */
 function renderNflPlays(plays) {
   if (!Array.isArray(plays) || !plays.length) {
@@ -545,7 +550,7 @@ function renderNflPlays(plays) {
       ${plays
         .map(
           (p) => `
-        <li>
+        <li${p.provisional ? ` class="ffl-nfl-provisional"` : ""}>
           <span class="ffl-nfl-play-when">${escapeHtml(
             [p.period ? `Q${p.period}` : "", p.clock || ""].filter(Boolean).join(" ")
           )}</span>
@@ -1138,6 +1143,7 @@ class FflNflGamesCard extends FflBaseCard {
       const a = g.away || {};
       const h = g.home || {};
       parts.push(g.game_id, g.state, g.clock_text, g.situation, g.yards_to_goal, g.last_play);
+      parts.push(g.last_play_provisional ? 1 : 0);
       parts.push(a.score, h.score, a.has_ball ? 1 : 0, h.has_ball ? 1 : 0);
       parts.push(a.red_zone ? 1 : 0, h.red_zone ? 1 : 0);
     }
@@ -1460,6 +1466,11 @@ const CARD_CSS = `
   }
   .ffl-nfl-play-text { min-width: 0; font-weight: 500; color: var(--primary-text-color); }
   .ffl-nfl-play-down { color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
+  /* Read off the games feed ahead of Yahoo's text: same place, same size, but
+     visibly a sketch until the real sentence replaces it. */
+  .ffl-nfl-provisional, .ffl-nfl-provisional .ffl-nfl-play-text {
+    font-style: italic; color: var(--secondary-text-color);
+  }
 
   /* Three tracks with the badge in the middle one, so "1 LIVE" sits at the
      card's centre on every card. As a space-between flex row its position
