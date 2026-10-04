@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.3...v0.20.0) (2026-10-04)
+
+
+### Features
+
+* flash touchdowns, field goals and safeties on the NFL card ([#45](https://github.com/johnbr/ha-ffl-yahoo/issues/45)) ([6768f3b](https://github.com/johnbr/ha-ffl-yahoo/commit/6768f3b5e939b047f680254d6d5ea81e73bbe2d8))
+
 ## [0.19.3](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.2...v0.19.3) (2026-10-04)
 
 
