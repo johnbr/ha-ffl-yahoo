@@ -488,7 +488,7 @@ function renderNflGame(game, options = {}) {
           ${renderNflTeam(away, awayLead, over && awayLead)}
           ${renderNflTeam(home, homeLead, over && homeLead)}
         </div>
-        <div class="ffl-nfl-status">
+        <div class="ffl-nfl-status${game.state === "pre" ? " ffl-nfl-status-pre" : ""}">
           <div class="ffl-nfl-clock${game.state === "in" ? " ffl-nfl-clock-live" : ""}">${escapeHtml(clock)}</div>
           ${situation}
         </div>
@@ -1429,6 +1429,11 @@ const CARD_CSS = `
   /* Start-aligned in the shared column, so the quarters and the downs stack
      down the card like a table; tabular figures keep the times in step. */
   .ffl-nfl-status { text-align: start; flex: none; font-variant-numeric: tabular-nums; }
+  /* A kickoff time is one line with nothing below it to stack against, and
+     its length varies by a weekday — "4:25 PM" today, "Mon 8:15 PM" for a
+     later game. End-aligned, the times finish at the same edge, which is
+     where a reader's eye finds the hour. */
+  .ffl-nfl-status-pre { text-align: end; }
   .ffl-nfl-clock { font-size: 0.78rem; font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
   .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 700; }
   .ffl-nfl-situation { font-size: 0.7rem; font-weight: 500; color: var(--primary-text-color); white-space: nowrap; }
