@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.3](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.2...v0.19.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* line up kickoff times on the NFL card by their right edge ([#43](https://github.com/johnbr/ha-ffl-yahoo/issues/43)) ([463adfb](https://github.com/johnbr/ha-ffl-yahoo/commit/463adfb65426b47e5ca30128a81611c11e772994))
+
 ## [0.19.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.1...v0.19.2) (2026-10-04)
 
 
