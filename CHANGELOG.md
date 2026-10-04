@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.1...v0.19.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* clear the ball and situation at half time, align the scoreboard, and spell field goals out ([#41](https://github.com/johnbr/ha-ffl-yahoo/issues/41)) ([98c98fe](https://github.com/johnbr/ha-ffl-yahoo/commit/98c98fe9af6075b8bfb9d2dcf3542dd2d6a7ffd5))
+
 ## [0.19.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.0...v0.19.1) (2026-10-04)
 
 
