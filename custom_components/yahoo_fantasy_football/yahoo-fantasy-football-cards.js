@@ -1375,14 +1375,29 @@ const CARD_CSS = `
   .ffl-row-play.ffl-correction { color: var(--error-color); }
 
   /* ---- NFL games ---- */
-  .ffl-nfl-games { display: flex; flex-direction: column; gap: 2px; }
-  .ffl-nfl-game { border-bottom: 1px solid var(--divider-color); }
+  /* One grid for the whole slate, which every game's head shares through
+     subgrid. The status column is sized by the WIDEST status on the card, so
+     the scores and clocks sit in the same place in every game instead of
+     shifting with each one's down and distance — "4th & Goal, DAL 3" pushed
+     its scores left of the "1st & 10, KC 25" game's below it. A browser
+     without subgrid falls back to a grid per head, as before. */
+  .ffl-nfl-games {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px; row-gap: 2px;
+  }
+  .ffl-nfl-games > * { grid-column: 1 / -1; }
+  .ffl-nfl-game {
+    border-bottom: 1px solid var(--divider-color);
+    display: grid; grid-template-columns: subgrid;
+  }
+  .ffl-nfl-game > * { grid-column: 1 / -1; }
   .ffl-nfl-games .ffl-nfl-game:last-child { border-bottom: none; }
   /* Two columns: the clubs stack on the left, the clock and situation read
      down the right. The progress bar spans both because it is about the game,
      not about either side of it. */
   .ffl-nfl-head {
     display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: subgrid;
     align-items: center; gap: 8px;
     padding: 6px; border-radius: 8px; cursor: pointer;
   }
@@ -1411,7 +1426,9 @@ const CARD_CSS = `
     color: var(--error-color, #db4437); border: 1px solid currentColor;
     border-radius: 4px; padding: 0 3px;
   }
-  .ffl-nfl-status { text-align: end; flex: none; }
+  /* Start-aligned in the shared column, so the quarters and the downs stack
+     down the card like a table; tabular figures keep the times in step. */
+  .ffl-nfl-status { text-align: start; flex: none; font-variant-numeric: tabular-nums; }
   .ffl-nfl-clock { font-size: 0.78rem; font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
   .ffl-nfl-clock-live { color: var(--primary-text-color); font-weight: 700; }
   .ffl-nfl-situation { font-size: 0.7rem; font-weight: 500; color: var(--primary-text-color); white-space: nowrap; }

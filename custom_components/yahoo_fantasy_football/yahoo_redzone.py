@@ -356,6 +356,11 @@ def _defense_stats(raw: dict[str, float]) -> dict[str, float]:
     return stats
 
 
+def is_halftime(period: Any, clock: Any) -> bool:
+    """The feed has no half-time state; it parks the second quarter on 0:00."""
+    return str(period or "") == "2" and str(clock or "").strip() in {"0:00", "00:00"}
+
+
 def clock_text(period: str, clock: str) -> str:
     """Where a running game stands: ``Q3 6:24``, ``Halftime``, ``OT 8:11``.
 
@@ -370,7 +375,7 @@ def clock_text(period: str, clock: str) -> str:
     fourth is overtime, which the feed numbers ``5``.
     """
     period, clock = str(period or ""), str(clock or "").strip()
-    if period == "2" and clock in {"0:00", "00:00"}:
+    if is_halftime(period, clock):
         return "Halftime"
     if not period:
         return clock
@@ -428,9 +433,20 @@ class GameState:
 
         Only while the game is actually running: the feed leaves the last
         drive's possession sitting in the row after the whistle, and a football
-        beside a player whose game ended an hour ago is just wrong.
+        beside a player whose game ended an hour ago is just wrong. Half time
+        is the same: nobody has the ball, but since 2026-10 the feed keeps the
+        last drive's club there rather than parking it on "0".
         """
-        return self.state == "in" and bool(team_id) and team_id == self.team_with_ball
+        return (
+            self.state == "in"
+            and not self.at_halftime
+            and bool(team_id)
+            and team_id == self.team_with_ball
+        )
+
+    @property
+    def at_halftime(self) -> bool:
+        return is_halftime(self.period, self.clock)
 
     def in_red_zone(self, team_id: str) -> bool:
         """Possession inside the opponent's 20."""
@@ -1033,9 +1049,8 @@ def _drop_overlaps(values: dict[str, float]) -> dict[str, float]:
 # nothing else says what those yards were for.
 #
 # Each entry is ``(category, standalone form, form once the category is known)``.
-# Labels absent from this table pass through untouched — "PAT", "Int" and the
-# defensive stats are already as short as they get. Field goals have their own
-# compact form, ``1fg 50+``; see :func:`_short_kick`.
+# Labels absent from this table pass through untouched — "FG 50+", "PAT",
+# "Int" and the defensive stats are already as short as they get.
 _SHORT_STAT: dict[str, tuple[str, str, str]] = {
     "Comp": ("pass", "comp", "comp"),
     "Pass Yds": ("pass", "pass yds", "yds"),
@@ -1065,10 +1080,6 @@ def shorten_stat_delta(text: str) -> str:
     out: list[str] = []
     for part in parts:
         value, _, label = part.partition(" ")
-        kick = _short_kick(value, label)
-        if kick is not None:
-            out.append(kick)
-            continue
         entry = _SHORT_STAT.get(label)
         if entry is None:
             out.append(part)
@@ -1080,13 +1091,6 @@ def shorten_stat_delta(text: str) -> str:
             short = short[:-1]
         out.append(f"{value} {short}")
     return ", ".join(out)
-
-
-def _short_kick(value: str, label: str) -> str | None:
-    """``1 FG 50+`` -> ``1fg 50+``; ``1 FG Miss 40-49`` -> ``1fg miss 40-49``."""
-    if label != "FG" and not label.startswith("FG "):
-        return None
-    return f"{value}fg{label[2:].lower()}"
 
 
 # Stats the roster's line leaves out even when they are non-zero. The count

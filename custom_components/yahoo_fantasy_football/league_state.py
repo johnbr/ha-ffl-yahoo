@@ -18,7 +18,7 @@ from .const import (
 )
 from .plays import PlayFeed, ScoringEvent, abbreviate_name, describe, short_describe, short_parts
 from .web_client import LeagueData
-from .yahoo_redzone import clock_text
+from .yahoo_redzone import clock_text, is_halftime
 
 # How many plays ride along in entity attributes. The full history is served on
 # demand over WebSocket instead — attributes are pushed to every connected
@@ -308,6 +308,11 @@ def _yards_to_goal(game: Any) -> int | None:
     whether there is a ball to talk about.
     """
     if getattr(game, "state", "") != "in":
+        return None
+    # Half time has no spot either, whatever the row still says — the feed
+    # keeps the last drive's down, distance, spot and (since 2026-10) its
+    # carrier, so the carrier check below no longer catches it on its own.
+    if is_halftime(getattr(game, "period", ""), getattr(game, "clock", "")):
         return None
     try:
         to_goal = int(getattr(game, "yards_to_goal", 0) or 0)
