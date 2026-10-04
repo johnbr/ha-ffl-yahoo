@@ -932,3 +932,27 @@ def test_league_from_payloads_settles_forgotten_games_before_the_rosters(
 def test_merge_stat_deltas_sums_the_pieces_of_one_play(first, second, expected):
     """Two pieces of a play's stat line read as the one line describe_delta would print."""
     assert merge_stat_deltas(first, second) == expected
+
+
+def test_a_field_goal_delta_names_its_distance_bucket() -> None:
+    """A 55-yarder is "1 FG 50+", not a bare "+5.00" or "1 FG"."""
+    before = {"fieldGoalsMade": 1.0, "fieldGoalsMade30through39": 1.0}
+    after = {
+        "fieldGoalsMade": 2.0, "fieldGoalsMade30through39": 1.0,
+        "fieldGoalsMade50plus": 1.0, "fieldGoalsMade50through59": 1.0,
+    }
+    assert describe_delta(before, after) == "1 FG 50-59"
+    assert describe_delta({}, {"fieldGoalsMade50plus": 1.0}) == "1 FG 50+"
+    assert describe_delta({}, {"fieldGoalsMissed40through49": 1.0}) == "1 FG Miss 40-49"
+
+
+def test_a_field_goal_with_no_bucket_still_reads_as_one() -> None:
+    assert describe_delta({}, {"fieldGoalsMade": 1.0}) == "1 FG"
+
+
+def test_a_kickers_line_lists_each_bucket_once() -> None:
+    stats = {
+        "fieldGoalsMade": 2.0, "fieldGoalsMade20through29": 1.0,
+        "fieldGoalsMade50plus": 1.0, "patMade": 3.0,
+    }
+    assert stat_line(stats) == "1 FG 20-29, 1 FG 50+, 3 PAT"
