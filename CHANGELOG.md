@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.0...v0.19.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* name a field goal by its distance on the scorecards ([#39](https://github.com/johnbr/ha-ffl-yahoo/issues/39)) ([ad96b24](https://github.com/johnbr/ha-ffl-yahoo/commit/ad96b24be69e742d49316ecd665d0c9868216ad0))
+
 ## [0.19.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.18.1...v0.19.0) (2026-10-02)
 
 
