@@ -44,6 +44,7 @@ const {
   renderNflField,
   scoreClass,
   renderNflPlays,
+  scoringFlash,
   fmtKickoff,
   findNflGamesEntity,
   renderFoldToggle,
@@ -1312,4 +1313,62 @@ test("a kickoff on another day carries its weekday", () => {
   assert.match(fmtKickoff(at(3, 13)), /^[A-Z][a-z]{2} /, "another day names itself");
   assert.equal(localDayKey(at(2, 1)), localDayKey(at(2, 23)), "one key per local day");
   assert.notEqual(localDayKey(at(2, 23)), localDayKey(at(3, 1)));
+});
+
+/* ------------------------------------------------------- scoring flash */
+
+// NO have the ball at the Det 20, trailing 17-24 (GAME_LIVE).
+const BEFORE = { away: { score: 17, has_ball: true }, home: { score: 24, has_ball: false } };
+const scored = (away, home, extra = {}) => ({
+  ...GAME_LIVE,
+  ...extra,
+  away: { ...GAME_LIVE.away, score: away },
+  home: { ...GAME_LIVE.home, score: home },
+});
+
+test("a jump of six to eight is a touchdown for the club that scored", () => {
+  for (const pts of [6, 7, 8]) {
+    assert.deepEqual(scoringFlash(BEFORE, scored(17 + pts, 24)), { kind: "TOUCHDOWN", abbr: "NO" });
+  }
+});
+
+test("three is a field goal", () => {
+  assert.deepEqual(scoringFlash(BEFORE, scored(17, 27)), { kind: "FIELD GOAL", abbr: "Det" });
+});
+
+test("two to the defence is a safety; two to the offence is only the try", () => {
+  assert.deepEqual(scoringFlash(BEFORE, scored(17, 26)), { kind: "SAFETY", abbr: "Det" });
+  assert.strictEqual(scoringFlash(BEFORE, scored(19, 24)), null, "a two-point conversion");
+});
+
+test("an extra point, a correction, a gap or a first sighting is not a flash", () => {
+  assert.strictEqual(scoringFlash(BEFORE, scored(18, 24)), null, "extra point");
+  assert.strictEqual(scoringFlash(BEFORE, scored(14, 24)), null, "score taken back");
+  assert.strictEqual(scoringFlash(BEFORE, scored(27, 24)), null, "ten points between updates");
+  assert.strictEqual(scoringFlash(null, scored(23, 24)), null, "a game the card has not seen");
+  assert.strictEqual(scoringFlash(BEFORE, scored(23, 24, { state: "post" })), null, "not live");
+});
+
+test("a flash takes the last-play line over, framed and escaped", () => {
+  const html = renderNflGame(GAME_LIVE, { flash: { kind: "TOUCHDOWN", abbr: "<b>NO" } });
+  assert.ok(html.includes("ffl-nfl-flash"));
+  assert.ok(html.includes(">TOUCHDOWN<"));
+  assert.ok(html.includes("&lt;b&gt;NO") && !html.includes("<b>NO"));
+  assert.ok(html.includes("Alvin Kamara rushed"), "the play text stays, under the banner");
+  assert.ok(!renderNflGame(GAME_LIVE).includes("ffl-nfl-flash"), "no flash without one");
+  assert.ok(CARD_CSS.includes("prefers-reduced-motion"), "the pulse respects reduced motion");
+});
+
+test("the card flashes a score it saw move, and drops it once the time is up", () => {
+  const card = nflCard();
+  const t0 = 1_000_000;
+  card._noteScores([GAME_LIVE], t0);
+  assert.strictEqual(card._flashes.size, 0, "the first sighting is not a flash");
+  card._noteScores([scored(24, 24)], t0 + 10_000);
+  assert.deepEqual(card._flashes.get(GAME_LIVE.game_id).kind, "TOUCHDOWN");
+  card._noteScores([scored(24, 24)], t0 + 12_000);
+  assert.ok(card._flashes.has(GAME_LIVE.game_id), "still showing two seconds in");
+  card._noteScores([scored(24, 24)], t0 + 16_000);
+  assert.strictEqual(card._flashes.size, 0, "gone after five seconds");
+  clearTimeout(card._flashTimer);
 });

@@ -437,6 +437,45 @@ function renderNflField(game) {
     </div>`;
 }
 
+/** How long a scoring play holds the last-play line before the text returns. */
+const SCORE_FLASH_MS = 5000;
+
+/**
+ * What scored, read off the jump in one club's score since the last update.
+ *
+ * The card has no play type to go on — only the two scores, and who had the
+ * ball before they moved — so the size of the jump is the evidence: six to
+ * eight is a touchdown (Yahoo sometimes lands the try in the same update),
+ * three a field goal, and two a safety when it went to the club WITHOUT the
+ * ball. Two to the offence is a two-point try, and one an extra point: both
+ * are the tail of a touchdown already flashed, not a scoring play of their
+ * own, so they leave the line alone. Anything bigger than eight is a gap in
+ * the updates rather than one play, and is not guessed at.
+ *
+ * `prev` is the last update's {away, home} sides; null for a game the card
+ * has not seen yet, which is never a flash — opening a dashboard mid-game
+ * must not announce every score already on the board.
+ */
+function scoringFlash(prev, game) {
+  if (!prev || !game || game.state !== "in") return null;
+  let best = null;
+  for (const key of ["away", "home"]) {
+    const side = game[key] || {};
+    const before = prev[key] || {};
+    const other = prev[key === "away" ? "home" : "away"] || {};
+    const delta = Number(side.score) - Number(before.score);
+    if (!Number.isFinite(delta) || delta <= 0) continue;
+    let kind = "";
+    if (delta >= 6 && delta <= 8) kind = "TOUCHDOWN";
+    else if (delta === 3) kind = "FIELD GOAL";
+    else if (delta === 2 && other.has_ball && !before.has_ball) kind = "SAFETY";
+    if (kind && (!best || delta > best.delta)) {
+      best = { kind, abbr: side.abbr || side.team_id || "", delta };
+    }
+  }
+  return best && { kind: best.kind, abbr: best.abbr };
+}
+
 /**
  * One NFL game.
  *
@@ -468,7 +507,17 @@ function renderNflGame(game, options = {}) {
   // need the room. A provisional line — the result read off the down,
   // distance and spot while Yahoo's sentence is still on its way — is set
   // apart, because it is a sketch of the play and the sentence will replace it.
-  const lastPlay = game.last_play
+  //
+  // A scoring play takes the line over for a few seconds, framed in red with
+  // what it was — the sentence still underneath, since that is who scored.
+  const flash = options.flash;
+  const lastPlay = flash
+    ? `<div class="ffl-nfl-last ffl-nfl-flash" role="status">
+        <div class="ffl-nfl-flash-head"><span class="ffl-nfl-flash-kind">${escapeHtml(flash.kind)}</span>${
+          flash.abbr ? ` <span class="ffl-nfl-flash-team">${escapeHtml(flash.abbr)}</span>` : ""
+        }</div>${game.last_play ? `<div class="ffl-nfl-flash-text">${escapeHtml(game.last_play)}</div>` : ""}
+      </div>`
+    : game.last_play
     ? `<div class="ffl-nfl-last${game.last_play_provisional ? " ffl-nfl-provisional" : ""}">${escapeHtml(
         game.last_play
       )}</div>`
@@ -1085,6 +1134,38 @@ class FflNflGamesCard extends FflBaseCard {
     // while an explicit false keeps them shut even on an all-final slate.
     // Which folds the reader has opened. Both shut until asked.
     this._folds = { later: false, final: false };
+    // Each game's sides as last painted, to spot a score moving; and the
+    // games currently flashing a scoring play, with when each one ends.
+    this._lastSides = new Map();
+    this._flashes = new Map();
+    clearTimeout(this._flashTimer);
+  }
+
+  /**
+   * Note any scoring plays in this update, and arrange the repaint that ends
+   * the soonest flash.
+   *
+   * Runs on paint, which the fingerprint guard already limits to updates that
+   * changed something — a score moving is one of those.
+   */
+  _noteScores(rows, now = Date.now()) {
+    for (const game of rows) {
+      const id = String(game.game_id);
+      const flash = scoringFlash(this._lastSides.get(id), game);
+      if (flash) this._flashes.set(id, { ...flash, until: now + SCORE_FLASH_MS });
+      const a = game.away || {};
+      const h = game.home || {};
+      this._lastSides.set(id, {
+        away: { score: a.score, has_ball: a.has_ball },
+        home: { score: h.score, has_ball: h.has_ball },
+      });
+    }
+    for (const [id, f] of this._flashes) if (f.until <= now) this._flashes.delete(id);
+    clearTimeout(this._flashTimer);
+    if (this._flashes.size) {
+      const next = Math.min(...[...this._flashes.values()].map((f) => f.until));
+      this._flashTimer = setTimeout(() => this._invalidate(), Math.max(0, next - now) + 50);
+    }
   }
 
   getCardSize() {
@@ -1207,6 +1288,7 @@ class FflNflGamesCard extends FflBaseCard {
         renderNflGame(game, {
           open: this._expandedId === String(game.game_id),
           playsHtml: this._expandedId === String(game.game_id) ? this._detailHtml : "",
+          flash: this._flashes.get(String(game.game_id)),
         })
       )
       .join("");
@@ -1225,6 +1307,7 @@ class FflNflGamesCard extends FflBaseCard {
         <span class="ffl-header-week">${rows.length} games</span>
       </div>`;
 
+    this._noteScores(rows);
     const { live, soon, later, done } = this._split(rows);
     const fold = (kind, games) =>
       games.length
@@ -1458,6 +1541,20 @@ const CARD_CSS = `
     font-size: 0.78rem; font-weight: 500; line-height: 1.25; color: var(--primary-text-color);
     white-space: normal; overflow-wrap: anywhere;
   }
+  /* A scoring play, over the last-play line for a few seconds. Red like the
+     red zone it usually comes out of, a deeper shade so white text holds
+     its contrast; --ffl-score-flash-color lets a theme pick its own. It
+     pulses a few times on arrival and then holds still. */
+  .ffl-nfl-flash {
+    margin-top: 4px; padding: 4px 8px; border-radius: 6px;
+    background: var(--ffl-score-flash-color, #c62828); color: #fff; text-align: center;
+    animation: ffl-score-flash 400ms ease-in-out 4 alternate;
+  }
+  .ffl-nfl-flash-head { font-size: 1rem; font-weight: 800; letter-spacing: .08em; line-height: 1.3; }
+  .ffl-nfl-flash-team { font-weight: 600; opacity: .9; }
+  .ffl-nfl-flash-text { font-size: 0.75rem; font-weight: 500; line-height: 1.25; }
+  @keyframes ffl-score-flash { from { filter: brightness(1); } to { filter: brightness(1.45); } }
+  @media (prefers-reduced-motion: reduce) { .ffl-nfl-flash { animation: none; } }
   .ffl-nfl-fold {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 6px; margin-top: 2px; cursor: pointer; border-radius: 8px;
@@ -1798,6 +1895,7 @@ if (typeof module !== "undefined" && module.exports) {
     scoreClass,
     renderNflTeam,
     renderNflPlays,
+    scoringFlash,
     renderFoldToggle,
     localDayKey,
     fmtKickoff,
