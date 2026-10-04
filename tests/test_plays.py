@@ -835,7 +835,7 @@ def test_the_short_form_keeps_a_category_nothing_else_established() -> None:
 def test_the_short_form_leaves_already_short_labels_alone() -> None:
     from yahoo_fantasy_football.yahoo_redzone import shorten_stat_delta
 
-    assert shorten_stat_delta("1 FG") == "1fg"
+    assert shorten_stat_delta("1 FG") == "1 FG"
     assert shorten_stat_delta("1 PAT") == "1 PAT"
     assert shorten_stat_delta("1 Rec, 12 Rec Yds, 1 Rec TD") == "1 rec, 12 yds, 1 TD"
 
@@ -843,9 +843,9 @@ def test_the_short_form_leaves_already_short_labels_alone() -> None:
 def test_the_short_form_names_a_field_goal_by_its_distance() -> None:
     from yahoo_fantasy_football.yahoo_redzone import shorten_stat_delta
 
-    assert shorten_stat_delta("1 FG 50+") == "1fg 50+"
-    assert shorten_stat_delta("1 FG 40-49, 1 PAT") == "1fg 40-49, 1 PAT"
-    assert shorten_stat_delta("1 FG Miss 30-39") == "1fg miss 30-39"
+    assert shorten_stat_delta("1 FG 50-59") == "1 FG 50-59"
+    assert shorten_stat_delta("1 FG 40-49, 1 PAT") == "1 FG 40-49, 1 PAT"
+    assert shorten_stat_delta("1 FG Miss 30-39") == "1 FG Miss 30-39"
 
 
 def test_the_short_form_ignores_the_play_description() -> None:

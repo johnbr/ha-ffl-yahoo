@@ -765,6 +765,24 @@ def test_half_time_drops_the_stale_situation_with_the_spot() -> None:
     assert _situation(half) == ""
 
 
+def test_half_time_shows_no_situation_even_with_a_real_carrier() -> None:
+    """Observed live 2026-10: at half time the feed now keeps the last drive's
+    club as the carrier, not "0" — so every game showed a down and distance
+    and a football. Half time itself has to clear them."""
+    from yahoo_fantasy_football.league_state import _ball_spot, _nfl_side, _situation, _yards_to_goal
+
+    half = _game_row("P", period="2", clock="0:00", down="2", distance="7", to_goal="15", ball="17")
+    assert _ball_spot(half) == ""
+    assert _situation(half) == ""
+    assert _yards_to_goal(half) is None
+    assert not _nfl_side(half, "17", 7)["has_ball"]
+    assert not _nfl_side(half, "17", 7)["red_zone"]
+
+    running = _game_row("P", period="2", clock="0:42", down="2", distance="7", to_goal="15", ball="17")
+    assert _situation(running) == "2nd & 7"
+    assert _nfl_side(running, "17", 7)["has_ball"]
+
+
 def test_down_and_distance_is_dropped_when_the_spot_is_gone() -> None:
     """Observed live: the feed keeps a finished play's down and distance.
 

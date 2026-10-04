@@ -543,6 +543,15 @@ def test_possession_is_only_a_thing_while_the_game_is_running(games_text: str) -
     assert not game.has_ball("17")
 
 
+def test_nobody_has_the_ball_at_half_time(games_text: str) -> None:
+    """The feed keeps the last drive's carrier through the break; the
+    lineup's football must not."""
+    game = parse_relay_games(games_text)["26"]
+    game.period, game.clock, game.yards_to_goal = "2", "0:00", "12"
+    assert not game.has_ball("17")
+    assert not game.in_red_zone("17")
+
+
 def test_the_red_zone_is_inside_the_opponents_twenty(games_text: str) -> None:
     game = parse_relay_games(games_text)["26"]
     assert game.yards_to_goal == "70"
