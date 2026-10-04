@@ -973,7 +973,22 @@ _STAT_LINE: tuple[tuple[str, str], ...] = (
     ("receptions", "Rec"), ("receptionYards", "Rec Yds"), ("receptionTDs", "Rec TD"),
     ("returnYards", "Ret Yds"), ("returnTDs", "Ret TD"),
     ("twoPointConversions", "2PT"), ("fumblesLost", "Fum Lost"),
-    ("fieldGoalsMade", "FG"), ("patMade", "PAT"),
+    # A field goal is scored by its distance bucket, and the bucket is what a
+    # manager wants to see — "1 FG 50+" says why it was worth five points, a
+    # bare "1 FG" does not. The totals are kept only as a fallback for a row
+    # that carries no bucket; see :func:`_drop_overlaps`.
+    ("fieldGoalsMade0through19", "FG 0-19"), ("fieldGoalsMade20through29", "FG 20-29"),
+    ("fieldGoalsMade30through39", "FG 30-39"), ("fieldGoalsMade40through49", "FG 40-49"),
+    ("fieldGoalsMade50plus", "FG 50+"), ("fieldGoalsMade50through59", "FG 50-59"),
+    ("fieldGoalsMade60plus", "FG 60+"), ("fieldGoalsMade", "FG"),
+    ("fieldGoalsMissed0through19", "FG Miss 0-19"),
+    ("fieldGoalsMissed20through29", "FG Miss 20-29"),
+    ("fieldGoalsMissed30through39", "FG Miss 30-39"),
+    ("fieldGoalsMissed40through49", "FG Miss 40-49"),
+    ("fieldGoalsMissed50plus", "FG Miss 50+"),
+    ("fieldGoalsMissed50through59", "FG Miss 50-59"),
+    ("fieldGoalsMissed60plus", "FG Miss 60+"), ("fieldGoalsMissed", "FG Miss"),
+    ("patMade", "PAT"),
     # Team defence. ``specialTeamsReturnYards`` earns a tenth of a point in
     # most leagues, so a defence's score moves on kick returns between
     # turnovers — leaving it out made those changes render as a bare "+0.90".
@@ -982,6 +997,30 @@ _STAT_LINE: tuple[tuple[str, str], ...] = (
     ("specialTeamsReturnTDs", "ST Ret TD"), ("specialTeamsReturnYards", "ST Ret Yds"),
     ("pointsAllowed", "Pts Allow"),
 )
+
+
+# A kick lands in several stats at once: the total, a distance bucket, and —
+# past fifty yards — both the open "50+" bucket and the split "50-59"/"60+"
+# ones. Each entry is ``(stat to drop, stats that already say it)``; the
+# finer stat wins whenever it moved, so one kick renders as one item.
+_FG_OVERLAPS: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
+    (f"fieldGoals{kind}{coarse}", tuple(f"fieldGoals{kind}{fine}" for fine in finer))
+    for kind in ("Made", "Missed")
+    for coarse, finer in (
+        ("50plus", ("50through59", "60plus")),
+        ("", ("0through19", "20through29", "30through39", "40through49",
+              "50plus", "50through59", "60plus")),
+    )
+)
+
+
+def _drop_overlaps(values: dict[str, float]) -> dict[str, float]:
+    """``values`` without the field-goal stats a finer one already covers."""
+    out = dict(values)
+    for coarse, finer in _FG_OVERLAPS:
+        if any(out.get(name) for name in finer):
+            out.pop(coarse, None)
+    return out
 
 
 # The compact, player-side rendering of a stat delta: ``1 Rec, 1 Rec Yds``
@@ -994,8 +1033,9 @@ _STAT_LINE: tuple[tuple[str, str], ...] = (
 # nothing else says what those yards were for.
 #
 # Each entry is ``(category, standalone form, form once the category is known)``.
-# Labels absent from this table pass through untouched — "FG", "PAT", "Int" and
-# the defensive stats are already as short as they get.
+# Labels absent from this table pass through untouched — "PAT", "Int" and the
+# defensive stats are already as short as they get. Field goals have their own
+# compact form, ``1fg 50+``; see :func:`_short_kick`.
 _SHORT_STAT: dict[str, tuple[str, str, str]] = {
     "Comp": ("pass", "comp", "comp"),
     "Pass Yds": ("pass", "pass yds", "yds"),
@@ -1025,6 +1065,10 @@ def shorten_stat_delta(text: str) -> str:
     out: list[str] = []
     for part in parts:
         value, _, label = part.partition(" ")
+        kick = _short_kick(value, label)
+        if kick is not None:
+            out.append(kick)
+            continue
         entry = _SHORT_STAT.get(label)
         if entry is None:
             out.append(part)
@@ -1036,6 +1080,13 @@ def shorten_stat_delta(text: str) -> str:
             short = short[:-1]
         out.append(f"{value} {short}")
     return ", ".join(out)
+
+
+def _short_kick(value: str, label: str) -> str | None:
+    """``1 FG 50+`` -> ``1fg 50+``; ``1 FG Miss 40-49`` -> ``1fg miss 40-49``."""
+    if label != "FG" and not label.startswith("FG "):
+        return None
+    return f"{value}fg{label[2:].lower()}"
 
 
 # Stats the roster's line leaves out even when they are non-zero. The count
@@ -1060,6 +1111,7 @@ def stat_line(stats: dict[str, float]) -> str:
     # ``gamesPlayed`` only appears on a team-defence row, so it marks one.
     keep_zero = {"pointsAllowed"} if "gamesPlayed" in stats else set()
 
+    stats = _drop_overlaps(stats)
     parts = []
     for name, label in _STAT_LINE:
         if name in _STAT_LINE_OMIT:
@@ -1083,6 +1135,7 @@ def describe_delta(before: dict[str, float], after: dict[str, float]) -> str:
         name: after.get(name, 0.0) - before.get(name, 0.0)
         for name in set(after) | set(before)
     }
+    delta = _drop_overlaps(delta)
     parts = []
     for name, label in _STAT_LINE:
         value = delta.get(name, 0.0)
