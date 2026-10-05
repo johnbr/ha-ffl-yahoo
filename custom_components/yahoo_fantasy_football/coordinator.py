@@ -42,6 +42,7 @@ from .plays import (
     play_above_floor,
 )
 from .redzone_client import USER_AGENT, RedzoneClient
+from .score_banners import ScoreBanners
 from .web_client import LeagueData, LeagueIsPrivate, YahooWebError
 from .yahoo_redzone import RelayPlay, humanize_play, parse_relay_plays, play_ids_needed, to_snapshot
 
@@ -128,6 +129,9 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._plays_floor: dict[str, int] = {}
         # Each live game's result-so-far for a snap whose text has not landed.
         self._pending = PendingPlays()
+        # The games card's TOUCHDOWN / FIELD GOAL / SAFETY banners, timed here
+        # so every dashboard shows the same one.
+        self._banners = ScoreBanners()
         # The poll and the chase between polls both write the last-play lines;
         # one at a time, so an older read can never land on top of a newer.
         self._nfl_lock = asyncio.Lock()
@@ -173,6 +177,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             raise UpdateFailed(str(err)) from err
 
         await self._process_plays(data, now)
+        self._banners.observe(getattr(data, "nfl_games", []), now)
         await self._refresh_nfl_last_plays(data, now)
         self._start_chase(now)
         self.update_interval = _interval(data, self.update_interval)
@@ -285,6 +290,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
     def nfl_last_plays(self) -> dict[str, str]:
         """``{plays-feed id: newest play}`` for games in progress."""
         return self._nfl_last_plays
+
+    @property
+    def nfl_score_banners(self) -> dict[str, dict[str, Any]]:
+        """``{game_id: banner}`` for scoring plays inside their banner window."""
+        return self._banners.active(dt_util.utcnow().timestamp())
 
     @property
     def nfl_pending_plays(self) -> dict[str, str]:

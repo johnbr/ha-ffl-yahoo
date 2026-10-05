@@ -44,7 +44,7 @@ const {
   renderNflField,
   scoreClass,
   renderNflPlays,
-  scoringFlash,
+  scoreBanner,
   fmtKickoff,
   findNflGamesEntity,
   renderFoldToggle,
@@ -1315,38 +1315,24 @@ test("a kickoff on another day carries its weekday", () => {
   assert.notEqual(localDayKey(at(2, 23)), localDayKey(at(3, 1)));
 });
 
-/* ------------------------------------------------------- scoring flash */
+/* ------------------------------------------------------ scoring banner */
 
-// NO have the ball at the Det 20, trailing 17-24 (GAME_LIVE).
-const BEFORE = { away: { score: 17, has_ball: true }, home: { score: 24, has_ball: false } };
-const scored = (away, home, extra = {}) => ({
+// The integration's banner: what scored, and when it went up and comes down
+// (epoch seconds). The card only checks the clock against it.
+const T0 = 1_790_000_000;
+const withBanner = (extra = {}) => ({
   ...GAME_LIVE,
-  ...extra,
-  away: { ...GAME_LIVE.away, score: away },
-  home: { ...GAME_LIVE.home, score: home },
+  score_banner: { kind: "TOUCHDOWN", abbr: "NO", at: T0, until: T0 + 30, ...extra },
 });
 
-test("a jump of six to eight is a touchdown for the club that scored", () => {
-  for (const pts of [6, 7, 8]) {
-    assert.deepEqual(scoringFlash(BEFORE, scored(17 + pts, 24)), { kind: "TOUCHDOWN", abbr: "NO" });
-  }
-});
-
-test("three is a field goal", () => {
-  assert.deepEqual(scoringFlash(BEFORE, scored(17, 27)), { kind: "FIELD GOAL", abbr: "Det" });
-});
-
-test("two to the defence is a safety; two to the offence is only the try", () => {
-  assert.deepEqual(scoringFlash(BEFORE, scored(17, 26)), { kind: "SAFETY", abbr: "Det" });
-  assert.strictEqual(scoringFlash(BEFORE, scored(19, 24)), null, "a two-point conversion");
-});
-
-test("an extra point, a correction, a gap or a first sighting is not a flash", () => {
-  assert.strictEqual(scoringFlash(BEFORE, scored(18, 24)), null, "extra point");
-  assert.strictEqual(scoringFlash(BEFORE, scored(14, 24)), null, "score taken back");
-  assert.strictEqual(scoringFlash(BEFORE, scored(27, 24)), null, "ten points between updates");
-  assert.strictEqual(scoringFlash(null, scored(23, 24)), null, "a game the card has not seen");
-  assert.strictEqual(scoringFlash(BEFORE, scored(23, 24, { state: "post" })), null, "not live");
+test("a banner shows from the integration's record until its time is up", () => {
+  const b = scoreBanner(withBanner(), (T0 + 10) * 1000);
+  assert.deepEqual([b.kind, b.abbr], ["TOUCHDOWN", "NO"]);
+  // A dashboard opened 29 s in shows it; one at 30 s does not.
+  assert.ok(scoreBanner(withBanner(), (T0 + 29) * 1000));
+  assert.strictEqual(scoreBanner(withBanner(), (T0 + 30) * 1000), null);
+  assert.strictEqual(scoreBanner(GAME_LIVE, T0 * 1000), null, "no banner on the row");
+  assert.strictEqual(scoreBanner({ ...GAME_LIVE, score_banner: null }, T0 * 1000), null);
 });
 
 test("a flash sits above the last-play line, which still shows", () => {
@@ -1362,20 +1348,18 @@ test("a flash sits above the last-play line, which still shows", () => {
   assert.ok(CARD_CSS.includes("prefers-reduced-motion"), "the pulse respects reduced motion");
 });
 
-test("the card flashes a score it saw move, and drops it once the time is up", () => {
+test("the card pulses a banner the first time it paints it, then holds it", () => {
   const card = nflCard();
-  const t0 = 1_000_000;
-  card._noteScores([GAME_LIVE], t0);
-  assert.strictEqual(card._flashes.size, 0, "the first sighting is not a flash");
-  card._noteScores([scored(24, 24)], t0 + 10_000);
-  assert.strictEqual(card._flashFor(GAME_LIVE.game_id, t0 + 10_500).kind, "TOUCHDOWN");
-  assert.ok(card._flashFor(GAME_LIVE.game_id, t0 + 10_500).fresh, "pulsing at first");
-  card._noteScores([scored(25, 24)], t0 + 20_000);
-  assert.ok(!card._flashFor(GAME_LIVE.game_id, t0 + 20_000).fresh, "settled by the next update");
-  assert.strictEqual(card._flashFor(GAME_LIVE.game_id).kind, "TOUCHDOWN", "the extra point leaves it be");
-  card._noteScores([scored(25, 24)], t0 + 39_000);
-  assert.ok(card._flashes.has(GAME_LIVE.game_id), "still up 29 seconds in");
-  card._noteScores([scored(25, 24)], t0 + 40_000);
-  assert.strictEqual(card._flashes.size, 0, "gone after thirty seconds");
-  clearTimeout(card._flashTimer);
+  const now = (T0 + 5) * 1000;
+  // A card opened part-way through still shows the banner, and pulses once.
+  const first = card._banners([withBanner()], now);
+  assert.ok(first.get(GAME_LIVE.game_id).fresh);
+  const again = card._banners([withBanner()], now + 10_000);
+  assert.strictEqual(again.get(GAME_LIVE.game_id).kind, "TOUCHDOWN");
+  assert.ok(!again.get(GAME_LIVE.game_id).fresh, "a repaint does not pulse again");
+  // A new scoring play in the same game is a new banner, and pulses.
+  const next = card._banners([withBanner({ kind: "FIELD GOAL", at: T0 + 20, until: T0 + 50 })], now + 16_000);
+  assert.ok(next.get(GAME_LIVE.game_id).fresh);
+  assert.strictEqual(card._banners([withBanner()], (T0 + 31) * 1000).size, 0, "gone at its time");
+  clearTimeout(card._bannerTimer);
 });
