@@ -437,8 +437,10 @@ function renderNflField(game) {
     </div>`;
 }
 
-/** How long a scoring play holds the last-play line before the text returns. */
-const SCORE_FLASH_MS = 5000;
+/** How long a scoring play's banner stays up above the last-play line. */
+const SCORE_FLASH_MS = 30000;
+/** The banner pulses only while this new, not on every repaint after. */
+const SCORE_FLASH_PULSE_MS = 2000;
 
 /**
  * What scored, read off the jump in one club's score since the last update.
@@ -507,20 +509,23 @@ function renderNflGame(game, options = {}) {
   // need the room. A provisional line — the result read off the down,
   // distance and spot while Yahoo's sentence is still on its way — is set
   // apart, because it is a sketch of the play and the sentence will replace it.
-  //
-  // A scoring play takes the line over for a few seconds, framed in red with
-  // what it was — the sentence still underneath, since that is who scored.
-  const flash = options.flash;
-  const lastPlay = flash
-    ? `<div class="ffl-nfl-last ffl-nfl-flash" role="status">
-        <div class="ffl-nfl-flash-head"><span class="ffl-nfl-flash-kind">${escapeHtml(flash.kind)}</span>${
-          flash.abbr ? ` <span class="ffl-nfl-flash-team">${escapeHtml(flash.abbr)}</span>` : ""
-        }</div>${game.last_play ? `<div class="ffl-nfl-flash-text">${escapeHtml(game.last_play)}</div>` : ""}
-      </div>`
-    : game.last_play
+  const lastPlay = game.last_play
     ? `<div class="ffl-nfl-last${game.last_play_provisional ? " ffl-nfl-provisional" : ""}">${escapeHtml(
         game.last_play
       )}</div>`
+    : "";
+  // A scoring play gets a red banner of its own just above that line, saying
+  // what it was; the line underneath carries on as usual, so the sentence
+  // naming who scored is never covered. It pulses only when it first appears
+  // — the card repaints on every update, and a banner that started over each
+  // time would never settle.
+  const flash = options.flash;
+  const banner = flash
+    ? `<div class="ffl-nfl-flash${flash.fresh ? " ffl-nfl-flash-new" : ""}" role="status">
+        <span class="ffl-nfl-flash-kind">${escapeHtml(flash.kind)}</span>${
+          flash.abbr ? ` <span class="ffl-nfl-flash-team">${escapeHtml(flash.abbr)}</span>` : ""
+        }
+      </div>`
     : "";
   const panel = open
     ? `<div class="ffl-nfl-plays">${options.playsHtml || `<div class="ffl-loading">Loading plays…</div>`}</div>`
@@ -542,6 +547,7 @@ function renderNflGame(game, options = {}) {
           ${situation}
         </div>
         ${field}
+        ${banner}
         ${lastPlay}
       </div>
       ${panel}
@@ -1152,7 +1158,7 @@ class FflNflGamesCard extends FflBaseCard {
     for (const game of rows) {
       const id = String(game.game_id);
       const flash = scoringFlash(this._lastSides.get(id), game);
-      if (flash) this._flashes.set(id, { ...flash, until: now + SCORE_FLASH_MS });
+      if (flash) this._flashes.set(id, { ...flash, since: now, until: now + SCORE_FLASH_MS });
       const a = game.away || {};
       const h = game.home || {};
       this._lastSides.set(id, {
@@ -1282,13 +1288,18 @@ class FflNflGamesCard extends FflBaseCard {
     return found ? found.plays_id || "" : "";
   }
 
+  _flashFor(gameId, now = Date.now()) {
+    const f = this._flashes.get(gameId);
+    return f && { kind: f.kind, abbr: f.abbr, fresh: now - f.since < SCORE_FLASH_PULSE_MS };
+  }
+
   _renderGames(games) {
     return games
       .map((game) =>
         renderNflGame(game, {
           open: this._expandedId === String(game.game_id),
           playsHtml: this._expandedId === String(game.game_id) ? this._detailHtml : "",
-          flash: this._flashes.get(String(game.game_id)),
+          flash: this._flashFor(String(game.game_id)),
         })
       )
       .join("");
@@ -1541,20 +1552,20 @@ const CARD_CSS = `
     font-size: 0.78rem; font-weight: 500; line-height: 1.25; color: var(--primary-text-color);
     white-space: normal; overflow-wrap: anywhere;
   }
-  /* A scoring play, over the last-play line for a few seconds. Red like the
-     red zone it usually comes out of, a deeper shade so white text holds
-     its contrast; --ffl-score-flash-color lets a theme pick its own. It
-     pulses a few times on arrival and then holds still. */
+  /* A scoring play: a banner of its own above the last-play line, spanning
+     both tracks like it. Red like the red zone it usually comes out of, a
+     deeper shade so white text holds its contrast; --ffl-score-flash-color
+     lets a theme pick its own. It pulses a few times on arrival and then
+     holds still. */
   .ffl-nfl-flash {
-    margin-top: 4px; padding: 4px 8px; border-radius: 6px;
+    grid-column: 1 / -1; margin-top: 4px; padding: 3px 8px; border-radius: 6px;
     background: var(--ffl-score-flash-color, #c62828); color: #fff; text-align: center;
-    animation: ffl-score-flash 400ms ease-in-out 4 alternate;
+    font-size: 1rem; font-weight: 800; letter-spacing: .08em; line-height: 1.3;
   }
-  .ffl-nfl-flash-head { font-size: 1rem; font-weight: 800; letter-spacing: .08em; line-height: 1.3; }
+  .ffl-nfl-flash-new { animation: ffl-score-flash 400ms ease-in-out 4 alternate; }
   .ffl-nfl-flash-team { font-weight: 600; opacity: .9; }
-  .ffl-nfl-flash-text { font-size: 0.75rem; font-weight: 500; line-height: 1.25; }
   @keyframes ffl-score-flash { from { filter: brightness(1); } to { filter: brightness(1.45); } }
-  @media (prefers-reduced-motion: reduce) { .ffl-nfl-flash { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .ffl-nfl-flash-new { animation: none; } }
   .ffl-nfl-fold {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 6px; margin-top: 2px; cursor: pointer; border-radius: 8px;

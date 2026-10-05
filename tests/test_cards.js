@@ -1349,12 +1349,15 @@ test("an extra point, a correction, a gap or a first sighting is not a flash", (
   assert.strictEqual(scoringFlash(BEFORE, scored(23, 24, { state: "post" })), null, "not live");
 });
 
-test("a flash takes the last-play line over, framed and escaped", () => {
-  const html = renderNflGame(GAME_LIVE, { flash: { kind: "TOUCHDOWN", abbr: "<b>NO" } });
-  assert.ok(html.includes("ffl-nfl-flash"));
+test("a flash sits above the last-play line, which still shows", () => {
+  const html = renderNflGame(GAME_LIVE, { flash: { kind: "TOUCHDOWN", abbr: "<b>NO", fresh: true } });
   assert.ok(html.includes(">TOUCHDOWN<"));
   assert.ok(html.includes("&lt;b&gt;NO") && !html.includes("<b>NO"));
-  assert.ok(html.includes("Alvin Kamara rushed"), "the play text stays, under the banner");
+  assert.ok(html.indexOf("ffl-nfl-flash") < html.indexOf("ffl-nfl-last"), "banner first");
+  assert.ok(/class="ffl-nfl-last">Alvin Kamara rushed/.test(html), "the play line is unchanged");
+  assert.ok(html.includes("ffl-nfl-flash-new"), "a fresh banner pulses");
+  const settled = renderNflGame(GAME_LIVE, { flash: { kind: "TOUCHDOWN", abbr: "NO", fresh: false } });
+  assert.ok(settled.includes("ffl-nfl-flash") && !settled.includes("ffl-nfl-flash-new"), "then holds");
   assert.ok(!renderNflGame(GAME_LIVE).includes("ffl-nfl-flash"), "no flash without one");
   assert.ok(CARD_CSS.includes("prefers-reduced-motion"), "the pulse respects reduced motion");
 });
@@ -1365,10 +1368,14 @@ test("the card flashes a score it saw move, and drops it once the time is up", (
   card._noteScores([GAME_LIVE], t0);
   assert.strictEqual(card._flashes.size, 0, "the first sighting is not a flash");
   card._noteScores([scored(24, 24)], t0 + 10_000);
-  assert.deepEqual(card._flashes.get(GAME_LIVE.game_id).kind, "TOUCHDOWN");
-  card._noteScores([scored(24, 24)], t0 + 12_000);
-  assert.ok(card._flashes.has(GAME_LIVE.game_id), "still showing two seconds in");
-  card._noteScores([scored(24, 24)], t0 + 16_000);
-  assert.strictEqual(card._flashes.size, 0, "gone after five seconds");
+  assert.strictEqual(card._flashFor(GAME_LIVE.game_id, t0 + 10_500).kind, "TOUCHDOWN");
+  assert.ok(card._flashFor(GAME_LIVE.game_id, t0 + 10_500).fresh, "pulsing at first");
+  card._noteScores([scored(25, 24)], t0 + 20_000);
+  assert.ok(!card._flashFor(GAME_LIVE.game_id, t0 + 20_000).fresh, "settled by the next update");
+  assert.strictEqual(card._flashFor(GAME_LIVE.game_id).kind, "TOUCHDOWN", "the extra point leaves it be");
+  card._noteScores([scored(25, 24)], t0 + 39_000);
+  assert.ok(card._flashes.has(GAME_LIVE.game_id), "still up 29 seconds in");
+  card._noteScores([scored(25, 24)], t0 + 40_000);
+  assert.strictEqual(card._flashes.size, 0, "gone after thirty seconds");
   clearTimeout(card._flashTimer);
 });
