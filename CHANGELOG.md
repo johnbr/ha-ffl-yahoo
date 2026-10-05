@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.20.0...v0.20.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* show the scoring banner above the last play, for thirty seconds ([#47](https://github.com/johnbr/ha-ffl-yahoo/issues/47)) ([283ee19](https://github.com/johnbr/ha-ffl-yahoo/commit/283ee193142da2d3fea7aea561b95fcaf3dde2ef))
+
 ## [0.20.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.19.3...v0.20.0) (2026-10-04)
 
 
