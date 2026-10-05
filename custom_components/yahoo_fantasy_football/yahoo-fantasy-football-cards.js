@@ -437,45 +437,20 @@ function renderNflField(game) {
     </div>`;
 }
 
-/** How long a scoring play's banner stays up above the last-play line. */
-const SCORE_FLASH_MS = 30000;
-/** The banner pulses only while this new, not on every repaint after. */
-const SCORE_FLASH_PULSE_MS = 2000;
-
 /**
- * What scored, read off the jump in one club's score since the last update.
+ * A game's scoring banner, if one is up at `nowMs`.
  *
- * The card has no play type to go on — only the two scores, and who had the
- * ball before they moved — so the size of the jump is the evidence: six to
- * eight is a touchdown (Yahoo sometimes lands the try in the same update),
- * three a field goal, and two a safety when it went to the club WITHOUT the
- * ball. Two to the offence is a two-point try, and one an extra point: both
- * are the tail of a touchdown already flashed, not a scoring play of their
- * own, so they leave the line alone. Anything bigger than eight is a gap in
- * the updates rather than one play, and is not guessed at.
- *
- * `prev` is the last update's {away, home} sides; null for a game the card
- * has not seen yet, which is never a flash — opening a dashboard mid-game
- * must not announce every score already on the board.
+ * The integration decides what scored and when (`score_banner`: kind, club,
+ * and the epoch seconds it went up and comes down), so a dashboard opened
+ * part-way through a banner shows it until the same moment as one that was
+ * open when the score landed. The card only checks the clock.
  */
-function scoringFlash(prev, game) {
-  if (!prev || !game || game.state !== "in") return null;
-  let best = null;
-  for (const key of ["away", "home"]) {
-    const side = game[key] || {};
-    const before = prev[key] || {};
-    const other = prev[key === "away" ? "home" : "away"] || {};
-    const delta = Number(side.score) - Number(before.score);
-    if (!Number.isFinite(delta) || delta <= 0) continue;
-    let kind = "";
-    if (delta >= 6 && delta <= 8) kind = "TOUCHDOWN";
-    else if (delta === 3) kind = "FIELD GOAL";
-    else if (delta === 2 && other.has_ball && !before.has_ball) kind = "SAFETY";
-    if (kind && (!best || delta > best.delta)) {
-      best = { kind, abbr: side.abbr || side.team_id || "", delta };
-    }
-  }
-  return best && { kind: best.kind, abbr: best.abbr };
+function scoreBanner(game, nowMs = Date.now()) {
+  const b = game && game.score_banner;
+  if (!b || !b.kind) return null;
+  const until = Number(b.until) * 1000;
+  if (!Number.isFinite(until) || until <= nowMs) return null;
+  return { kind: b.kind, abbr: b.abbr || "", until, key: `${game.game_id}@${b.at}` };
 }
 
 /**
@@ -1140,38 +1115,30 @@ class FflNflGamesCard extends FflBaseCard {
     // while an explicit false keeps them shut even on an all-final slate.
     // Which folds the reader has opened. Both shut until asked.
     this._folds = { later: false, final: false };
-    // Each game's sides as last painted, to spot a score moving; and the
-    // games currently flashing a scoring play, with when each one ends.
-    this._lastSides = new Map();
-    this._flashes = new Map();
-    clearTimeout(this._flashTimer);
+    // Banners this card has already pulsed, so a repaint does not start the
+    // pulse over; and the timer that repaints when the next one comes down.
+    this._pulsed = new Set();
+    clearTimeout(this._bannerTimer);
   }
 
   /**
-   * Note any scoring plays in this update, and arrange the repaint that ends
-   * the soonest flash.
-   *
-   * Runs on paint, which the fingerprint guard already limits to updates that
-   * changed something — a score moving is one of those.
+   * The banners to paint now, by game id, each marked `fresh` the first
+   * time this card paints it — that paint pulses, later ones hold still.
+   * Also arranges the repaint that takes the soonest one down.
    */
-  _noteScores(rows, now = Date.now()) {
+  _banners(rows, now = Date.now()) {
+    const banners = new Map();
     for (const game of rows) {
-      const id = String(game.game_id);
-      const flash = scoringFlash(this._lastSides.get(id), game);
-      if (flash) this._flashes.set(id, { ...flash, since: now, until: now + SCORE_FLASH_MS });
-      const a = game.away || {};
-      const h = game.home || {};
-      this._lastSides.set(id, {
-        away: { score: a.score, has_ball: a.has_ball },
-        home: { score: h.score, has_ball: h.has_ball },
-      });
+      const b = scoreBanner(game, now);
+      if (b) banners.set(String(game.game_id), { ...b, fresh: !this._pulsed.has(b.key) });
     }
-    for (const [id, f] of this._flashes) if (f.until <= now) this._flashes.delete(id);
-    clearTimeout(this._flashTimer);
-    if (this._flashes.size) {
-      const next = Math.min(...[...this._flashes.values()].map((f) => f.until));
-      this._flashTimer = setTimeout(() => this._invalidate(), Math.max(0, next - now) + 50);
+    this._pulsed = new Set([...banners.values()].map((b) => b.key));
+    clearTimeout(this._bannerTimer);
+    if (banners.size) {
+      const next = Math.min(...[...banners.values()].map((b) => b.until));
+      this._bannerTimer = setTimeout(() => this._invalidate(), Math.max(0, next - now) + 50);
     }
+    return banners;
   }
 
   getCardSize() {
@@ -1230,7 +1197,7 @@ class FflNflGamesCard extends FflBaseCard {
       const a = g.away || {};
       const h = g.home || {};
       parts.push(g.game_id, g.state, g.clock_text, g.situation, g.yards_to_goal, g.last_play);
-      parts.push(g.last_play_provisional ? 1 : 0);
+      parts.push(g.last_play_provisional ? 1 : 0, g.score_banner ? g.score_banner.at : "");
       parts.push(a.score, h.score, a.has_ball ? 1 : 0, h.has_ball ? 1 : 0);
       parts.push(a.red_zone ? 1 : 0, h.red_zone ? 1 : 0);
     }
@@ -1288,18 +1255,13 @@ class FflNflGamesCard extends FflBaseCard {
     return found ? found.plays_id || "" : "";
   }
 
-  _flashFor(gameId, now = Date.now()) {
-    const f = this._flashes.get(gameId);
-    return f && { kind: f.kind, abbr: f.abbr, fresh: now - f.since < SCORE_FLASH_PULSE_MS };
-  }
-
-  _renderGames(games) {
+  _renderGames(games, banners = new Map()) {
     return games
       .map((game) =>
         renderNflGame(game, {
           open: this._expandedId === String(game.game_id),
           playsHtml: this._expandedId === String(game.game_id) ? this._detailHtml : "",
-          flash: this._flashFor(String(game.game_id)),
+          flash: banners.get(String(game.game_id)),
         })
       )
       .join("");
@@ -1318,14 +1280,14 @@ class FflNflGamesCard extends FflBaseCard {
         <span class="ffl-header-week">${rows.length} games</span>
       </div>`;
 
-    this._noteScores(rows);
+    const banners = this._banners(rows);
     const { live, soon, later, done } = this._split(rows);
     const fold = (kind, games) =>
       games.length
-        ? `${renderFoldToggle(kind, games.length, this._folds[kind])}${this._folds[kind] ? this._renderGames(games) : ""}`
+        ? `${renderFoldToggle(kind, games.length, this._folds[kind])}${this._folds[kind] ? this._renderGames(games, banners) : ""}`
         : "";
     this._paint(
-      `${header}<div class="ffl-nfl-games">${this._renderGames(live)}${this._renderGames(soon)}${fold(
+      `${header}<div class="ffl-nfl-games">${this._renderGames(live, banners)}${this._renderGames(soon, banners)}${fold(
         "later",
         later
       )}${fold("final", done)}</div>`
@@ -1906,7 +1868,7 @@ if (typeof module !== "undefined" && module.exports) {
     scoreClass,
     renderNflTeam,
     renderNflPlays,
-    scoringFlash,
+    scoreBanner,
     renderFoldToggle,
     localDayKey,
     fmtKickoff,

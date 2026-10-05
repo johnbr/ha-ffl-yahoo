@@ -420,6 +420,7 @@ def nfl_game_rows(
     data: LeagueData | None,
     last_plays: dict[str, str] | None = None,
     pending: dict[str, str] | None = None,
+    banners: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """The week's NFL games, as the games card renders them.
 
@@ -437,6 +438,11 @@ def nfl_game_rows(
     games feed has shown and the play feed has not described yet (see
     :mod:`pending_plays`). It stands in for the last play until the text lands,
     flagged so the card can say it is provisional.
+
+    ``banners`` maps a game id to its scoring banner while one is up (see
+    :mod:`score_banners`): what scored, and the epoch seconds it went up and
+    comes down, so a card opened part-way through shows it until the same
+    moment as one that was open when it happened.
     """
     if data is None:
         return []
@@ -457,6 +463,7 @@ def nfl_game_rows(
                 "yards_to_goal": _yards_to_goal(game),
                 "last_play": provisional or (last_plays or {}).get(plays_id) or "",
                 "last_play_provisional": bool(provisional),
+                "score_banner": (banners or {}).get(str(game.game_id)),
                 "start_time": _int_or_none(getattr(game, "start_time", None)),
                 "away": _nfl_side(game, game.away, getattr(game, "away_score", None)),
                 "home": _nfl_side(game, game.home, getattr(game, "home_score", None)),
@@ -481,8 +488,9 @@ def nfl_games_attributes(
     league_id: str,
     last_plays: dict[str, str] | None = None,
     pending: dict[str, str] | None = None,
+    banners: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    rows = nfl_game_rows(data, last_plays, pending)
+    rows = nfl_game_rows(data, last_plays, pending, banners)
     return {
         "league_id": league_id,
         "games": rows,
