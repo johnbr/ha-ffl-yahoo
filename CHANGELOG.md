@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.20.1...v0.21.0) (2026-10-05)
+
+
+### Features
+
+* time scoring banners in the integration so every dashboard matches ([#49](https://github.com/johnbr/ha-ffl-yahoo/issues/49)) ([de30a2a](https://github.com/johnbr/ha-ffl-yahoo/commit/de30a2a0c5d54bebccc1c2d5e6f242967e2edb01))
+
 ## [0.20.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.20.0...v0.20.1) (2026-10-05)
 
 
