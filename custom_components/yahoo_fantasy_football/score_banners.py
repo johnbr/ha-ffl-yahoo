@@ -4,22 +4,39 @@ Decided here rather than in the card so that every dashboard shows the same
 thing. A card that spotted the score jump itself could only do so if it was
 open when the jump arrived; one opened ten seconds later saw a score that was
 already on the board and showed nothing. Kept here, a scoring play is a fact
-with a time on it, and any card loaded inside the window shows its banner
-until the same moment.
+with a time on it, and any card loaded while it is up shows the same banner.
+
+It stays up until the play AFTER the scoring play lands in the play feed — the
+extra point after a touchdown, the kickoff after a field goal — so it sits
+over the scoring play's own sentence for as long as that is the last play on
+the card, however long Yahoo takes to write it.
 
 Pure, like :mod:`pending_plays`: the coordinator feeds it the games feed once
-per poll and the sensor reads the live banners back.
+per poll and the play feeds as they are read, and the sensor reads the live
+banners back.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
 from .yahoo_redzone import team_abbr
 
-# How long a banner stays up after the poll that saw the score.
-BANNER_SECONDS = 30.0
+# The longest a banner stays up, for when the play after it never shows: the
+# play feed is down, or the score ended the game and there is no next play.
+BANNER_SECONDS = 180.0
+
+# The shortest. A score that reached the games feed late can arrive with its
+# play AND the one after already written; the banner still gets this long.
+MIN_BANNER_SECONDS = 15.0
+
+# Play-feed rows that are not the next play: ``24`` is a timeout or the
+# two-minute warning, which can fall between a touchdown and its try. The end
+# of a period (``25``) does count — after a field goal at the half, nothing
+# else is coming for a quarter of an hour.
+NOT_A_PLAY = frozenset({"24"})
 
 
 def _score(value: Any) -> int | None:
@@ -81,13 +98,19 @@ class ScoreBanners:
 
     _seen: dict[str, _Seen] = field(default_factory=dict)
     _banners: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _floors: dict[str, int | None] = field(default_factory=dict)
+    """Per banner, the newest play-feed row from BEFORE the score."""
 
-    def observe(self, games: list[Any], now: float) -> None:
+    def observe(self, games: list[Any], now: float, floors: dict[str, int] | None = None) -> None:
         """Take one poll's view of the slate.
 
         A game seen for the first time is the baseline, never a banner — a
         restart mid-game must not announce every score already on the board.
         Only a game in progress can raise one.
+
+        ``floors`` maps a game id to the newest row its play feed had as of
+        the last poll: the scoring play is the first row above it, and the
+        banner comes down on the second.
         """
         current: set[str] = set()
         for game in games:
@@ -109,11 +132,38 @@ class ScoreBanners:
                     "at": now,
                     "until": now + BANNER_SECONDS,
                 }
+                self._floors[game_id] = (floors or {}).get(game_id)
         for game_id in set(self._seen) - current:
             del self._seen[game_id]
         for game_id, banner in list(self._banners.items()):
             if game_id not in current or banner["until"] <= now:
-                del self._banners[game_id]
+                self._drop(game_id)
+
+    def plays(self, game_id: str, rows: Iterable[tuple[int, str]], now: float) -> bool:
+        """Read a game's play feed — ``(sequence, play type)`` per row.
+
+        Takes the banner down once a play has landed after the scoring play.
+        A banner raised before the feed was ever read has no floor; it takes
+        the newest row at its first read as the scoring play. Returns whether
+        a banner came down.
+        """
+        banner = self._banners.get(game_id)
+        if banner is None:
+            return False
+        landed = sorted(seq for seq, kind in rows if kind not in NOT_A_PLAY)
+        floor = self._floors.get(game_id)
+        if floor is None:
+            if landed:
+                self._floors[game_id] = landed[-1] - 1
+            return False
+        if sum(seq > floor for seq in landed) < 2 or now - banner["at"] < MIN_BANNER_SECONDS:
+            return False
+        self._drop(game_id)
+        return True
+
+    def _drop(self, game_id: str) -> None:
+        del self._banners[game_id]
+        self._floors.pop(game_id, None)
 
     def active(self, now: float) -> dict[str, dict[str, Any]]:
         """``{game_id: banner}`` for every banner still up at ``now``."""
