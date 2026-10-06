@@ -129,7 +129,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._plays_floor: dict[str, int] = {}
         # Each live game's result-so-far for a snap whose text has not landed.
         self._pending = PendingPlays()
-        # The games card's TOUCHDOWN / FIELD GOAL / SAFETY banners, timed here
+        # The games card's TOUCHDOWN / FIELD GOAL / SAFETY banners, kept here
         # so every dashboard shows the same one.
         self._banners = ScoreBanners()
         # The poll and the chase between polls both write the last-play lines;
@@ -177,11 +177,21 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             raise UpdateFailed(str(err)) from err
 
         await self._process_plays(data, now)
-        self._banners.observe(getattr(data, "nfl_games", []), now)
+        self._observe_banners(data, now)
         await self._refresh_nfl_last_plays(data, now)
         self._start_chase(now)
         self.update_interval = _interval(data, self.update_interval)
         return data
+
+    def _observe_banners(self, data: LeagueData, now: float) -> None:
+        """Raise any new scoring banners, each told where its play feed stood."""
+        games = getattr(data, "nfl_games", [])
+        floors = {
+            str(game.game_id): self._plays_floor[plays_id]
+            for game in games
+            if (plays_id := str(getattr(game, "plays_id", "") or "")) in self._plays_floor
+        }
+        self._banners.observe(games, now, floors)
 
     async def _refresh_nfl_last_plays(
         self, data: LeagueData, now: float, only: Iterable[str] | None = None
@@ -222,6 +232,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         async with self._nfl_lock:
             before = (self._nfl_last_plays, self._pending.texts())
+            changed = False
             if only is None:
                 self._pending.forget_others(set(live))
             results = await asyncio.gather(
@@ -243,8 +254,13 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                     if only is None and newest is not None:
                         self._plays_floor[plays_id] = newest.sequence
                 self._pending.observe(plays_id, games[plays_id], newest, now)
+                # The play after a scoring play is what takes its banner down.
+                if (cached := self._nfl_plays.get(plays_id)) is not None:
+                    rows = [(play.sequence, play.play_type) for play in cached.plays]
+                    if self._banners.plays(str(games[plays_id].game_id), rows, now):
+                        changed = True
             self._nfl_last_plays = last_plays
-            return (self._nfl_last_plays, self._pending.texts()) != before
+            return changed or (self._nfl_last_plays, self._pending.texts()) != before
 
     def _landed(self, plays_id: str, play_id: str) -> Landed | None:
         """The play on a game's card, and the situation it ran from."""
@@ -293,7 +309,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
     @property
     def nfl_score_banners(self) -> dict[str, dict[str, Any]]:
-        """``{game_id: banner}`` for scoring plays inside their banner window."""
+        """``{game_id: banner}`` for scoring plays whose next play has not landed."""
         return self._banners.active(dt_util.utcnow().timestamp())
 
     @property

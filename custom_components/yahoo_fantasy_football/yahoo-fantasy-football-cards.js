@@ -441,9 +441,10 @@ function renderNflField(game) {
  * A game's scoring banner, if one is up at `nowMs`.
  *
  * The integration decides what scored and when (`score_banner`: kind, club,
- * and the epoch seconds it went up and comes down), so a dashboard opened
- * part-way through a banner shows it until the same moment as one that was
- * open when the score landed. The card only checks the clock.
+ * the epoch seconds it went up and the latest it can stay), and drops it from
+ * the row when the next play lands, so a dashboard opened part-way through a
+ * banner takes it down at the same moment as one that was open when the score
+ * landed. The card only checks the clock.
  */
 function scoreBanner(game, nowMs = Date.now()) {
   const b = game && game.score_banner;
