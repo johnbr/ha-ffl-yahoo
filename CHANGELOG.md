@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.21.0...v0.22.0) (2026-10-06)
+
+
+### Features
+
+* keep a scoring banner up until the next play lands ([#51](https://github.com/johnbr/ha-ffl-yahoo/issues/51)) ([6a85e45](https://github.com/johnbr/ha-ffl-yahoo/commit/6a85e451a414fa6d66027dfbf343ab71eaa74f79))
+
 ## [0.21.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.20.1...v0.21.0) (2026-10-05)
 
 
