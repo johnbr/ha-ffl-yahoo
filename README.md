@@ -43,7 +43,9 @@ One refresh is **three requests for the whole league**, whatever its size.
 - **"Real time" means 30–60 seconds.** That is how far Yahoo's own live scoring trails the play. No
   integration can beat it.
 - **Stat corrections happen.** Yahoo revises stats during and after games; these are flagged as
-  corrections and never presented as scores.
+  corrections and never presented as scores. A play the feed takes back entirely, such as a catch
+  wiped off by a penalty on the same snap, drops out of the last play and the recent plays. The
+  scoring history keeps both the play and its correction.
 - **One play lands in pieces.** Yahoo's stat feed moves a category at a time, a poll apart: a
   19-yard catch arrives as `1 Rec`, then `19 Rec Yds`, then a re-measured yard. The pieces are folded
   into one row per play, so the history reads one catch for +2.90 rather than three lines of the same

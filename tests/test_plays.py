@@ -458,6 +458,44 @@ def test_banner_skips_corrections_by_default() -> None:
     assert feed.last_play(include_corrections=True).correction is True
 
 
+def test_a_play_walked_back_by_a_correction_is_no_last_play() -> None:
+    """A catch wiped off by a penalty: the stat feed raises it, then takes it back.
+
+    2026-10-12, Buf at LAR: Keon Coleman's 3-yard catch went 0.00 -> 1.30, the
+    pass interference on the snap took it back to 0.00, and the matchup's last
+    play still read "K. Coleman 1 rec, 3 yds" beside his 0 points.
+    """
+    feed = PlayFeed()
+    feed.add([_piece("e0", 90.0, 4.0, "40 Rec Yds", player_key="p.other", player_name="Other Guy")])
+    feed.add([_piece("e1", 100.0, 1.3, "1 Rec, 3 Rec Yds")])
+    feed.add([_piece("e2", 110.0, -1.3, "-1 Rec, -3 Rec Yds", correction=True, old_points=1.3, new_points=0.0)])
+
+    assert feed.last_play().event_id == "e0", "the wiped catch is not a last play"
+    assert [e.event_id for e in feed.recent(5)] == ["e0"]
+    assert [e.event_id for e in feed.recent(5, include_corrections=True)] == ["e2", "e1", "e0"]
+
+    # His touchdown later is a play like any other.
+    feed.add([_piece("e3", 120.0, 7.7, "1 Rec, 7 Rec Yds, 1 Rec TD")])
+    assert feed.last_play().event_id == "e3"
+
+
+def test_a_partial_correction_leaves_the_play() -> None:
+    """A yard walked back revises a play; it does not undo it."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 7.4, "1 Rec, 64 Rec Yds")])
+    feed.add([_piece("e2", 110.0, -0.1, "-1 Rec Yds", correction=True, old_points=7.4, new_points=7.3)])
+    assert feed.last_play().event_id == "e1"
+
+
+def test_a_correction_undoes_only_the_plays_it_covers() -> None:
+    """A touchdown taken back leaves the catch before it."""
+    feed = PlayFeed()
+    feed.add([_piece("e1", 100.0, 1.3, "1 Rec, 3 Rec Yds")])
+    feed.add([_piece("e2", 110.0, 6.4, "4 Rec Yds, 1 Rec TD", old_points=1.3, new_points=7.7)])
+    feed.add([_piece("e3", 120.0, -6.4, "-4 Rec Yds, -1 Rec TD", correction=True, old_points=7.7, new_points=1.3)])
+    assert [e.event_id for e in feed.recent(5)] == ["e1"]
+
+
 def test_a_new_week_clears_the_feed() -> None:
     feed = PlayFeed()
     feed.add(diff_snapshots(snap(3, 1.0, player("p1", 0.0)), snap(3, 2.0, player("p1", 6.0))))
