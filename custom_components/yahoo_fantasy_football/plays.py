@@ -231,6 +231,16 @@ def _is_correction(delta: float, before: dict[str, float], after: dict[str, floa
     )
 
 
+def _walked_back(event: ScoringEvent, undone: dict[str, list[tuple[float, float]]]) -> bool:
+    """Whether a later correction took back every point ``event`` gained."""
+    if event.delta <= 0:
+        return False
+    return any(
+        low <= event.old_points + 0.005 and high >= event.new_points - 0.005
+        for low, high in undone.get(event.player_key, ())
+    )
+
+
 def diff_snapshots(
     previous: LeagueSnapshot | None,
     current: LeagueSnapshot,
@@ -772,10 +782,21 @@ class PlayFeed:
         callers pass the clubs whose games are in progress, so a play cannot
         outlive the game it happened in. ``None`` means no restriction, which
         is what an unavailable games feed must fall back to.
+
+        Without ``include_corrections`` a play that a later correction walked
+        all the way back is left out too. A catch wiped off by a penalty on the
+        same snap reaches the stat feed and is then taken away; showing it as a
+        matchup's last play, beside a player now back on zero, shows a play
+        that no longer counts (2026-10-12, Keon Coleman, Buf at LAR). The
+        record — ``include_corrections`` — keeps both.
         """
         out: list[ScoringEvent] = []
+        # Per player, the point ranges later corrections walked back.
+        undone: dict[str, list[tuple[float, float]]] = {}
         for event in reversed(self._events):
-            if not include_corrections and event.correction:
+            if event.correction:
+                undone.setdefault(event.player_key, []).append((event.new_points, event.old_points))
+            if not include_corrections and (event.correction or _walked_back(event, undone)):
                 continue
             if starters_only and not event.starter:
                 continue
