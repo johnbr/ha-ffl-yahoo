@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.22.1...v0.23.0) (2026-10-13)
+
+
+### Features
+
+* show each team's season record after its name on the cards ([#55](https://github.com/johnbr/ha-ffl-yahoo/issues/55)) ([a46e77f](https://github.com/johnbr/ha-ffl-yahoo/commit/a46e77fe3982e4d36aad184ddd152ae0f43fe05d))
+
 ## [0.22.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.22.0...v0.22.1) (2026-10-13)
 
 
