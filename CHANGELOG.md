@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.22.0...v0.22.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* a play a correction took back is no matchup's last play ([#53](https://github.com/johnbr/ha-ffl-yahoo/issues/53)) ([ac12420](https://github.com/johnbr/ha-ffl-yahoo/commit/ac12420b37d9e389e623381dd657efcc35e6db2c))
+
 ## [0.22.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.21.0...v0.22.0) (2026-10-06)
 
 
