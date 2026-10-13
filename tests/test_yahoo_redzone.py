@@ -15,6 +15,7 @@ from conftest import FIXTURES
 from yahoo_fantasy_football.yahoo_redzone import (
     GAME_STATUS,
     NFL_STAT_NAMES,
+    _record,
     active_game_count,
     clock_text,
     describe_delta,
@@ -331,6 +332,27 @@ def test_a_team_counts_the_starters_still_to_play(league):
             expected = sum(1 for p in roster if p.starter and p.game_state in ("pre", "in"))
             assert team.remaining == expected
             assert team.remaining > 0, "nobody is finished in the week-1 capture"
+
+
+def test_every_team_carries_its_season_record(league):
+    """Week 1: nobody has played yet, and the record says so rather than nothing."""
+    records = {m.teams[side].record for m in league.matchups for side in (0, 1)}
+    assert records == {"0-0"}
+
+
+@pytest.mark.parametrize(
+    ("team", "expected"),
+    [
+        ({"wins": 0, "losses": 4, "ties": 0}, "0-4"),
+        ({"wins": 3, "losses": 1, "ties": 1}, "3-1-1"),
+        ({"wins": 2, "losses": 2}, "2-2"),
+        ({"wins": None, "losses": None, "ties": None}, None),
+        ({}, None),
+    ],
+)
+def test_a_record_reads_the_way_yahoo_prints_it(team, expected):
+    """A tie only shows once there is one, and a seed without a record gives none."""
+    assert _record(team) == expected
 
 
 def test_team_defense_is_scored_from_the_team_feed(league):

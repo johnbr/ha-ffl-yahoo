@@ -150,6 +150,24 @@ test("a collapsed row shows names and scores, and nothing else", () => {
   assert.ok(!html.includes("ffl-projs"), "no projection block on a collapsed row");
 });
 
+test("each team's season record follows its name", () => {
+  const row = { ...ROW, home: { ...ROW.home, record: "0-4" }, away: { ...ROW.away, record: "1-3" } };
+  const html = renderMatchupRow(row);
+  assert.match(html, /Tesla <span class="ffl-team-record">\(0-4\)<\/span>/);
+  assert.match(html, /Your daddy <span class="ffl-team-record">\(1-3\)<\/span>/);
+});
+
+test("a team with no record shows no empty brackets", () => {
+  const html = renderMatchupRow(ROW);
+  assert.ok(!html.includes("ffl-team-record"));
+  assert.ok(!html.includes("()"));
+});
+
+test("a hostile record cannot inject markup", () => {
+  const html = renderMatchupRow({ ...ROW, home: { ...ROW.home, record: "<b>x</b>" } });
+  assert.ok(!html.includes("<b>x</b>"));
+});
+
 test("the winning score turns gold only once the matchup is decided", () => {
   // `final` is the integration's word: neither team has a starter left to
   // play. A leader mid-week is only ahead.

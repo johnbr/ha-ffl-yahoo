@@ -159,6 +159,10 @@ class WebTeam:
     both sides' spread, and by the time two teams are compared the per-player
     numbers are long gone. See ``league_state.win_probability``.
     """
+    record: str | None = None
+    """The season's win-loss record going into this week, ``"3-1"`` (``"3-1-1"``
+    with a tie). ``None`` from a tier that does not carry one.
+    """
 
 
 @dataclass(frozen=True)

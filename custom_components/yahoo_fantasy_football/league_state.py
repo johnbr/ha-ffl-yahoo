@@ -101,6 +101,7 @@ def _team_dict(team: Any) -> dict[str, Any]:
         "projected": team.projected,
         "live_projected": team.live_projected,
         "remaining": getattr(team, "remaining", None),
+        "record": getattr(team, "record", None),
     }
 
 

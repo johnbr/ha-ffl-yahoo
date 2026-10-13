@@ -8,7 +8,8 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundl
 ## Features
 
 - **Two cards.** One for your own matchup, one for every matchup in the league. Both show only the
-  scores at rest; clicking a matchup opens a roster popup with each player's live points.
+  team names, each with its season record (`Tesla (0-4)`), and the scores at rest; clicking a matchup
+  opens a roster popup with each player's live points.
 - **Live team scores and projections.** Yahoo publishes a live projected total per team that moves
   during games — both cards show current points alongside the projection.
 - **Per-matchup scoring plays.** Under each matchup, the play that last moved *that* score,

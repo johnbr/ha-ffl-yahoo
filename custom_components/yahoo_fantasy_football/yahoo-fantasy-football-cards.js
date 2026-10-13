@@ -222,10 +222,13 @@ function renderTeamSide(team, isLeader, align) {
   // collapsed row three lines tall to carry two numbers that do not change
   // between polls the way the score does. With a single child the row's
   // `align-items: center` puts the name on the same line as the score.
+  // The season record rides after the name, "Tesla (0-4)", in its own span so
+  // a wrapping name never splits it.
   const cls = `ffl-team ffl-team-${align}${isLeader ? " ffl-leader" : ""}`;
+  const record = team.record ? ` <span class="ffl-team-record">(${escapeHtml(team.record)})</span>` : "";
   return `
     <div class="${cls}">
-      <div class="ffl-team-name">${escapeHtml(team.name)}</div>
+      <div class="ffl-team-name">${escapeHtml(team.name)}${record}</div>
     </div>`;
 }
 
@@ -1634,6 +1637,7 @@ const CARD_CSS = `
     white-space: normal; overflow-wrap: anywhere;
   }
   .ffl-team.ffl-leader .ffl-team-name { font-weight: 700; }
+  .ffl-team-record { font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
   .ffl-team-proj { font-size: 0.72rem; font-weight: 500; color: var(--ffl-muted); }
   .ffl-team-live { font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 

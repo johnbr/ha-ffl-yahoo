@@ -9,6 +9,7 @@ repo's harness.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -150,6 +151,16 @@ def test_every_matchup_produces_a_row() -> None:
     rows = matchup_rows(DATA)
     assert len(rows) == 5
     assert all(r["home"]["name"] and r["away"]["name"] for r in rows)
+
+
+def test_a_row_carries_each_teams_record() -> None:
+    """The cards print it after the name. The scraped tier carries none, and says
+    so with None rather than a blank the card would bracket."""
+    row = matchup_rows(DATA)[0]
+    assert row["home"]["record"] is None and row["away"]["record"] is None
+    recorded = dataclasses.replace(DATA.standings[0][0], record="0-4")
+    standings = [(recorded, DATA.standings[0][1]), *DATA.standings[1:]]
+    assert matchup_rows(dataclasses.replace(DATA, standings=standings))[0]["home"]["record"] == "0-4"
 
 
 def test_the_leader_is_identified() -> None:
