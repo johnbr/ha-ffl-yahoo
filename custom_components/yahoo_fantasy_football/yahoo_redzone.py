@@ -1296,7 +1296,20 @@ def _team(team: dict[str, Any], roster: list[WebPlayer]) -> WebTeam:
         remaining_var=round(
             sum(max(0.0, (p.live_projected or 0.0) - (p.points or 0.0)) ** 2 for p in starters), 4
         ),
+        record=_record(team),
     )
+
+
+def _record(team: dict[str, Any]) -> str | None:
+    """``"3-1"``, or ``"3-1-1"`` once there is a tie — the way Yahoo prints it.
+
+    The seed's record is the season's going into this week: Yahoo settles a
+    week's result when the week is scored, not as the matchup ends.
+    """
+    wins, losses, ties = (team.get(key) for key in ("wins", "losses", "ties"))
+    if not isinstance(wins, int) or not isinstance(losses, int):
+        return None
+    return f"{wins}-{losses}-{ties}" if isinstance(ties, int) and ties > 0 else f"{wins}-{losses}"
 
 
 def league_from_payloads(
