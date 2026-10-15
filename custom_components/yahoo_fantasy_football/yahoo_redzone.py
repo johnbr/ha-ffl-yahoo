@@ -42,6 +42,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import Any
 
 from .web_client import LeagueData
@@ -925,6 +926,71 @@ def settle_forgotten_games(games: dict[str, GameState], now: float) -> list[Game
     return settled
 
 
+# The league and the relay turn the week over hours apart. Every week so far
+# the league moved on first — its seed said week 6 from 00:04 PT on Wednesday
+# 2026-10-14 — while the relay kept week 5's games and stat lines until it
+# reset at 04:00. For those four hours the week-6 rosters were scored on
+# week-5 stats, and when the stat feed emptied, every one of those players
+# "lost" his whole week-5 line at once: 115 events at 04:03, recorded as the
+# first plays of week 6. The two Wednesdays before it went the same way.
+#
+# The stat lines say nothing of the game they came from, so the games feed
+# decides: a club's stats count toward the league's week only when its game
+# falls in that week and has kicked off.
+#
+# ``weekInfo`` dates have no time zone, and Monday night's kickoff is already
+# Tuesday in UTC. A day's slack either side keeps every kickoff on the week's
+# own dates inside, and cannot reach a neighbouring week's games: the weeks are
+# separated by a Tuesday and a Wednesday with no football.
+WEEK_SLACK_SECONDS = 86400.0
+
+
+def week_window(week_info: dict[str, Any]) -> tuple[float, float] | None:
+    """The kickoffs that belong to the league's week, as ``[start, end)`` epochs.
+
+    ``None`` when the seed carries no usable dates, in which case every game is
+    taken to be this week's, as before.
+    """
+    try:
+        start, end = (
+            datetime.combine(date.fromisoformat(str(week_info[key])), datetime.min.time(), UTC)
+            for key in ("start", "end")
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+    # ``end`` is a whole day, so the window runs to its midnight, plus the slack.
+    return start.timestamp() - WEEK_SLACK_SECONDS, end.timestamp() + 2 * WEEK_SLACK_SECONDS
+
+
+def held_over_clubs(
+    games: dict[str, GameState], window: tuple[float, float] | None
+) -> frozenset[str]:
+    """Clubs whose row in the games feed is another week's game.
+
+    The relay has not turned over yet: these clubs' games this week are still
+    to come, and whatever the stat feed holds for their players is last week's.
+    """
+    if window is None:
+        return frozenset()
+    low, high = window
+    return frozenset(
+        club
+        for club, game in games.items()
+        if (kickoff := _epoch(game.start_time)) is not None and not low <= kickoff < high
+    )
+
+
+def _yet_to_kick_off(game: GameState, now: float) -> bool:
+    """This week's game, not started — so any stats for its clubs are not from it.
+
+    Covers the relay's own turnover, which is not atomic either: the games feed
+    can list the new week's slate a poll before the stat feed lets go of the
+    old week's lines.
+    """
+    kickoff = _epoch(game.start_time)
+    return game.state == "pre" and kickoff is not None and kickoff > now
+
+
 def games_in_order(games: dict[str, GameState]) -> list[GameState]:
     """The week's slate, one entry per GAME, in kickoff order.
 
@@ -1219,9 +1285,12 @@ def _player(
     modifiers: dict[str, float],
     games: dict[str, GameState],
     side: int,
+    held_over: frozenset[str] = frozenset(),
 ) -> WebPlayer:
     nfl_team = str(meta.get("teamId") or "")
-    game = games.get(nfl_team)
+    # A held-over club's row is last week's game, which says nothing about
+    # this one beyond that it has not been played yet.
+    game = None if nfl_team in held_over else games.get(nfl_team)
     projected = entry.get("projectedPoints")
     projected = float(projected) if projected not in (None, "") else None
     points = score(stats, modifiers) if stats else 0.0
@@ -1245,7 +1314,7 @@ def _player(
         # ``bye``. The feed carries the whole week's slate, so a real bye and a
         # feed that arrived short look identical from here — and calling it a
         # bye would drop the poll cadence to idle in the middle of a Sunday.
-        game_state_hint=game.state if game else "unknown",
+        game_state_hint=game.state if game else "pre" if nfl_team in held_over else "unknown",
     )
 
 
@@ -1257,17 +1326,25 @@ def _roster(
     modifiers: dict[str, float],
     games: dict[str, GameState],
     side: int,
+    held_over: frozenset[str] = frozenset(),
+    now: float = 0.0,
 ) -> list[WebPlayer]:
     meta_all = service.get("players") or {}
     players = []
     for entry in team.get("players") or []:
         pid = str(entry.get("id") or "")
         meta = meta_all.get(pid) or {}
-        if _is_defense(entry, meta):
-            stats = defense_by_team.get(str(meta.get("teamId") or ""), {})
+        club = str(meta.get("teamId") or "")
+        game = games.get(club)
+        if club in held_over or (game is not None and _yet_to_kick_off(game, now)):
+            # No game of this club's this week has been played, so these
+            # stats are last week's — see WEEK_SLACK_SECONDS.
+            stats = {}
+        elif _is_defense(entry, meta):
+            stats = defense_by_team.get(club, {})
         else:
             stats = stats_by_player.get(pid, {})
-        players.append(_player(entry, meta, stats, modifiers, games, side))
+        players.append(_player(entry, meta, stats, modifiers, games, side, held_over))
     return players
 
 
@@ -1323,7 +1400,8 @@ def league_from_payloads(
     service = _service(redzone)
     league = _league(service, league_id)
 
-    week = int((league.get("weekInfo") or {}).get("week") or 0)
+    week_info = league.get("weekInfo") or {}
+    week = int(week_info.get("week") or 0)
     modifiers = scoring_modifiers(league)
     stats_by_player = parse_relay_stats(stats_text)
     defense_by_team = parse_relay_defense(stats_text)
@@ -1336,6 +1414,13 @@ def league_from_payloads(
             "relay lists %d played game(s) as scheduled; settled: %s",
             len(settled),
             ", ".join(f"{g.game_id} {g.away_score or '?'}-{g.home_score or '?'}" for g in settled),
+        )
+    held_over = held_over_clubs(games, week_window(week_info))
+    if held_over:
+        _LOGGER.debug(
+            "relay still on another week's games for %d club(s); their stats are not week %d's",
+            len(held_over),
+            week,
         )
     teams = league.get("teams") or {}
 
@@ -1352,7 +1437,8 @@ def league_from_payloads(
             for side, team_id in enumerate(pair):
                 team = teams.get(str(team_id)) or {}
                 roster = _roster(
-                    team, service, stats_by_player, defense_by_team, modifiers, games, side
+                    team, service, stats_by_player, defense_by_team, modifiers, games, side,
+                    held_over, now,
                 )
                 players.extend(roster)
                 sides.append(_team(team, roster))
