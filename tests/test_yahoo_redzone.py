@@ -925,10 +925,13 @@ def test_league_from_payloads_settles_forgotten_games_before_the_rosters(
     A player left at "pre" is projected for their whole day on top of what
     they scored, and counted among the starters still to play — which is what
     the FFL card showed on 2026-09-18 (81 scored + 140 projected = 221 "live").
+
+    The games feed is week 2's, so the seed has to say week 2 as well.
     """
     from yahoo_fantasy_football.yahoo_redzone import league_from_payloads
 
-    data = league_from_payloads(redzone, stats_text, reset_games_text, LEAGUE, now=DET_AT_BUF_KICKOFF + 60)
+    seed = _as_week(redzone, 2, "2026-09-17", "2026-09-21")
+    data = league_from_payloads(seed, stats_text, reset_games_text, LEAGUE, now=DET_AT_BUF_KICKOFF + 60)
 
     (game,) = [g for g in data.nfl_games if g.game_id == DET_AT_BUF]
     assert game.state == "post"
@@ -944,6 +947,117 @@ def test_league_from_payloads_settles_forgotten_games_before_the_rosters(
     # A club with a game still to come reads as before.
     assert players["40900"].game_state == "pre"  # Caleb Williams, Chi
     assert data.active_games == 0
+
+
+# ---------------------------------------------------------------------------
+# The Wednesday turnover: the league moves on hours before the relay does
+# ---------------------------------------------------------------------------
+
+NE_AT_SEA_KICKOFF = 1788999600  # the game live in the week-1 capture
+EMPTY_STATS = "# nfl/stats.txt\n# 2026-09-16T04:00:39-0700\n# source_sequence_number=1\n"
+
+
+def _as_week(redzone: str, week: int, start: str, end: str) -> dict:
+    """The week-1 seed saying another week — the rosters are beside the point."""
+    payload = json.loads(redzone)
+    payload["service"]["leagues"][LEAGUE]["weekInfo"] = {"week": week, "start": start, "end": end}
+    return payload
+
+
+def _players(data) -> dict:
+    return {p.player_id: p for m in data.matchups for p in m.players}
+
+
+def test_week_window_takes_monday_night_and_neither_neighbouring_week() -> None:
+    from datetime import UTC, datetime
+
+    from yahoo_fantasy_football.yahoo_redzone import week_window
+
+    low, high = week_window({"week": 6, "start": "2026-10-15", "end": "2026-10-19"})
+
+    def kickoff(day: int) -> float:  # 8:15 PM ET, which UTC calls the next day
+        return datetime(2026, 10, day, 0, 15, tzinfo=UTC).timestamp()
+
+    assert low <= kickoff(16) < high  # Thursday night
+    assert low <= kickoff(20) < high  # Monday night, already Tuesday in UTC
+    assert not low <= kickoff(13) < high  # week 5's Monday night
+    assert not low <= kickoff(23) < high  # week 7's Thursday night
+
+
+def test_a_seed_without_week_dates_holds_nothing_back() -> None:
+    from yahoo_fantasy_football.yahoo_redzone import held_over_clubs, week_window
+
+    assert week_window({"week": 6}) is None
+    assert week_window({"week": 6, "start": "", "end": ""}) is None
+    assert held_over_clubs(parse_relay_games(""), None) == frozenset()
+
+
+def test_last_weeks_stat_lines_do_not_score_the_new_week(
+    redzone: str, stats_text: str, games_text: str
+) -> None:
+    """00:04 PT on Wednesday 2026-10-14, replayed with the week-1 captures.
+
+    The league already says the next week; the relay still holds the last
+    week's games and stat lines. Before, the new week's rosters were scored on
+    them for four hours (my team read 128.76 in a week not yet begun).
+    """
+    now = NE_AT_SEA_KICKOFF + 7200
+    week_one = _players(league_from_payloads(redzone, stats_text, games_text, LEAGUE, now=now))
+    seed = _as_week(redzone, 2, "2026-09-17", "2026-09-21")
+    data = league_from_payloads(seed, stats_text, games_text, LEAGUE, now=now)
+    week_two = _players(data)
+
+    assert week_one["40881"].points == 12.74  # Drake Maye, in the game live in week 1
+    maye = week_two["40881"]
+    assert (maye.points, maye.stats, maye.stat_line) == (0.0, {}, "")
+    # His week-2 game is still to come: no note borrowed from week 1, and a
+    # full day's projection rather than none.
+    assert (maye.game_state, maye.game_note, maye.kickoff) == ("pre", "", None)
+    assert maye.live_projected == maye.projected
+    seattle = next(p for p in week_two.values() if p.slot == "DEF" and p.name == "Seahawks")
+    assert seattle.points == 0.0  # 9.00 in week 1
+    assert all(team.points == 0.0 for m in data.matchups for team in m.teams)
+    # The games card still has its slate; only the scoring sets it aside.
+    assert data.nfl_games
+
+
+def test_the_stat_feed_emptying_on_wednesday_raises_no_events(
+    redzone: str, stats_text: str, games_text: str, reset_games_text: str
+) -> None:
+    """04:03 PT 2026-10-14: the relay resets with the league already on week 6.
+
+    Every player held last week's line in the new week's baseline, so the
+    empty feed read as each of them losing it — 115 events, all at once.
+    """
+    from yahoo_fantasy_football.plays import diff_snapshots
+
+    seed = _as_week(redzone, 2, "2026-09-17", "2026-09-21")
+    wednesday = DET_AT_BUF_KICKOFF - 86400
+    held = league_from_payloads(seed, stats_text, games_text, LEAGUE, now=wednesday - 3600)
+    reset = league_from_payloads(seed, EMPTY_STATS, reset_games_text, LEAGUE, now=wednesday)
+
+    baseline = to_snapshot(held.matchups, 2, wednesday - 3600, LEAGUE)
+    assert diff_snapshots(baseline, to_snapshot(reset.matchups, 2, wednesday, LEAGUE)) == []
+
+
+def test_a_game_yet_to_kick_off_takes_nothing_from_the_stat_feed(
+    redzone: str, stats_text: str, games_text: str
+) -> None:
+    """The relay's own turnover is not atomic either.
+
+    Its games feed can list the new week's slate a poll before its stat feed
+    lets go of the old week's lines, so a game still to kick off cannot have
+    produced any of them.
+    """
+    scheduled = games_text.replace("g|20260909026|17|26|P|", "g|20260909026|17|26|S|")
+    assert scheduled != games_text
+
+    early = league_from_payloads(redzone, stats_text, scheduled, LEAGUE, now=NE_AT_SEA_KICKOFF - 600)
+    assert _players(early)["40881"].points == 0.0
+    # Past kickoff, a row still marked scheduled is the relay lagging behind
+    # its own game, and the stats are the game's.
+    late = league_from_payloads(redzone, stats_text, scheduled, LEAGUE, now=NE_AT_SEA_KICKOFF + 600)
+    assert _players(late)["40881"].points == 12.74
 
 
 @pytest.mark.parametrize(
