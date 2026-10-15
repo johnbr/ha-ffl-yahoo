@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.23.0...v0.23.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* score a new week on its own games, not the last week's stat lines ([#59](https://github.com/johnbr/ha-ffl-yahoo/issues/59)) ([e3679b8](https://github.com/johnbr/ha-ffl-yahoo/commit/e3679b8c42b564eff264744c65a3aabdc812b849))
+
 ## [0.23.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.22.1...v0.23.0) (2026-10-13)
 
 
