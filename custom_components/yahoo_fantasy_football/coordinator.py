@@ -30,6 +30,7 @@ from .const import (
     DOMAIN,
     EVENT_SCORING_PLAY,
 )
+from .history_client import PlayerNotRostered, SeasonHistory
 from .league_state import down_and_distance, play_dict, poll_interval
 from .pending_plays import Landed, PendingPlays, situation_of
 from .plays import (
@@ -112,9 +113,22 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 resp.raise_for_status()
                 return await resp.text(), resp.headers.get("Last-Modified", "")
 
+        async def _fetch_with(url: str, headers: dict[str, str] | None) -> str:
+            async with session.get(
+                url, headers={"User-Agent": USER_AGENT, **(headers or {})}, timeout=REQUEST_TIMEOUT
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.text()
+
         self.client = RedzoneClient(
             _fetch, self.league_id, fetch_if_modified=_fetch_if_modified
         )
+        # A player's season, opened from the lineup. Finished weeks' projections are saved with
+        # the entry so a restart does not fetch a whole season's seeds again.
+        self._season_store: Store = Store(
+            hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.season"
+        )
+        self.history = SeasonHistory(_fetch_with, self.league_id, save=self._save_season)
         self.feed = PlayFeed()
         self._previous = None
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")
@@ -157,6 +171,31 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             return
         if stored:
             self.feed = PlayFeed.from_dict(stored)
+        try:
+            self.history.load(await self._season_store.async_load())
+        except Exception as err:  # refetched on first use
+            _LOGGER.debug("Could not load stored season projections: %s", err)
+
+    def _save_season(self) -> None:
+        self._season_store.async_delay_save(self.history.to_dict, 10)
+
+    async def async_player_history(self, player_id: str) -> dict[str, Any]:
+        """A rostered player's season, week by week — the lineup's player panel."""
+        data = self.league_data
+        if data is None:
+            raise PlayerNotRostered(player_id)
+        live = next(
+            (
+                p.points
+                for matchup in data.matchups
+                for p in matchup.players
+                if str(p.player_id) == str(player_id)
+            ),
+            None,
+        )
+        return await self.history.player(
+            str(player_id), int(data.week), live, dt_util.utcnow().timestamp()
+        )
 
     async def _async_save_history(self) -> None:
         try:

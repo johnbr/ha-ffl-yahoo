@@ -9,11 +9,13 @@ These commands read straight from coordinator memory. They never touch Yahoo, so
 opening a popup costs nothing upstream and works fine while rate-limited or
 serving stale data.
 
-The one exception is ``nfl_plays``, which fetches a single game's play feed on
-demand. That feed is ~20 KB per game, far too much to push to every client on
-every poll, so the cost is paid only when a reader actually expands a game. The
-fetch and its TTL cache live in the coordinator, keeping this module's own
-handlers free of network code.
+The exceptions are ``nfl_plays`` and ``player_history``. ``nfl_plays`` fetches a
+single game's play feed on demand. That feed is ~20 KB per game, far too much to
+push to every client on every poll, so the cost is paid only when a reader
+actually expands a game. ``player_history`` builds a player's season from Yahoo's
+weekly seeds and ESPN's lines, cached in :mod:`history_client`. Both fetches and
+their caches live behind the coordinator, keeping this module's own handlers free
+of network code.
 
 Cards address a league by ``league_id`` (which they already have, from the
 scoreboard entity's attributes) rather than by config-entry id, which the
@@ -165,8 +167,42 @@ def async_register_commands(hass: HomeAssistant) -> None:
             plays = [pending, *plays][:limit]
         connection.send_result(msg["id"], {"plays_id": str(msg["plays_id"]), "plays": plays})
 
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): f"{DOMAIN}/player_history",
+            vol.Required("league_id"): str,
+            vol.Required("player_id"): str,
+        }
+    )
+    @websocket_api.async_response
+    async def handle_player_history(
+        hass: HomeAssistant, connection: Any, msg: dict[str, Any]
+    ) -> None:
+        """One player's season, week by week — opened from the lineup.
+
+        Goes to the network the first time (a season of Yahoo seeds and ESPN's lines; see
+        :mod:`history_client`) and is served from the coordinator's caches after that.
+        """
+        from .history_client import PlayerNotRostered
+
+        coordinator = _find_coordinator(hass, msg["league_id"])
+        if coordinator is None:
+            connection.send_error(msg["id"], "not_found", "No such league configured")
+            return
+        try:
+            season = await coordinator.async_player_history(str(msg["player_id"]))
+        except PlayerNotRostered:
+            connection.send_error(msg["id"], "not_found", "That player is not on a roster this week")
+            return
+        except Exception as err:  # the card shows the message in place of the season
+            _LOGGER.debug("Season for player %s unavailable: %s", msg["player_id"], err)
+            connection.send_error(msg["id"], "unavailable", "Couldn't load this player's season")
+            return
+        connection.send_result(msg["id"], season)
+
     websocket_api.async_register_command(hass, handle_matchup_detail)
     websocket_api.async_register_command(hass, handle_play_history)
     websocket_api.async_register_command(hass, handle_nfl_plays)
+    websocket_api.async_register_command(hass, handle_player_history)
     hass.data[DOMAIN][_REGISTERED] = True
     _LOGGER.debug("Registered %s WebSocket commands", DOMAIN)

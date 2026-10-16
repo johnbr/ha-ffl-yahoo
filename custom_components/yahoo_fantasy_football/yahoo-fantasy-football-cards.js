@@ -215,6 +215,14 @@ function fetchPlayHistory(hass, leagueId, options = {}) {
   return callWS(hass, message);
 }
 
+function fetchPlayerHistory(hass, leagueId, playerId) {
+  return callWS(hass, {
+    type: `${DOMAIN}/player_history`,
+    league_id: String(leagueId),
+    player_id: String(playerId),
+  });
+}
+
 /* ------------------------------------------------------------- rendering */
 
 function renderTeamSide(team, isLeader, align) {
@@ -614,11 +622,14 @@ function renderMatchupRow(row, options = {}) {
   const panel = expanded ? options.panel || "roster" : "";
   const playsOpen = panel === "plays";
   const panelId = `ffl-detail-${String(row.matchup_id).replace(/[^A-Za-z0-9_-]/g, "-")}`;
-  // The win bar belongs to the lineup, not to the play list: it is about where
-  // the matchup is heading, which is what the lineup answers.
+  // The win bar belongs to the lineup, not to the play list or a player's
+  // season: it is about where the matchup is heading, which is what the lineup
+  // answers.
+  const loading = { plays: "Loading plays…", player: "Loading season…" }[panel] || "Loading rosters…";
+  const lineup = panel === "roster" ? renderProjections(row) + renderWinBar(row) : "";
   const detail = expanded
-    ? `<div class="ffl-row-detail" id="${panelId}">${playsOpen ? "" : renderProjections(row) + renderWinBar(row)}${
-        options.detailHtml || `<div class="ffl-loading">${playsOpen ? "Loading plays…" : "Loading rosters…"}</div>`
+    ? `<div class="ffl-row-detail" id="${panelId}">${lineup}${
+        options.detailHtml || `<div class="ffl-loading">${loading}</div>`
       }</div>`
     : "";
   return `
@@ -729,8 +740,12 @@ function renderPlayerBlock(player, align) {
   // at the top of its row, so the two sides' figures line up whatever the
   // text next to them does (a wrapped name, a two-line stat line, no stat
   // line at all). Stacked in lines, a taller opponent used to push them.
+  // The whole block opens the player's season: a target as big as the row is
+  // the only kind a thumb finds on a phone-width lineup.
   return `
-    <div class="ffl-lu-block ffl-lu-${align} ffl-p-${stateCls}">
+    <div class="ffl-lu-block ffl-lu-${align} ffl-p-${stateCls}" role="button" tabindex="0"
+         data-player-id="${escapeHtml(player.player_id)}"
+         aria-label="${escapeHtml(`${name}: season`)}">
       <div class="ffl-lu-text">
         <div class="ffl-lu-name">${escapeHtml(name)}${club}${status}${ball}${rz}</div>
         ${game ? `<div class="ffl-lu-game">${escapeHtml(game)}</div>` : ""}
@@ -778,6 +793,70 @@ function renderRosters(sides) {
     ${bench ? `<details class="ffl-bench"><summary>Bench (${benchCount})</summary>${bench}</details>` : ""}`;
 }
 
+const SEASON_BACK = `<button class="ffl-season-back" type="button" data-back>‹ Lineup</button>`;
+
+/**
+ * A player's season, week by week: the opponent, Yahoo's projection and the
+ * points — the panel a player in the lineup opens.
+ *
+ * A finished week's points come from ESPN's stat line under the league's own
+ * scoring (see history.py); this week's are the live total the lineup shows.
+ * "≈" marks a week whose points the league's scoring cannot be applied to
+ * exactly from ESPN's line, and "—" a number there is none of: a week he was
+ * on no roster in the league has no Yahoo projection.
+ */
+function renderSeason(payload) {
+  const season = payload || {};
+  const rows = season.rows || [];
+  const totals = season.totals || {};
+  const who = [season.name, season.nfl_team ? `(${season.nfl_team})` : "", season.position]
+    .filter(Boolean)
+    .join(" ");
+  const summary = [
+    `${fmtPoints(totals.points)} pts`,
+    totals.average !== null && totals.average !== undefined ? `${fmtPoints(totals.average)} a week` : "",
+    totals.projected_remaining ? `${fmtPoints(totals.projected_remaining)} projected to come` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const body = rows
+    .map((r) => {
+      if (r.status === "bye") {
+        return `<tr class="ffl-s-bye"><td>${r.week}</td><td colspan="3">Bye</td></tr>`;
+      }
+      const approx = r.points !== null && r.points !== undefined && r.exact === false ? "≈" : "";
+      const when = r.status === "upcoming" && r.kickoff ? ` title="${escapeHtml(fmtKickoff(r.kickoff))}"` : "";
+      return `
+        <tr class="ffl-s-${escapeHtml(r.status)}">
+          <td>${r.week}</td>
+          <td${when}>${escapeHtml(r.opponent)}</td>
+          <td class="ffl-s-num">${fmtPoints(r.projected)}</td>
+          <td class="ffl-s-num ffl-s-pts">${r.status === "upcoming" ? "" : approx + fmtPoints(r.points)}</td>
+        </tr>`;
+    })
+    .join("");
+  const notes = [
+    "Past weeks' points: ESPN's stat lines, scored with your league's settings.",
+    season.matched === false ? "ESPN has no match for this player, so past weeks show projections only." : "",
+  ]
+    .filter(Boolean)
+    .map((n) => `<div class="ffl-season-note">${escapeHtml(n)}</div>`)
+    .join("");
+  return `
+    <div class="ffl-season">
+      <div class="ffl-season-head">
+        ${SEASON_BACK}
+        <div class="ffl-season-who">${escapeHtml(who)}</div>
+      </div>
+      ${summary ? `<div class="ffl-season-sum">${escapeHtml(summary)}</div>` : ""}
+      <table class="ffl-season-table">
+        <thead><tr><th>Wk</th><th>Opp</th><th class="ffl-s-num">Proj</th><th class="ffl-s-num">Pts</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+      ${notes}
+    </div>`;
+}
+
 function renderHistory(plays) {
   if (!plays.length) return `<div class="ffl-empty">No scoring plays recorded yet.</div>`;
   return `
@@ -810,6 +889,8 @@ class FflBaseCard extends HTMLElement {
     // them is open at a time.
     this._expandedId = null;
     this._expandedPanel = "";
+    // The player whose season the "player" panel shows.
+    this._playerId = "";
     this._detailHtml = "";
     // Bumped whenever the detail payload changes, so the fingerprint guard
     // lets an async roster arrival through to the DOM.
@@ -928,6 +1009,16 @@ class FflBaseCard extends HTMLElement {
   }
 
   _onActivate(event) {
+    // A player's season is opened from, and returns to, the open lineup.
+    if (event.target.closest("[data-back]")) {
+      if (this._expandedId) this._openPanel(this._expandedId, "roster");
+      return;
+    }
+    const playerEl = event.target.closest("[data-player-id]");
+    if (playerEl && this._expandedId) {
+      this._openPlayer(this._expandedId, playerEl.getAttribute("data-player-id"));
+      return;
+    }
     const historyEl = event.target.closest("[data-history]");
     if (historyEl) {
       this._togglePanel(historyEl.getAttribute("data-matchup-id"), "plays");
@@ -953,13 +1044,20 @@ class FflBaseCard extends HTMLElement {
    */
   _togglePanel(matchupId, panel, options = {}) {
     if (!matchupId) return;
-    if (this._expandedId === matchupId && this._expandedPanel === panel) {
+    // A player's season is a view inside the lineup, so the row that closes
+    // the lineup closes it too.
+    const open = this._expandedPanel === "player" ? "roster" : this._expandedPanel;
+    if (this._expandedId === matchupId && open === panel) {
       this._expandedId = null;
       this._expandedPanel = "";
       this._detailHtml = "";
       this._invalidate();
       return;
     }
+    this._openPanel(matchupId, panel, options);
+  }
+
+  _openPanel(matchupId, panel, options = {}) {
     // Assigning a single id/panel pair closes whatever was open. Clear the old
     // body first so the previous panel cannot flash under the new one.
     this._expandedId = matchupId;
@@ -969,9 +1067,38 @@ class FflBaseCard extends HTMLElement {
     this._loadPanel(matchupId, panel, options);
   }
 
+  /** Swap the open lineup for one of its players' seasons. */
+  _openPlayer(matchupId, playerId) {
+    if (!matchupId || !playerId) return;
+    this._playerId = playerId;
+    this._openPanel(matchupId, "player");
+  }
+
   _loadPanel(matchupId, panel, options = {}) {
     if (panel === "plays") return this._loadPlays(matchupId, options);
+    if (panel === "player") return this._loadPlayer(matchupId, options);
     return this._loadDetail(matchupId, options);
+  }
+
+  _loadPlayer(matchupId, options = {}) {
+    const st = this._stateObj();
+    if (!st || !this._playerId) return;
+    const token = (this._detailToken += 1);
+    fetchPlayerHistory(this._hass, this._leagueId(st), this._playerId)
+      .then((payload) => {
+        if (!this._stillOpen(token, matchupId, "player")) return;
+        this._detailHtml = renderSeason(payload);
+        this._invalidate();
+      })
+      .catch((err) => {
+        if (!this._stillOpen(token, matchupId, "player")) return;
+        // The panel keeps its way back to the lineup, whatever went wrong.
+        if (options.silent && this._detailHtml) return;
+        this._detailHtml = `<div class="ffl-season-head">${SEASON_BACK}</div><div class="ffl-error">${escapeHtml(
+          err.message || String(err)
+        )}</div>`;
+        this._invalidate();
+      });
   }
 
   /** Guard shared by both loaders: is this response still the one wanted? */
@@ -1804,6 +1931,29 @@ const CARD_CSS = `
   .ffl-h-delta { flex: 0 0 auto; font-weight: 700; color: var(--success-color); font-variant-numeric: tabular-nums; }
   .ffl-history li.ffl-correction .ffl-h-delta { color: var(--error-color); }
 
+  /* A player's season, opened from the lineup. The block is the button. */
+  .ffl-lu-block[data-player-id] { cursor: pointer; }
+  .ffl-lu-block[data-player-id]:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+  .ffl-season { padding: 0 4px 8px; }
+  .ffl-season-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; }
+  .ffl-season-back {
+    font: inherit; font-size: 0.8rem; color: var(--primary-color); background: none;
+    border: 0; padding: 4px 0; cursor: pointer; flex: 0 0 auto;
+  }
+  .ffl-season-who { font-weight: 600; min-width: 0; }
+  .ffl-season-sum { font-size: 0.8rem; color: var(--ffl-muted); padding-bottom: 6px; }
+  .ffl-season-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .ffl-season-table th {
+    font-size: 0.7rem; font-weight: 600; color: var(--ffl-muted); text-align: left;
+    padding: 4px 4px; border-bottom: 1px solid var(--divider-color);
+  }
+  .ffl-season-table td { padding: 5px 4px; border-bottom: 1px solid var(--divider-color); white-space: nowrap; }
+  .ffl-season-table .ffl-s-num { text-align: right; }
+  .ffl-s-final .ffl-s-pts, .ffl-s-live .ffl-s-pts { font-weight: 700; }
+  .ffl-s-live td { background: var(--ffl-live-bg, rgba(67, 160, 71, 0.08)); }
+  .ffl-s-upcoming td, .ffl-s-bye td { color: var(--ffl-muted); }
+  .ffl-season-note { font-size: 0.7rem; color: var(--ffl-muted); padding-top: 6px; }
+
   /* One colour vocabulary for "against expectation", used by team totals and
      by individual players alike: ahead of the pre-game projection is green,
      behind it is red, exactly level is grey — which before kickoff is
@@ -1867,6 +2017,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderLineup,
     renderRosters,
     renderPlayerBlock,
+    renderSeason,
     renderHistory,
     renderNflGame,
     renderNflField,

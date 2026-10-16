@@ -15,6 +15,10 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundl
 - **Per-matchup scoring plays.** Under each matchup, the play that last moved *that* score,
   aligned to the side of the team it scored for. Bench players are excluded, since their points
   do not count. Clicking the line opens that matchup's full scoring history.
+- **A player's season.** Clicking a player in the roster popup swaps it for his season, week by
+  week: the opponent (or bye), Yahoo's projection, and the points he scored, with the weeks still to
+  come projected against their opponents. The points before this week are computed from ESPN's stat
+  lines under your league's own scoring; this week's are the live total.
 - **Automation hooks.** Each scoring play fires on the Home Assistant event bus, and the options
   flow lets you attach any action sequence to "my player scored", "opponent scored" and
   "lead change".
@@ -30,6 +34,20 @@ approval process.** Private leagues work; so do public ones.
 - `relay-stream.sports.yahoo.com/nfl/{games,stats}.txt` — the live tier, refreshed every few seconds.
 
 One refresh is **three requests for the whole league**, whatever its size.
+
+A player's season, opened from the roster popup, needs what that tier does not keep, so it also reads:
+
+- the same league seed with `&week=N`, once per week of the season — each week's projections. A
+  finished week's are saved, so they are fetched once.
+- ESPN's public fantasy API (`lm-api-reads.fantasy.espn.com`, also anonymous) — each player's stat
+  line for every week played, and the NFL schedule. Yahoo publishes no per-week fantasy points
+  without a login, so a finished week's points are the stat line scored with your league's own
+  modifiers. Checked against the integration's own totals for week 5 of 2026: 115 of 115 players to
+  the cent, every kicker and defence included. A league that scores something ESPN's lines cannot
+  say exactly (a forty-yard-play bonus, or short field goals paid by distance) gets those weeks
+  marked `≈`.
+
+The first player opened costs about twenty requests and a few seconds; after that it is cached.
 
 ### Worth knowing
 
@@ -128,8 +146,8 @@ conventional commits — never bump `manifest.json` by hand.
 
 ## Attribution
 
-Fantasy data provided by Yahoo Fantasy. This project is not affiliated with, endorsed by, or
-sponsored by Yahoo or the NFL.
+Fantasy data provided by Yahoo Fantasy. Past weeks' player stat lines and the NFL schedule come from
+ESPN. This project is not affiliated with, endorsed by, or sponsored by Yahoo, ESPN or the NFL.
 
 ## License
 

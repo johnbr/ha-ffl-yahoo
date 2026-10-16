@@ -215,3 +215,44 @@ One game, a quarter and a half, no D/ST or kicking plays. The collision here is
 a *first-name* one on a single club; a **surname** collision across two clubs in
 the same game (two unrelated `J. Smith`s) is unobserved. The scope rule handles
 it by construction, but no capture pins it.
+
+## `espn_players_2026.json`, `espn_schedule_2026.json`, `espn_player_stats_2026.json`
+
+Captured 2026-10-15 from ESPN's public fantasy API, anonymously — the sources of a player's season
+(see `history.py`). Public NFL data with no league in it, trimmed only to the fields read:
+
+```
+https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/players?scoringPeriodId=0&view=players_wl
+https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026?view=proTeamSchedules_wl
+https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?view=kona_player_info
+```
+
+The players list is every quarterback, back, receiver, tight end, kicker and defence, plus anyone
+who shares a name with one. The stats are five players' weekly actual lines (`X-Fantasy-Filter`
+naming their ESPN ids), weeks 1-5:
+
+| Player | What he pins |
+|---|---|
+| Drake Maye | A full five weeks; New England's bye is week 11 |
+| Patrick Mahomes | **No week-5 line** — Kansas City's bye — which must read as a bye, not a zero |
+| Kenneth Walker III | A suffix ESPN and Yahoo may write differently |
+| Brandon Aubrey | A kicker, scored by distance bucket |
+| Texans D/ST | A defence, ESPN id `-16034`, matched by club rather than by name |
+
+The players list carries two Lamar Jacksons (Baltimore's quarterback and a free-agent corner) and
+two Justin Jeffersons (a Minnesota receiver and a Cleveland linebacker): the matcher has to use the
+position, not just the name.
+
+## `espn_week5_vs_yahoo.json`
+
+ESPN's week-5 2026 line for each of the **115 players** the integration scored that week, beside the
+total the integration computed live from Yahoo's own feed (taken from its saved play history at the
+week-6 rollover). Player names, clubs and points only; nothing that identifies the league. It is
+what pins ESPN's stat ids to Yahoo's stat names: every one of the 115 scores to the cent under the
+week-1 seed's modifiers, nine defences and ten kickers included.
+
+### Known gaps
+
+Week 5 had no defensive or special-teams touchdown, safety, blocked kick, shutout, extra-point return
+or offensive fumble-return touchdown among these players, so those mappings are taken from ESPN's
+documented stat ids rather than pinned by a capture. Add a week that has one when it turns up.

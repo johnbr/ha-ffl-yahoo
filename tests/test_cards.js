@@ -39,6 +39,7 @@ const {
   renderLineup,
   renderRosters,
   renderPlayerBlock,
+  renderSeason,
   renderHistory,
   renderNflGame,
   renderNflField,
@@ -1380,4 +1381,69 @@ test("the card pulses a banner the first time it paints it, then holds it", () =
   assert.ok(next.get(GAME_LIVE.game_id).fresh);
   assert.strictEqual(card._banners([withBanner()], (T0 + 31) * 1000).size, 0, "gone at its time");
   clearTimeout(card._bannerTimer);
+});
+
+/* ------------------------------------------------------- a player's season */
+
+const SEASON = {
+  player_id: "40881", name: "Drake Maye", nfl_team: "NE", position: "QB", season: 2026, week: 6,
+  matched: true,
+  rows: [
+    { week: 1, status: "final", opponent: "@ Sea", home: false, kickoff: 1788999600,
+      projected: 18.4, points: 12.74, exact: true },
+    { week: 5, status: "final", opponent: "vs LV", home: true, kickoff: 1791651600,
+      projected: null, points: 45.96, exact: false },
+    { week: 6, status: "live", opponent: "@ Ten", home: false, kickoff: 1792256400,
+      projected: 25.31, points: 0, exact: true },
+    { week: 7, status: "upcoming", opponent: "vs NYJ", home: true, kickoff: 1792861200,
+      projected: 26.92, points: null, exact: true },
+    { week: 11, status: "bye", opponent: "BYE", home: null, kickoff: null,
+      projected: null, points: null, exact: true },
+  ],
+  totals: { points: 58.7, weeks: 2, average: 29.35, projected_remaining: 26.92, exact: false },
+};
+
+test("a player in the lineup opens his season", () => {
+  const html = renderPlayerBlock(P({ player_id: "40881" }), "home");
+  assert.match(html, /data-player-id="40881"/);
+  assert.match(html, /role="button"/);
+  assert.match(html, /aria-label="Josh Allen: season"/);
+});
+
+test("a season reads week by week: opponent, projection, points", () => {
+  const html = renderSeason(SEASON);
+  assert.ok(html.includes("Drake Maye (NE) QB"));
+  assert.ok(html.includes("58.70 pts · 29.35 a week · 26.92 projected to come"));
+  const row = (week) => {
+    const start = html.indexOf(`<td>${week}</td>`);
+    return html.slice(start, html.indexOf("</tr>", start));
+  };
+  assert.match(row(1), /@ Sea[\s\S]*18\.40[\s\S]*12\.74/);
+  // No Yahoo projection that week, and a total ESPN's line could only approximate.
+  assert.match(row(5), /—[\s\S]*≈45\.96/);
+  assert.match(row(6), /25\.31[\s\S]*0\.00/);
+  // A week still to come has a projection and no points, not a zero.
+  assert.ok(row(7).includes("26.92") && !row(7).includes("—"));
+  assert.match(row(11), /colspan="3">Bye/);
+  assert.match(html, /data-back/);
+});
+
+test("a season with no ESPN match says why its past weeks have no points", () => {
+  assert.ok(renderSeason({ ...SEASON, matched: false }).includes("ESPN has no match"));
+  assert.ok(!renderSeason(SEASON).includes("ESPN has no match"));
+});
+
+test("a hostile name cannot inject markup through the season", () => {
+  const rows = [{ ...SEASON.rows[0], opponent: "<b>" }];
+  const html = renderSeason({ ...SEASON, name: "<img onerror=alert(1)>", rows });
+  assert.ok(!html.includes("<img") && !html.includes("<b>"));
+});
+
+test("the win bar stays with the lineup, not a player's season", () => {
+  const row = { ...ROW, win_prob: 0.4 };
+  assert.ok(renderMatchupRow(row, { expanded: true, panel: "roster" }).includes("ffl-win"));
+  const season = renderMatchupRow(row, { expanded: true, panel: "player" });
+  assert.ok(!season.includes("ffl-win") && season.includes("Loading season…"));
+  // The season is a view inside the lineup: the row still reads as expanded.
+  assert.match(season, /aria-expanded="true"/);
 });
