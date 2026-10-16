@@ -18,7 +18,8 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundl
 - **A player's season.** Clicking a player in the roster popup swaps it for his season, week by
   week: the opponent (or bye), Yahoo's projection, and the points he scored, with the weeks still to
   come projected against their opponents. The points before this week are computed from ESPN's stat
-  lines under your league's own scoring; this week's are the live total.
+  lines under your league's own scoring, green above the projection and red below it; this week's
+  are the live total.
 - **Automation hooks.** Each scoring play fires on the Home Assistant event bus, and the options
   flow lets you attach any action sequence to "my player scored", "opponent scored" and
   "lead change".
@@ -38,9 +39,11 @@ One refresh is **three requests for the whole league**, whatever its size.
 A player's season, opened from the roster popup, needs what that tier does not keep, so it also reads:
 
 - the same league seed with `&week=N`, once per week of the season — each week's projections. A
-  finished week's are saved, so they are fetched once.
+  finished week's are saved, so they are fetched once. Yahoo projects only the players on a roster
+  in your league that week, so a week the player was a free agent shows ESPN's projection instead,
+  scored with your league's modifiers and set in italics.
 - ESPN's public fantasy API (`lm-api-reads.fantasy.espn.com`, also anonymous) — each player's stat
-  line for every week played, and the NFL schedule. Yahoo publishes no per-week fantasy points
+  line for every week played and ESPN's projected line for every week, and the NFL schedule. Yahoo publishes no per-week fantasy points
   without a login, so a finished week's points are the stat line scored with your league's own
   modifiers. Checked against the integration's own totals for week 5 of 2026: 115 of 115 players to
   the cent, every kicker and defence included. A league that scores something ESPN's lines cannot

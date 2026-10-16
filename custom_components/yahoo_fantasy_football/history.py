@@ -11,7 +11,9 @@ No single anonymous source has all three, so this joins them:
   per-week fantasy points without a login, so the points are computed here, from those lines and
   this league's own scoring modifiers, by the same :func:`yahoo_redzone.score` the live totals use.
   Checked against the integration's own week-5 totals: 115 of 115 to the cent, every kicker and
-  every defence included (``tests/fixtures/espn_week5_vs_yahoo.json``).
+  every defence included (``tests/fixtures/espn_week5_vs_yahoo.json``). ESPN's projected line for
+  each week comes in the same response, and stands in for Yahoo's projection, scored the same way,
+  for a week the player was on no roster here.
 * **ESPN's NFL schedule** — each club's opponent every week, and its bye. ESPN numbers the clubs
   exactly as Yahoo does (New England is 17 on both), so no table joins them.
 
@@ -51,13 +53,18 @@ def espn_stats_url(season: int) -> str:
     return f"{ESPN_READS}/{season}/segments/0/leaguedefaults/3?view=kona_player_info"
 
 
+# ESPN's ``statSourceId``: what a player did, and what ESPN projected him to do.
+ESPN_ACTUAL = 0
+ESPN_PROJECTED = 1
+
+
 def espn_stats_filter(espn_id: int) -> str:
-    """The ``X-Fantasy-Filter`` header for one player's actual (not projected) weekly lines."""
+    """The ``X-Fantasy-Filter`` header for one player's weekly lines, actual and projected."""
     return json.dumps(
         {
             "players": {
                 "filterIds": {"value": [int(espn_id)]},
-                "filterStatsForSourceIds": {"value": [0]},
+                "filterStatsForSourceIds": {"value": [ESPN_ACTUAL, ESPN_PROJECTED]},
                 "filterStatsForSplitTypeIds": {"value": [1]},
             }
         }
@@ -165,10 +172,14 @@ def match_espn_player(
     return alike[0] if len(alike) == 1 else None
 
 
-def parse_espn_weeks(payload: Any, espn_id: int, season: int) -> dict[int, dict[str, float]]:
+def parse_espn_weeks(
+    payload: Any, espn_id: int, season: int, source: int = ESPN_ACTUAL
+) -> dict[int, dict[str, float]]:
     """``{week: ESPN's raw stat line}`` for the weeks this player has one.
 
-    A week with no line is a bye, or a game he did not record a stat in.
+    An actual line missing is a bye, or a game he did not record a stat in. ``ESPN_PROJECTED``
+    reads the projected lines instead: every week of the season, past ones included, with an
+    empty line for a bye.
     """
     weeks: dict[int, dict[str, float]] = {}
     for entry in (payload or {}).get("players") or []:
@@ -178,7 +189,7 @@ def parse_espn_weeks(payload: Any, espn_id: int, season: int) -> dict[int, dict[
         for line in player.get("stats") or []:
             if (
                 line.get("seasonId") != season
-                or line.get("statSourceId") != 0
+                or line.get("statSourceId") != source
                 or line.get("statSplitTypeId") != 1
             ):
                 continue
@@ -416,14 +427,19 @@ def season_rows(
     fixtures: dict[int, Fixture],
     modifiers: dict[str, float],
     live_points: float | None,
+    espn_projections: dict[int, dict[str, float]] | None = None,
 ) -> list[dict[str, Any]]:
     """One row per week of the season, in order.
 
     ``status`` is ``final`` before this week, ``live`` for it, ``upcoming`` after it, and ``bye``
     for the club's bye whenever it falls. A finished week's ``points`` are ESPN's line under this
     league's scoring — 0.00 when the club played and he recorded nothing — or ``None`` when ESPN
-    has no player to match; this week's are the live total the cards already show. ``projected``
-    is ``None`` for a week he was on no roster in this league.
+    has no player to match; this week's are the live total the cards already show.
+
+    ``projected`` is Yahoo's, and ``projected_source`` says ``yahoo``. Yahoo projects only the
+    players on a roster in this league that week, so for a week he was not — a free agent then,
+    picked up since — it is ESPN's projected line under this league's scoring, and ``espn``; and
+    ``None``, with no source, when neither has one.
     """
     unresolved = unresolved_stats(modifiers)
     rows = []
@@ -433,17 +449,29 @@ def season_rows(
             rows.append(
                 {
                     "week": week, "status": "bye", "opponent": "BYE", "home": None,
-                    "kickoff": None, "projected": None, "points": None, "exact": True,
+                    "kickoff": None, "projected": None, "projected_source": None,
+                    "points": None, "exact": True,
                 }
             )
             continue
         opponent = team_abbr(fixture.opponent_id)
+        projected = (projections.get(week) or {}).get(identity.player_id)
+        source = "yahoo" if projected is not None else None
+        espn_line = (espn_projections or {}).get(week)
+        if projected is None and espn_line is not None:
+            # An empty line is ESPN projecting nothing, a player ruled out. Scored, a defence's
+            # would read as a shutout.
+            projected = (
+                week_points(espn_line, identity.defense, modifiers, unresolved)[0] if espn_line else 0.0
+            )
+            source = "espn"
         row: dict[str, Any] = {
             "week": week,
             "opponent": f"vs {opponent}" if fixture.home else f"@ {opponent}",
             "home": fixture.home,
             "kickoff": fixture.kickoff,
-            "projected": (projections.get(week) or {}).get(identity.player_id),
+            "projected": projected,
+            "projected_source": source,
             "points": None,
             "exact": True,
         }

@@ -794,6 +794,8 @@ function renderRosters(sides) {
 }
 
 const SEASON_BACK = `<button class="ffl-season-back" type="button" data-back>‹ Lineup</button>`;
+const SEASON_ESPN_PROJECTION =
+  "ESPN's, scored with your league's settings. Yahoo projects only players on a roster in your league that week.";
 
 /**
  * A player's season, week by week: the opponent, Yahoo's projection and the
@@ -802,8 +804,13 @@ const SEASON_BACK = `<button class="ffl-season-back" type="button" data-back>‹
  * A finished week's points come from ESPN's stat line under the league's own
  * scoring (see history.py); this week's are the live total the lineup shows.
  * "≈" marks a week whose points the league's scoring cannot be applied to
- * exactly from ESPN's line, and "—" a number there is none of: a week he was
- * on no roster in the league has no Yahoo projection.
+ * exactly from ESPN's line, and "—" a number there is none of.
+ *
+ * Yahoo projects only the players on a roster in the league that week, so a
+ * week he was a free agent shows ESPN's projection instead, scored the same
+ * way and set in italics. A finished week's points are green above the
+ * projection and red below it — the lineup's colours — and left alone level
+ * with it; this week's are still running, so they stay uncoloured.
  */
 function renderSeason(payload) {
   const season = payload || {};
@@ -826,17 +833,23 @@ function renderSeason(payload) {
       }
       const approx = r.points !== null && r.points !== undefined && r.exact === false ? "≈" : "";
       const when = r.status === "upcoming" && r.kickoff ? ` title="${escapeHtml(fmtKickoff(r.kickoff))}"` : "";
+      const espn = r.projected_source === "espn";
+      const trend = r.status === "final" ? trendClass(r.points, r.projected) : "";
+      const versus = trend === " ffl-flat" ? "" : trend;
       return `
         <tr class="ffl-s-${escapeHtml(r.status)}">
           <td>${r.week}</td>
           <td${when}>${escapeHtml(r.opponent)}</td>
-          <td class="ffl-s-num">${fmtPoints(r.projected)}</td>
-          <td class="ffl-s-num ffl-s-pts">${r.status === "upcoming" ? "" : approx + fmtPoints(r.points)}</td>
+          <td class="ffl-s-num${espn ? " ffl-s-espn" : ""}"${espn ? ` title="${escapeHtml(SEASON_ESPN_PROJECTION)}"` : ""}>${fmtPoints(
+            r.projected
+          )}</td>
+          <td class="ffl-s-num ffl-s-pts${versus}">${r.status === "upcoming" ? "" : approx + fmtPoints(r.points)}</td>
         </tr>`;
     })
     .join("");
   const notes = [
     "Past weeks' points: ESPN's stat lines, scored with your league's settings.",
+    rows.some((r) => r.projected_source === "espn") ? `Italic projections: ${SEASON_ESPN_PROJECTION}` : "",
     season.matched === false ? "ESPN has no match for this player, so past weeks show projections only." : "",
   ]
     .filter(Boolean)
@@ -1952,6 +1965,7 @@ const CARD_CSS = `
   .ffl-s-final .ffl-s-pts, .ffl-s-live .ffl-s-pts { font-weight: 700; }
   .ffl-s-live td { background: var(--ffl-live-bg, rgba(67, 160, 71, 0.08)); }
   .ffl-s-upcoming td, .ffl-s-bye td { color: var(--ffl-muted); }
+  .ffl-season-table .ffl-s-espn { font-style: italic; }
   .ffl-season-note { font-size: 0.7rem; color: var(--ffl-muted); padding-top: 6px; }
 
   /* One colour vocabulary for "against expectation", used by team totals and
