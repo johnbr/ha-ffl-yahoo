@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.0...v0.24.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* project a player's free-agent weeks from ESPN, and colour his points against the projection ([#63](https://github.com/johnbr/ha-ffl-yahoo/issues/63)) ([ad9d318](https://github.com/johnbr/ha-ffl-yahoo/commit/ad9d318ef2267e10cbc7bb78f0a4bb2b35b92378))
+
 ## [0.24.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.23.1...v0.24.0) (2026-10-16)
 
 
