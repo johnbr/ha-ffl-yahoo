@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.23.1...v0.24.0) (2026-10-16)
+
+
+### Features
+
+* open a player's season from the lineup, week by week ([#61](https://github.com/johnbr/ha-ffl-yahoo/issues/61)) ([5fe4025](https://github.com/johnbr/ha-ffl-yahoo/commit/5fe4025c5ce8a1e3a76d11062da61a4dd56a065c))
+
 ## [0.23.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.23.0...v0.23.1) (2026-10-15)
 
 
