@@ -8,8 +8,8 @@ what does is kept for hours, not polls.
   each week is the whole league seed, about 190 KB.
 * **This week's and future weeks' projections** move with injury news, so they keep for
   ``PROJECTION_TTL_SECONDS``.
-* **ESPN's player list and schedule** keep for a day, and **a player's ESPN lines** for
-  ``ESPN_TTL_SECONDS``: corrections land in the days after a game.
+* **ESPN's player list and schedule** keep for a day, and **a player's ESPN lines** — actual and
+  projected, in one request — for ``ESPN_TTL_SECONDS``: corrections land in the days after a game.
 
 A source that fails leaves its part of the rows empty rather than failing the whole player,
 except the schedule, without which there are no weeks to show.
@@ -25,7 +25,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from .history import (
+    ESPN_ACTUAL,
     ESPN_PLAYERS_FILTER,
+    ESPN_PROJECTED,
     espn_players_url,
     espn_schedule_url,
     espn_stats_filter,
@@ -134,7 +136,8 @@ class SeasonHistory:
             schedule = await self._schedule_for(season, now)
             weeks = season_weeks(schedule)
             projections = await self._projections(weeks, current_week, now)
-            actuals = await self._actuals(identity, season, now)
+            lines = await self._espn_lines(identity, season, now)
+            actuals, espn_projections = lines if lines is not None else (None, None)
 
         rows = season_rows(
             identity,
@@ -145,6 +148,7 @@ class SeasonHistory:
             schedule.get(identity.team_id, {}),
             modifiers,
             live_points,
+            espn_projections,
         )
         return {
             "player_id": identity.player_id,
@@ -212,8 +216,13 @@ class SeasonHistory:
             **self._final,
         }
 
-    async def _actuals(self, identity: Any, season: int, now: float) -> dict[int, dict[str, float]] | None:
-        """ESPN's weekly lines for the player, or None when ESPN cannot be read or matched."""
+    async def _espn_lines(
+        self, identity: Any, season: int, now: float
+    ) -> tuple[dict[int, dict[str, float]], dict[int, dict[str, float]]] | None:
+        """ESPN's weekly ``(actual, projected)`` lines for the player.
+
+        None when ESPN cannot be read, or has no player to match.
+        """
         try:
             kept = self._players
             if kept is None or kept.value[0] != season or not kept.fresh(now, DIRECTORY_TTL_SECONDS):
@@ -233,7 +242,11 @@ class SeasonHistory:
                     )
                 )
                 lines = self._lines[match.espn_id] = _Kept(
-                    now, parse_espn_weeks(payload, match.espn_id, season)
+                    now,
+                    (
+                        parse_espn_weeks(payload, match.espn_id, season, ESPN_ACTUAL),
+                        parse_espn_weeks(payload, match.espn_id, season, ESPN_PROJECTED),
+                    ),
                 )
             return lines.value
         except Exception as err:  # the projections and schedule are still worth showing

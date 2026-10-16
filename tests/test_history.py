@@ -12,6 +12,7 @@ import json
 import pytest
 from conftest import FIXTURES
 from yahoo_fantasy_football.history import (
+    ESPN_PROJECTED,
     Fixture,
     Identity,
     match_espn_player,
@@ -138,6 +139,14 @@ def test_weekly_lines_skip_a_bye(espn_stats: dict) -> None:
     assert (maye_five["1"], maye_five["3"], maye_five["4"]) == (26.0, 374.0, 4.0)
 
 
+def test_projected_lines_cover_every_week(espn_stats: dict) -> None:
+    """ESPN keeps its projection for a week after the week is played, and projects a bye as nothing."""
+    projected = parse_espn_weeks(espn_stats, MAYE, 2026, ESPN_PROJECTED)
+    assert sorted(projected) == list(range(1, 19))
+    assert projected[11] == {}  # New England's bye
+    assert projected[2]["0"] != parse_espn_weeks(espn_stats, MAYE, 2026)[2]["0"]
+
+
 def test_the_schedule_names_each_week_and_leaves_the_bye_empty(schedule) -> None:
     assert schedule["17"][1] == Fixture(week=1, opponent_id="26", home=False, kickoff=1788999600.0)
     assert schedule["26"][1].home and schedule["26"][1].opponent_id == "17"
@@ -198,7 +207,7 @@ def test_a_season_reads_week_by_week(espn_stats: dict, schedule, modifiers: dict
     assert [r["status"] for r in rows[:7]] == ["final", "final", "final", "final", "bye", "live", "upcoming"]
     assert by_week[5] == {
         "week": 5, "status": "bye", "opponent": "BYE", "home": None,
-        "kickoff": None, "projected": None, "points": None, "exact": True,
+        "kickoff": None, "projected": None, "projected_source": None, "points": None, "exact": True,
     }
     # Week 1, from ESPN's line under the league's own modifiers.
     one = actuals[1]
@@ -208,9 +217,11 @@ def test_a_season_reads_week_by_week(espn_stats: dict, schedule, modifiers: dict
         - 2 * one.get("72", 0),
         2,
     )
-    assert by_week[1]["points"] == expected and by_week[1]["projected"] == 21.5
-    # A week he was on no roster in this league has no Yahoo projection to show.
-    assert by_week[2]["projected"] is None and by_week[2]["points"] is not None
+    assert by_week[1]["points"] == expected
+    assert (by_week[1]["projected"], by_week[1]["projected_source"]) == (21.5, "yahoo")
+    # A week he was on no roster in this league has no Yahoo projection, and no ESPN one was given.
+    assert by_week[2]["projected"] is None and by_week[2]["projected_source"] is None
+    assert by_week[2]["points"] is not None
     assert (by_week[6]["points"], by_week[6]["projected"]) == (0.0, 22.4)
     assert by_week[7]["points"] is None and by_week[7]["projected"] == 20.1
     assert by_week[7]["opponent"].startswith(("vs ", "@ "))
@@ -220,6 +231,43 @@ def test_a_season_reads_week_by_week(espn_stats: dict, schedule, modifiers: dict
     assert totals["points"] == round(sum(by_week[w]["points"] for w in (1, 2, 3, 4)), 2)
     assert totals["projected_remaining"] == 20.1
     assert totals["exact"] is True
+
+
+def test_espn_projects_the_weeks_he_was_on_no_roster(
+    espn_stats: dict, schedule, modifiers: dict[str, float]
+) -> None:
+    """Maye in Kush: rostered in week 1, a free agent in weeks 2-4, picked up for week 5.
+
+    Yahoo's seed for weeks 2-4 has no projection for him, so ESPN's projected line stands in,
+    under the league's scoring as his points are. Yahoo's own number is kept wherever there is one.
+    """
+    maye = Identity("40881", "Drake Maye", "17", "QB")
+    yahoo = {1: {"40881": 23.07}, 5: {"40881": 24.76}, 6: {"40881": 25.18}, 7: {"40881": 24.16}}
+    espn = parse_espn_weeks(espn_stats, MAYE, 2026, ESPN_PROJECTED)
+    rows = season_rows(
+        maye, list(range(1, 19)), 6, yahoo, parse_espn_weeks(espn_stats, MAYE, 2026),
+        schedule["17"], modifiers, 0.0, espn,
+    )
+    by_week = {r["week"]: r for r in rows}
+
+    assert [(by_week[w]["projected"], by_week[w]["projected_source"]) for w in (1, 5, 6, 7)] == [
+        (23.07, "yahoo"), (24.76, "yahoo"), (25.18, "yahoo"), (24.16, "yahoo"),
+    ]
+    for week in (2, 3, 4):
+        assert by_week[week]["projected_source"] == "espn"
+        assert by_week[week]["projected"] == week_points(espn[week], False, modifiers, frozenset())[0]
+    # 21.1 of 31.4 for 239 yards, 1.5 touchdowns and 0.7 interceptions; 34 yards on the ground.
+    assert by_week[2]["projected"] == 23.5
+    # The rest of the season is ESPN's too, past the weeks Yahoo was asked for.
+    assert by_week[8]["projected_source"] == "espn" and by_week[8]["projected"] > 0
+    assert by_week[11]["status"] == "bye" and by_week[11]["projected_source"] is None
+
+
+def test_an_empty_projected_line_is_nought_not_a_shutout(schedule, modifiers) -> None:
+    """ESPN projecting nothing for a defence must not score the points-allowed-0 band."""
+    texans = Identity("100034", "Houston", "34", "DEF")
+    rows = season_rows(texans, [1], 2, {}, {}, schedule["34"], modifiers, None, {1: {}})
+    assert (rows[0]["projected"], rows[0]["projected_source"]) == (0.0, "espn")
 
 
 def test_a_finished_week_without_a_line_is_nought_not_unknown(schedule, modifiers) -> None:

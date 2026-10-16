@@ -45,7 +45,10 @@ class FakeFetch:
         if url == espn_schedule_url(2026):
             return (FIXTURES / "espn_schedule_2026.json").read_text()
         if url == espn_stats_url(2026):
-            assert "4431452" in headers["X-Fantasy-Filter"]
+            players = json.loads(headers["X-Fantasy-Filter"])["players"]
+            assert players["filterIds"]["value"] == [4431452]
+            # Actual and projected lines, in the one request.
+            assert players["filterStatsForSourceIds"]["value"] == [0, 1]
             return (FIXTURES / "espn_player_stats_2026.json").read_text()
         for week in range(1, 19):
             if url == seed_week_url(LEAGUE, week):
@@ -79,7 +82,7 @@ def test_a_season_from_the_three_sources() -> None:
     # integration scored live that week.
     assert rows[5]["points"] == 45.96
     assert rows[6]["status"] == "live" and rows[7]["status"] == "upcoming"
-    assert rows[7]["projected"] is not None
+    assert rows[7]["projected"] is not None and rows[7]["projected_source"] == "yahoo"
     assert season["totals"]["weeks"] == 5 and season["totals"]["exact"]
     # The whole season's seeds, once each; finished weeks handed over for saving.
     assert fetch.seeds() == 18 and saved
@@ -126,11 +129,18 @@ def test_without_espn_the_projections_and_schedule_still_show() -> None:
     assert rows[1]["points"] is None and rows[1]["projected"] is not None
 
 
-def test_a_missing_weeks_seed_is_a_blank_column() -> None:
+def test_a_week_without_yahoos_projection_takes_espns() -> None:
     fetch = FakeFetch(fail=(seed_week_url(LEAGUE, 9),))
-    season = _season(SeasonHistory(fetch, LEAGUE))
-    rows = {r["week"]: r for r in season["rows"]}
-    assert rows[9]["projected"] is None and rows[10]["projected"] is not None
+    rows = {r["week"]: r for r in _season(SeasonHistory(fetch, LEAGUE))["rows"]}
+    assert rows[9]["projected_source"] == "espn" and rows[9]["projected"] > 0
+    assert rows[10]["projected_source"] == "yahoo"
+
+
+def test_with_neither_projection_the_week_is_blank() -> None:
+    fetch = FakeFetch(fail=(seed_week_url(LEAGUE, 9), espn_players_url(2026)))
+    rows = {r["week"]: r for r in _season(SeasonHistory(fetch, LEAGUE))["rows"]}
+    assert rows[9]["projected"] is None and rows[9]["projected_source"] is None
+    assert rows[10]["projected"] is not None
 
 
 def test_no_schedule_no_season() -> None:

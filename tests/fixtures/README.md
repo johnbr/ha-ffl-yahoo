@@ -228,8 +228,9 @@ https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/
 ```
 
 The players list is every quarterback, back, receiver, tight end, kicker and defence, plus anyone
-who shares a name with one. The stats are five players' weekly actual lines (`X-Fantasy-Filter`
-naming their ESPN ids), weeks 1-5:
+who shares a name with one. The stats are five players' weekly lines (`X-Fantasy-Filter` naming
+their ESPN ids): the actual ones for weeks 1-5, and ESPN's projected ones (`statSourceId` 1) for all
+eighteen weeks, which stand in for Yahoo's projection in a week the player was on no roster:
 
 | Player | What he pins |
 |---|---|

@@ -1390,18 +1390,27 @@ const SEASON = {
   matched: true,
   rows: [
     { week: 1, status: "final", opponent: "@ Sea", home: false, kickoff: 1788999600,
-      projected: 18.4, points: 12.74, exact: true },
+      projected: 18.4, projected_source: "yahoo", points: 12.74, exact: true },
+    { week: 2, status: "final", opponent: "vs Mia", home: true, kickoff: 1789603200,
+      projected: 23.5, projected_source: "espn", points: 26.3, exact: true },
+    { week: 3, status: "final", opponent: "vs Pit", home: true, kickoff: 1790208000,
+      projected: 19.22, projected_source: "yahoo", points: 19.22, exact: true },
     { week: 5, status: "final", opponent: "vs LV", home: true, kickoff: 1791651600,
-      projected: null, points: 45.96, exact: false },
+      projected: null, projected_source: null, points: 45.96, exact: false },
     { week: 6, status: "live", opponent: "@ Ten", home: false, kickoff: 1792256400,
-      projected: 25.31, points: 0, exact: true },
+      projected: 25.31, projected_source: "yahoo", points: 0, exact: true },
     { week: 7, status: "upcoming", opponent: "vs NYJ", home: true, kickoff: 1792861200,
-      projected: 26.92, points: null, exact: true },
+      projected: 26.92, projected_source: "yahoo", points: null, exact: true },
     { week: 11, status: "bye", opponent: "BYE", home: null, kickoff: null,
-      projected: null, points: null, exact: true },
+      projected: null, projected_source: null, points: null, exact: true },
   ],
   totals: { points: 58.7, weeks: 2, average: 29.35, projected_remaining: 26.92, exact: false },
 };
+
+function seasonRow(html, week) {
+  const start = html.indexOf(`<td>${week}</td>`);
+  return html.slice(start, html.indexOf("</tr>", start));
+}
 
 test("a player in the lineup opens his season", () => {
   const html = renderPlayerBlock(P({ player_id: "40881" }), "home");
@@ -1414,10 +1423,7 @@ test("a season reads week by week: opponent, projection, points", () => {
   const html = renderSeason(SEASON);
   assert.ok(html.includes("Drake Maye (NE) QB"));
   assert.ok(html.includes("58.70 pts · 29.35 a week · 26.92 projected to come"));
-  const row = (week) => {
-    const start = html.indexOf(`<td>${week}</td>`);
-    return html.slice(start, html.indexOf("</tr>", start));
-  };
+  const row = (week) => seasonRow(html, week);
   assert.match(row(1), /@ Sea[\s\S]*18\.40[\s\S]*12\.74/);
   // No Yahoo projection that week, and a total ESPN's line could only approximate.
   assert.match(row(5), /—[\s\S]*≈45\.96/);
@@ -1426,6 +1432,25 @@ test("a season reads week by week: opponent, projection, points", () => {
   assert.ok(row(7).includes("26.92") && !row(7).includes("—"));
   assert.match(row(11), /colspan="3">Bye/);
   assert.match(html, /data-back/);
+});
+
+test("a finished week's points are green over the projection, red under it, plain level with it", () => {
+  const html = renderSeason(SEASON);
+  const points = (week) => seasonRow(html, week).match(/<td class="ffl-s-num ffl-s-pts([^"]*)">/)[1];
+  assert.strictEqual(points(1), " ffl-down", "12.74 against 18.40");
+  assert.strictEqual(points(2), " ffl-up", "26.30 against ESPN's 23.50");
+  assert.strictEqual(points(3), "", "level: no colour, not the lineup's grey");
+  assert.strictEqual(points(5), "", "no projection to measure against");
+  assert.strictEqual(points(6), "", "this week's are still running");
+});
+
+test("ESPN's stand-in projection is set apart and said so", () => {
+  const html = renderSeason(SEASON);
+  assert.match(seasonRow(html, 2), /class="ffl-s-num ffl-s-espn" title="ESPN&#39;s, scored[^"]*">23\.50</);
+  assert.ok(!seasonRow(html, 1).includes("ffl-s-espn"));
+  assert.ok(html.includes("Italic projections: ESPN&#39;s, scored with your league&#39;s settings."));
+  const yahooOnly = SEASON.rows.filter((r) => r.projected_source !== "espn");
+  assert.ok(!renderSeason({ ...SEASON, rows: yahooOnly }).includes("Italic projections"));
 });
 
 test("a season with no ESPN match says why its past weeks have no points", () => {
