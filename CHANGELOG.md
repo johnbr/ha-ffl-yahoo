@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.1...v0.24.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* hold back an end of period the game clock has not reached ([#65](https://github.com/johnbr/ha-ffl-yahoo/issues/65)) ([fbf533b](https://github.com/johnbr/ha-ffl-yahoo/commit/fbf533b87f91694bce9a72db54546e7d4393c82e))
+
 ## [0.24.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.0...v0.24.1) (2026-10-16)
 
 
