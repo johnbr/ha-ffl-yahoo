@@ -9,8 +9,10 @@ from yahoo_fantasy_football.pending_plays import (
     Landed,
     PendingPlays,
     describe_change,
+    period_end_not_reached,
     snap_of,
 )
+from yahoo_fantasy_football.yahoo_redzone import GameState, parse_relay_plays
 
 DET, BUF = "8", "2"
 
@@ -337,3 +339,44 @@ def test_the_change_of_hands_after_a_score_is_a_kickoff() -> None:
 
 def test_a_kickoff_is_only_a_change_of_possession() -> None:
     assert _describe(_game(to_goal=65), _game(team=BUF, to_goal=99)) == "Change of possession, Buf ball"
+
+
+# -- period_end_not_reached --------------------------------------------------
+
+# Captured live 2026-10-18, Ari at LAR: the feed wrote "End of Half" straight
+# after a field goal at Q2 14:55, while the games feed stood at Q2 14:51.
+_EARLY_HALF = parse_relay_plays(
+    "p|14|41|4|12|12|22|2|14:55|9|0|[40159] made a 30-yard field goal\n"
+    "p|14|42|1|10|65|22|2|0:00|25|0|End of Half\n"
+)
+_AT_14_51 = "g|20261018014|22|14|P|26|2|14:51|6|3|1792353900|1|10|65|22|2|3|0|0|1012|0|0|0|1|3|0|1"
+
+
+def _clock(period: str, clock: str):
+    return SimpleNamespace(period=period, clock=clock)
+
+
+def test_an_end_of_half_written_mid_quarter_is_held_back() -> None:
+    field_goal, end_of_half = _EARLY_HALF
+    game = GameState(_AT_14_51.split("|"))
+    assert period_end_not_reached(end_of_half, game)
+    assert not period_end_not_reached(field_goal, game), "an ordinary play is never held back"
+
+
+def test_the_end_of_half_shows_once_the_clock_runs_out() -> None:
+    end_of_half = _EARLY_HALF[1]
+    assert not period_end_not_reached(end_of_half, _clock("2", "0:00"))
+    assert not period_end_not_reached(end_of_half, _clock("3", "15:00"))
+
+
+def test_a_period_end_a_poll_ahead_of_the_games_feed_waits_for_it() -> None:
+    """The games feed is the authority: a quarter end it has not reached waits."""
+    (end_of_first,) = parse_relay_plays("p|9|44|4|4|63|9|1|0:00|25|0|End of 1st Quarter\n")
+    assert period_end_not_reached(end_of_first, _clock("1", "0:17"))
+    assert not period_end_not_reached(end_of_first, _clock("2", "15:00"))
+
+
+def test_a_clock_that_cannot_be_read_holds_nothing_back() -> None:
+    end_of_half = _EARLY_HALF[1]
+    assert not period_end_not_reached(end_of_half, _clock("", ""))
+    assert not period_end_not_reached(end_of_half, _clock("2", "Halftime"))
