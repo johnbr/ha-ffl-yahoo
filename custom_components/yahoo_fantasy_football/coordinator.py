@@ -32,7 +32,7 @@ from .const import (
 )
 from .history_client import PlayerNotRostered, SeasonHistory
 from .league_state import down_and_distance, play_dict, poll_interval
-from .pending_plays import Landed, PendingPlays, situation_of
+from .pending_plays import Landed, PendingPlays, period_end_not_reached, situation_of
 from .plays import (
     PLAY_TEXT_LAG_SECONDS,
     PlayFeed,
@@ -275,7 +275,10 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             if only is None:
                 self._pending.forget_others(set(live))
             results = await asyncio.gather(
-                *(self.async_game_plays(plays_id, 1, now=now) for plays_id in live),
+                *(
+                    self.async_game_plays(plays_id, 1, now=now, game=games[plays_id])
+                    for plays_id in live
+                ),
                 return_exceptions=True,
             )
             last_plays = {} if only is None else dict(self._nfl_last_plays)
@@ -295,7 +298,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 self._pending.observe(plays_id, games[plays_id], newest, now)
                 # The play after a scoring play is what takes its banner down.
                 if (cached := self._nfl_plays.get(plays_id)) is not None:
-                    rows = [(play.sequence, play.play_type) for play in cached.plays]
+                    rows = [
+                        (play.sequence, play.play_type)
+                        for play in cached.plays
+                        if play.sequence not in cached.held
+                    ]
                     if self._banners.plays(str(games[plays_id].game_id), rows, now):
                         changed = True
             self._nfl_last_plays = last_plays
@@ -491,7 +498,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         return [described(event) for event in events]
 
     async def async_game_plays(
-        self, plays_id: str, limit: int = 12, now: float | None = None
+        self, plays_id: str, limit: int = 12, now: float | None = None, game: Any = None
     ) -> list[dict[str, Any]]:
         """Recent plays for ONE NFL game, newest first.
 
@@ -504,6 +511,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         either. The dictionary counts because a row is dropped when it names a
         player the dictionary lacks — a name arriving is what brings a missing
         down back, and it can arrive while the feed stands still.
+
+        A period end the game's clock has not reached is left out (see
+        :func:`pending_plays.period_end_not_reached`), so the games feed is the
+        third thing the rows depend on: ``game`` is this poll's row for the
+        game, or ``None`` to take it from the last refresh.
 
         Returns ``[]`` rather than raising: an unreadable feed should leave the
         expanded game empty, not fail the card.
@@ -525,7 +537,17 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         except Exception as err:  # a missing feed is not worth failing over
             _LOGGER.debug("Could not read plays for NFL game %s: %s", plays_id, err)
             return cached.rows[:limit] if cached else []
-        if cached is not None and cached.body == body and cached.names is names:
+        if game is None:
+            game = self._nfl_game(plays_id)
+        held = frozenset(
+            play.sequence for play in plays if game is not None and period_end_not_reached(play, game)
+        )
+        if (
+            cached is not None
+            and cached.body == body
+            and cached.names is names
+            and cached.held == held
+        ):
             return cached.rows[:limit]
 
         # Names are shortened for the games card — a dozen rows of "Jahmyr
@@ -544,7 +566,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         rows: list[dict[str, Any]] = []
         for play in reversed(plays):  # newest first, the way a reader scans
             text = humanize_play(play.text, names)
-            if not text:
+            if not text or play.sequence in held:
                 continue
             rows.append(
                 {
@@ -556,8 +578,16 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                     "clock": play.clock,
                 }
             )
-        self._nfl_plays[plays_id] = _GamePlays(body, plays, needed, names, rows)
+        self._nfl_plays[plays_id] = _GamePlays(body, plays, needed, names, held, rows)
         return rows[:limit]
+
+    def _nfl_game(self, plays_id: str) -> Any:
+        """The last refresh's games-feed row for one game, or ``None``."""
+        data = self.league_data
+        for game in getattr(data, "nfl_games", None) or []:
+            if str(getattr(game, "plays_id", "") or "") == plays_id:
+                return game
+        return None
 
     @property
     def league_data(self) -> LeagueData | None:
@@ -593,6 +623,8 @@ class _GamePlays:
     """Every id the plays name, tacklers aside — what the dictionary must know."""
     names: dict[str, str]
     """The dictionary object the rows were rendered with, compared by identity."""
+    held: frozenset[int]
+    """Sequences left out as period ends the game's clock had not reached."""
     rows: list[dict[str, Any]]
 
 

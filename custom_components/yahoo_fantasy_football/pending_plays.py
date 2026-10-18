@@ -40,6 +40,7 @@ REFINE_SECONDS = 18.0
 # warning, ``25`` the end of a period (read off the captured feeds). They land
 # between snaps, so they are never a games-feed change's text.
 NO_BALL_TYPES = frozenset({"24", "25"})
+PERIOD_END = "25"
 
 # How long the play feed is re-checked for a pending play's text. Past the
 # measured lag with a margin, the same allowance the scoring-play matcher gives
@@ -116,6 +117,31 @@ def game_time(period: Any, clock: Any) -> tuple[int, int] | None:
         return int(period), 15 * 60 - (int(minutes) * 60 + int(seconds))
     except (TypeError, ValueError):
         return None
+
+
+def period_end_not_reached(play: Any, game: Any) -> bool:
+    """Whether a play-feed row ends a period the game's clock has not run out.
+
+    Yahoo has written one early. On 2026-10-18 (Ari at LAR) the play feed
+    carried "End of Half", stamped 2nd quarter 0:00, straight after a field
+    goal at 14:55 and while the games feed stood at Q2 14:51 waiting on the
+    kickoff. Being the newest row, it went on the card as the game's last
+    play, and its 0:00 stamp read as a snap later than the kickoff about to
+    come. Yahoo later rewrote that same row in place as the kickoff (type
+    ``8``, 14:51), so it was a placeholder, not a period end at all.
+
+    The games feed is the authority on where a game is, so such a row is
+    left out until the clock reaches it. A row that is real but lands a poll
+    ahead of the games feed waits that one poll, showing the play before it.
+    Only the end of a period is held back: its clock is the claim itself,
+    where an ordinary snap legitimately runs ahead of a games feed read a few
+    seconds earlier.
+    """
+    if str(getattr(play, "play_type", "")) != PERIOD_END:
+        return False
+    ends = game_time(getattr(play, "period", ""), getattr(play, "clock", ""))
+    stands = game_time(getattr(game, "period", ""), getattr(game, "clock", ""))
+    return ends is not None and stands is not None and stands < ends
 
 
 def situation_of(play: Any) -> tuple[str, int, int, int]:
