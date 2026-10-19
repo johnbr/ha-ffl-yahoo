@@ -24,5 +24,20 @@
     "abort": {
       "already_configured": "This league is already configured."
     }
+  },
+  "entity": {
+    "event": {
+      "my_matchup": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "my_player_scored": "My player scored",
+              "opponent_scored": "Opponent scored",
+              "lead_change": "Lead change"
+            }
+          }
+        }
+      }
+    }
   }
 }

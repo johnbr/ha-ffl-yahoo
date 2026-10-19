@@ -24,14 +24,17 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .automation import LeadTracker, scoring_play_payload
 from .const import (
     CONF_LEAGUE_ID,
     CONF_SEASON,
+    CONF_TEAM_ID,
     DOMAIN,
+    EVENT_LEAD_CHANGE,
     EVENT_SCORING_PLAY,
 )
 from .history_client import PlayerNotRostered, SeasonHistory
-from .league_state import down_and_distance, play_dict, poll_interval
+from .league_state import down_and_distance, find_team, poll_interval
 from .pending_plays import Landed, PendingPlays, period_end_not_reached, situation_of
 from .plays import (
     PLAY_TEXT_LAG_SECONDS,
@@ -91,6 +94,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
         self.league_id = str(entry.data.get(CONF_LEAGUE_ID, ""))
+        self.team_id = str(entry.data.get(CONF_TEAM_ID) or "")
+        self._lead = LeadTracker()
         season = entry.data.get(CONF_SEASON)
         self.season = int(season) if season else None
 
@@ -403,8 +408,14 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         # as that play's row with the piece folded in, under the id the bus
         # has already carried: a listener sees the play's running total, not
         # a second event for the same play.
+        mine = find_team(data, self.team_id)
         for event in self.feed.add(events):
-            self.hass.bus.async_fire(EVENT_SCORING_PLAY, play_dict(event))
+            self.hass.bus.async_fire(
+                EVENT_SCORING_PLAY, scoring_play_payload(event, self.entry.entry_id, self.league_id, mine)
+            )
+        lead_change = self._lead.observe(mine, self.entry.entry_id, self.league_id)
+        if lead_change is not None:
+            self.hass.bus.async_fire(EVENT_LEAD_CHANGE, lead_change)
         # Saved whenever the history changed, not only when something was
         # added: a revision or a fold with no new event in the same poll used
         # to wait for the next one, and a restart in between lost it.

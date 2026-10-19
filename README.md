@@ -1,13 +1,14 @@
 # Yahoo Fantasy Football for Home Assistant
 
-Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundled Lovelace cards.
+Live Yahoo Fantasy Football league scoreboards in Home Assistant, with three bundled Lovelace cards.
 
 > **Status: working.** Running live against a real league since 2026-09-09. The data source, the
-> coordinator, the scoring-play engine and both cards are in place.
+> coordinator, the scoring-play engine and all three cards are in place.
 
 ## Features
 
-- **Two cards.** One for your own matchup, one for every matchup in the league. Both show only the
+- **Three cards.** One for your own matchup, one for every matchup in the league, and one for the
+  week's real NFL games. The two fantasy cards show only the
   team names, each with its season record (`Tesla (0-4)`), and the scores at rest; clicking a matchup
   opens a roster popup with each player's live points.
 - **Live team scores and projections.** Yahoo publishes a live projected total per team that moves
@@ -20,9 +21,10 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with two bundl
   come projected against their opponents. The points before this week are computed from ESPN's stat
   lines under your league's own scoring, green above the projection and red below it; this week's
   are the live total.
-- **Automation hooks.** Each scoring play fires on the Home Assistant event bus, and the options
-  flow lets you attach any action sequence to "my player scored", "opponent scored" and
-  "lead change".
+- **Automation hooks.** With your team picked, an event entity fires "my player scored",
+  "opponent scored" and "lead change", which you can pick as triggers in the automation editor.
+  Every scoring play in the league also fires on the Home Assistant event bus. See
+  [Automations](#automations).
 
 ## How it gets the data
 
@@ -134,6 +136,110 @@ entity: sensor.kush_scoreboard
 ```yaml
 type: custom:ffl-my-matchup-card
 entity: sensor.kush_my_team
+```
+
+The NFL games card shows the week's real NFL slate — live scores, the down and distance, and each
+game's play list — whether or not anyone in the league has a player in it:
+
+```yaml
+type: custom:ffl-nfl-games-card
+entity: sensor.kush_nfl_games
+```
+
+All three can be added from the dashboard's card picker, which fills in the entity.
+
+## Automations
+
+### The matchup event entity
+
+With a team picked during setup, the league gets an event entity, `event.kush_my_matchup` for a league
+called "Kush". It has three event types:
+
+| Event type | Fires when |
+|---|---|
+| `my_player_scored` | One of your starters gains points |
+| `opponent_scored` | One of your opponent's starters gains points |
+| `lead_change` | The matchup changes hands — or someone goes ahead from 0-0 |
+
+Bench points, stat corrections and negative plays (a fumble lost) do not fire it. A play that Yahoo
+reports in pieces (`1 Rec`, then `19 Rec Yds`) fires once, on its first piece. A tie is not a lead
+change: a lead that goes to a tie and back to the same team fires nothing.
+After a restart, the first leader seen mid-game is taken as the baseline, since there is no
+telling who led before. The event's data (below) is on the entity's attributes.
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: event.kush_my_matchup
+    # Not when the entity comes back after a restart.
+    not_from: unavailable
+conditions:
+  - condition: state
+    entity_id: event.kush_my_matchup
+    attribute: event_type
+    state: lead_change
+  - condition: state
+    entity_id: event.kush_my_matchup
+    attribute: side
+    state: mine
+actions:
+  - action: notify.notify
+    data:
+      message: >-
+        {{ state_attr('event.kush_my_matchup', 'leader') }} lead
+        {{ state_attr('event.kush_my_matchup', 'leader_points') }}-{{
+        state_attr('event.kush_my_matchup', 'trailer_points') }}
+```
+
+### Bus events
+
+The entity is built on two events on the Home Assistant event bus, which you can also trigger on
+directly (`trigger: event`):
+
+**`yahoo_fantasy_football_scoring_play`** — every scoring play in the league, bench and corrections
+included. A play that arrives in pieces fires once per piece, under the same `event_id` with the
+running total. Deduplicate on `event_id` if you only want one.
+
+| Field | |
+|---|---|
+| `entry_id`, `league_id` | Which league (config entry, and Yahoo's league id) |
+| `side` | `mine` or `opponent` for a play in your matchup; `null` otherwise, or with no team picked |
+| `event_id` | Stable id for the play |
+| `player`, `team_key`, `matchup_id` | Who scored, for which fantasy team, in which matchup (`w<week>.m<n>`) |
+| `text` | The play as Yahoo describes it — `D. Maye 1 Comp, 13 Pass Yds` |
+| `short_text`, `short_who`, `short_what` | A compact form, and its two halves |
+| `stat_delta` | What changed in the stat line, in Yahoo's phrasing — `1 Rec TD`. Unlike `text`, never replaced by play-by-play prose |
+| `delta`, `points` | Points this play, and the player's total after it |
+| `starter` | `false` for a bench player, whose points do not count |
+| `correction` | `true` for a stat correction rather than a play |
+| `enriched` | Whether real play-by-play text was matched to it |
+| `timestamp` | When it was seen (Unix seconds) |
+
+**`yahoo_fantasy_football_lead_change`** — your matchup changed hands. Fires only with a team picked.
+
+| Field | |
+|---|---|
+| `entry_id`, `league_id`, `matchup_id` | Which league and matchup |
+| `side` | `mine` if you went ahead, `opponent` if they did |
+| `leader`, `leader_points` | The team now ahead, and its score |
+| `trailer`, `trailer_points` | The team now behind, and its score |
+| `my_points`, `opponent_points` | Both scores from your side |
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: yahoo_fantasy_football_scoring_play
+    event_data:
+      side: mine
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.stat_delta is search('TD') }}"
+actions:
+  - action: light.turn_on
+    target:
+      entity_id: light.living_room
+    data:
+      flash: short
 ```
 
 ## Development
