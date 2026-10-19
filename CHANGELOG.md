@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.3](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.2...v0.24.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* serve the card from the integration itself, not HACS's /hacsfiles/ ([#67](https://github.com/johnbr/ha-ffl-yahoo/issues/67)) ([c40ee5e](https://github.com/johnbr/ha-ffl-yahoo/commit/c40ee5e3b128e3534cb11c8ea968862a2f2b3ed4))
+
 ## [0.24.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.1...v0.24.2) (2026-10-18)
 
 
