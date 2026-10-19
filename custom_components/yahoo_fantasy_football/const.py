@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "yahoo_fantasy_football"
-PLATFORMS = ["sensor"]
+PLATFORMS = ["event", "sensor"]
 
 # Config entry keys.
 CONF_LEAGUE_KEY = "league_key"
@@ -47,3 +47,5 @@ SCAN_INTERVAL_IDLE_SECONDS = 1800
 
 # Bus event fired for each detected scoring play.
 EVENT_SCORING_PLAY = f"{DOMAIN}_scoring_play"
+# Bus event fired when the configured team's matchup changes hands.
+EVENT_LEAD_CHANGE = f"{DOMAIN}_lead_change"
