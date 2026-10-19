@@ -1,15 +1,15 @@
 """The Yahoo Fantasy Football integration.
 
-Scaffold release. The Lovelace card bundle is already wired end to end (copied
-into ``www/community/`` and self-registered as a Lovelace resource); the Yahoo
-API client, coordinator and scoring-play engine land in later milestones.
+The Lovelace card bundle ships inside this package. ``async_setup`` serves that
+one file on a URL path of its own and registers it as a Lovelace resource, so
+the cards load the same way whether the integration came from HACS or was
+copied in by hand.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-import shutil
 from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
@@ -27,10 +27,14 @@ _LOGGER = logging.getLogger(__name__)
 # configuration is not supported (hassfest requires this pairing).
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-# ``/hacsfiles/<name>/`` is mapped by HACS to ``<config>/www/community/<name>/``.
-HACS_URL_BASE = f"/hacsfiles/{DOMAIN}/{CARD_FILENAME}"
-# Fallback served straight from this package directory when the copy fails.
-LEGACY_URL_BASE = f"/{DOMAIN}/{CARD_FILENAME}"
+# The card file itself, served from this package on a path of its own. Only
+# that one file is exposed over HTTP, never the package directory.
+CARD_URL_PATH = f"/{DOMAIN}/{CARD_FILENAME}"
+
+# Where earlier releases pointed the resource. ``/hacsfiles/`` is a route HACS
+# serves, so it dangled on a manual install; the resource is moved off either
+# of these on the next start.
+_PREVIOUS_URL_PATHS = (f"/hacsfiles/{DOMAIN}/{CARD_FILENAME}",)
 
 
 def _card_digest(source: Path) -> str:
@@ -50,59 +54,32 @@ def _card_digest(source: Path) -> str:
         return ""
 
 
-def _sync_card_to_www_community(config_path, source: Path) -> Path | None:
-    """Copy the card into ``<config>/www/community/<DOMAIN>/``.
+def card_resource_url(version: str, digest: str) -> str:
+    """The Lovelace resource URL: the card's path plus its cache-buster."""
+    return f"{CARD_URL_PATH}?v={version}.{digest}" if digest else f"{CARD_URL_PATH}?v={version}"
 
-    Returns the destination path, or ``None`` if the copy failed (in which case
-    the caller registers a static path instead). Runs in the executor — this is
-    blocking file I/O.
-    """
-    try:
-        target_dir = Path(config_path("www")) / "community" / DOMAIN
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target = target_dir / CARD_FILENAME
 
-        # Skip the copy when the destination already matches, so a restart
-        # doesn't rewrite the file (and bust every browser cache) needlessly.
-        if target.exists():
-            src_stat = source.stat()
-            dst_stat = target.stat()
-            if src_stat.st_size == dst_stat.st_size and int(src_stat.st_mtime) == int(dst_stat.st_mtime):
-                return target
-
-        shutil.copy2(source, target)
-        return target
-    except OSError as err:
-        _LOGGER.debug("Could not sync card to www/community: %s", err)
-        return None
+def is_card_resource(url: str) -> bool:
+    """Whether a Lovelace resource URL is this card's, current or previous."""
+    # By suffix, so a resource someone added with a full origin still matches.
+    path = url.split("?", 1)[0]
+    return any(path.endswith(known) for known in (CARD_URL_PATH, *_PREVIOUS_URL_PATHS))
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Register the bundled Lovelace card."""
+    """Serve and register the bundled Lovelace card."""
     integration = await async_get_integration(hass, DOMAIN)
     version = str(integration.version)
 
     source = Path(__file__).parent / CARD_FILENAME
-    target = await hass.async_add_executor_job(_sync_card_to_www_community, hass.config.path, source)
     digest = await hass.async_add_executor_job(_card_digest, source)
 
-    if target is not None:
-        card_url_base = HACS_URL_BASE
-    else:
-        card_url_base = LEGACY_URL_BASE
-        # Only register the static path when we actually need it — avoids
-        # exposing the integration's package directory over HTTP otherwise.
-        await hass.http.async_register_static_paths(
-            [
-                StaticPathConfig(
-                    url_path=f"/{DOMAIN}",
-                    path=str(Path(__file__).parent),
-                    cache_headers=False,
-                )
-            ]
-        )
+    # Cache headers are safe: the resource URL changes whenever the file does.
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(url_path=CARD_URL_PATH, path=str(source), cache_headers=True)]
+    )
 
-    card_url = f"{card_url_base}?v={version}.{digest}" if digest else f"{card_url_base}?v={version}"
+    card_url = card_resource_url(version, digest)
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["_card_url"] = card_url
 
@@ -138,10 +115,7 @@ async def _async_register_card(hass: HomeAssistant, card_url: str) -> None:
             await resources.async_load()
             resources.loaded = True
 
-        def _is_ours(url: str) -> bool:
-            return HACS_URL_BASE in url or LEGACY_URL_BASE in url
-
-        existing = [r for r in resources.async_items() if _is_ours(r.get("url", ""))]
+        existing = [r for r in resources.async_items() if is_card_resource(r.get("url", ""))]
         if existing:
             for res in existing:
                 if res.get("url") != card_url:
