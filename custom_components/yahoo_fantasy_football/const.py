@@ -20,9 +20,8 @@ CONF_TEAM_ID = "team_id"
 
 DEFAULT_NAME = "Yahoo Fantasy Football"
 
-# The bundled card ships inside this package directory and is copied to
-# ``<config>/www/community/<DOMAIN>/`` at setup so HACS's ``/hacsfiles/``
-# mapping serves it. See ``__init__.py``.
+# The bundled card ships inside this package directory and is served from it on
+# a static path of its own. See ``__init__.py``.
 CARD_FILENAME = "yahoo-fantasy-football-cards.js"
 
 # Poll cadences, reassigned on every refresh once the coordinator lands.

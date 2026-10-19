@@ -105,13 +105,14 @@ The first player opened costs about twenty requests and a few seconds; after tha
 3. Install, then restart Home Assistant
 4. Settings → Devices & Services → **Add Integration** → *Yahoo Fantasy Football*
 
-The Lovelace card bundle is served and registered automatically — no manual resource entry and no
-file copying.
-
 ### Manual
 
 Copy `custom_components/yahoo_fantasy_football/` into your Home Assistant `config/custom_components/`
 directory and restart.
+
+Either way, the integration serves the card bundle itself and registers it as a dashboard resource —
+no manual resource entry and no file copying. (In YAML resource mode it can't register it, and logs
+the URL to add instead.)
 
 ## Configuration
 

@@ -15,6 +15,7 @@ of scope here.
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -36,13 +37,22 @@ def _module(name: str, **attrs: object) -> ModuleType:
     return mod
 
 
+@dataclass(frozen=True)
+class _StaticPathConfig:
+    """Same fields as Home Assistant's, so tests can read back what was served."""
+
+    url_path: str
+    path: str
+    cache_headers: bool = True
+
+
 def _install_homeassistant_stubs() -> None:
     if "homeassistant" in sys.modules:
         return
 
     _module("homeassistant")
     _module("homeassistant.components")
-    _module("homeassistant.components.http", StaticPathConfig=type("StaticPathConfig", (), {}))
+    _module("homeassistant.components.http", StaticPathConfig=_StaticPathConfig)
     _module("homeassistant.config_entries", ConfigEntry=type("ConfigEntry", (), {}))
     _module(
         "homeassistant.const",
