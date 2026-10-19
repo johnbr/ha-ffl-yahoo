@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.3...v0.25.0) (2026-10-19)
+
+
+### Features
+
+* fire my-player-scored, opponent-scored and lead-change for automations ([#69](https://github.com/johnbr/ha-ffl-yahoo/issues/69)) ([be8725c](https://github.com/johnbr/ha-ffl-yahoo/commit/be8725ccc150b4e4b97e288535b30ec79525d682))
+
 ## [0.24.3](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.2...v0.24.3) (2026-10-19)
 
 
