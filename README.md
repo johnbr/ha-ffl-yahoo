@@ -110,6 +110,10 @@ The integration is in the HACS default store, so there is no custom repository t
 2. Restart Home Assistant
 3. Settings → Devices & Services → **Add Integration** → *Yahoo Fantasy Football*
 
+If your HACS doesn't list it yet (the default store can take a few hours to refresh), add it as a
+custom repository instead: HACS → ⋮ → **Custom repositories** → `https://github.com/johnbr/ha-ffl-yahoo`,
+type **Integration**, then continue from step 1.
+
 ### Manual
 
 Copy `custom_components/yahoo_fantasy_football/` into your Home Assistant `config/custom_components/`
