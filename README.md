@@ -102,10 +102,13 @@ The first player opened costs about twenty requests and a few seconds; after tha
 
 ### HACS
 
-1. HACS → Integrations → ⋮ → **Custom repositories**
-2. Add `https://github.com/johnbr/ha-ffl-yahoo` with category **Integration**
-3. Install, then restart Home Assistant
-4. Settings → Devices & Services → **Add Integration** → *Yahoo Fantasy Football*
+The integration is in the HACS default store, so there is no custom repository to add.
+
+[![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=johnbr&repository=ha-ffl-yahoo&category=integration)
+
+1. In HACS, search for **Yahoo Fantasy Football** and **Download** it (or use the button above)
+2. Restart Home Assistant
+3. Settings → Devices & Services → **Add Integration** → *Yahoo Fantasy Football*
 
 ### Manual
 
