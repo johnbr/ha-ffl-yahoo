@@ -16,6 +16,7 @@ from yahoo_fantasy_football.redzone_client import (
     PLAYERS_TTL_SECONDS,
     PLAYS_MIN_INTERVAL_SECONDS,
     PLAYS_RECHECK_SECONDS,
+    SEED_GRACE_SECONDS,
     SEED_TTL_SECONDS,
     FetchFailed,
     RedzoneClient,
@@ -231,9 +232,9 @@ async def test_stale_data_beats_an_empty_card():
     client = RedzoneClient(_fetcher(bodies), LEAGUE)
     good = await client.async_refresh(now=100.0)
 
-    # Past the seed TTL, so the failing seed fetch is actually attempted.
+    # Past the seed TTL and its grace, so the failing seed fetch is attempted in line.
     client._fetch = _fetcher(bodies, fail={"redzone"})
-    served = await client.async_refresh_or_stale(now=100.0 + SEED_TTL_SECONDS + 1)
+    served = await client.async_refresh_or_stale(now=100.0 + SEED_TTL_SECONDS + SEED_GRACE_SECONDS + 1)
 
     assert served is good
     assert served.fetched_at == 100.0, "stale data keeps its original timestamp"
@@ -254,8 +255,40 @@ async def test_the_seed_is_not_refetched_on_every_poll():
     assert len(log) == 2, "the two live feeds are still fetched every time"
 
     log.clear()
-    await client.async_refresh(now=100.0 + SEED_TTL_SECONDS + 1)
+    await client.async_refresh(now=100.0 + SEED_TTL_SECONDS + SEED_GRACE_SECONDS + 1)
     assert sum("redzone" in u for u in log) == 1, "seed must refresh once it ages out"
+
+
+@pytest.mark.asyncio
+async def test_a_seed_just_past_its_ttl_serves_while_it_is_refetched_aside():
+    """The refresh does not wait on 178 KB; the caller refetches it in the background."""
+    log: list[str] = []
+    client = RedzoneClient(_fetcher(_bodies(), log=log), LEAGUE)
+    await client.async_refresh(now=100.0)
+    assert not client.seed_due(100.0 + SEED_TTL_SECONDS - 1)
+
+    log.clear()
+    aged = 100.0 + SEED_TTL_SECONDS + 1
+    assert client.seed_due(aged)
+    await client.async_refresh(now=aged)
+    assert not any("redzone" in u for u in log), "the poll served the seed it had"
+
+    await client.async_refresh_seed(aged)
+    assert sum("redzone" in u for u in log) == 1
+    assert not client.seed_due(aged + 1)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_background_seed_refresh_keeps_the_old_seed():
+    bodies = _bodies()
+    client = RedzoneClient(_fetcher(bodies), LEAGUE)
+    await client.async_refresh(now=100.0)
+    seed = client._seed
+
+    client._fetch = _fetcher(bodies, fail={"redzone"})
+    await client.async_refresh_seed(100.0 + SEED_TTL_SECONDS + 1)
+    assert client._seed is seed
+    assert client.seed_due(100.0 + SEED_TTL_SECONDS + 1), "still due, so the next poll tries again"
 
 
 @pytest.mark.asyncio
@@ -508,3 +541,89 @@ async def test_eight_games_asking_at_once_is_one_fetch():
     got = await asyncio.gather(*(client.async_players(later, needed=("2",)) for _ in range(8)))
     assert feed.asks == 2
     assert all(d is got[0] for d in got), "one dictionary object, handed to all eight"
+
+
+
+# -- the games-feed watch: has anything moved since the last refresh? --------
+
+
+class _GamesRelay:
+    """The games feed, honouring ``If-Modified-Since``; everything else from the fixtures."""
+
+    def __init__(self) -> None:
+        self.body = _bodies()["games"]
+        self.modified = "Fri, 23 Oct 2026 00:45:04 GMT"
+        self.asks: list[str | None] = []
+        self.fail = False
+
+    async def fetch_if_modified(self, url: str, since: str | None) -> tuple[str | None, str]:
+        assert "games" in url
+        self.asks.append(since)
+        if self.fail:
+            raise OSError("boom")
+        if since is not None and since == self.modified:
+            return None, since
+        return self.body, self.modified
+
+
+def _watch_client(relay: _GamesRelay) -> RedzoneClient:
+    return RedzoneClient(_fetcher(_bodies()), LEAGUE, fetch_if_modified=relay.fetch_if_modified)
+
+
+@pytest.mark.asyncio
+async def test_an_unmoved_games_feed_is_a_304():
+    relay = _GamesRelay()
+    client = _watch_client(relay)
+    await client.async_refresh(now=100.0)
+    assert relay.asks == [None], "the refresh fetches the feed whole"
+
+    assert not await client.async_games_changed()
+    assert relay.asks[-1] == relay.modified, "the check carries the refresh's Last-Modified"
+
+
+@pytest.mark.asyncio
+async def test_a_moved_games_feed_says_so_until_a_refresh_reads_it():
+    relay = _GamesRelay()
+    client = _watch_client(relay)
+    await client.async_refresh(now=100.0)
+
+    relay.modified = "Fri, 23 Oct 2026 00:45:11 GMT"
+    assert await client.async_games_changed()
+    assert await client.async_games_changed(), "a check alone does not mark it read"
+
+    await client.async_refresh(now=102.0)
+    assert not await client.async_games_changed()
+
+
+@pytest.mark.asyncio
+async def test_nothing_to_compare_is_no_change():
+    relay = _GamesRelay()
+    assert not await _watch_client(relay).async_games_changed()
+    assert relay.asks == [], "no request before a refresh has read the feed"
+
+    plain = RedzoneClient(_fetcher(_bodies()), LEAGUE)
+    await plain.async_refresh(now=100.0)
+    assert not await plain.async_games_changed()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_check_is_no_change():
+    relay = _GamesRelay()
+    client = _watch_client(relay)
+    await client.async_refresh(now=100.0)
+    relay.fail = True
+    assert not await client.async_games_changed()
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_games_fetch_keeps_what_it_was_compared_against():
+    """The held body and the Last-Modified it came with stay a pair."""
+    relay = _GamesRelay()
+    client = _watch_client(relay)
+    first = await client.async_refresh(now=100.0)
+
+    relay.fail = True
+    held = await client.async_refresh(now=110.0)
+    assert len(held.nfl_games) == len(first.nfl_games), "the slate is held"
+    relay.fail = False
+    assert not await client.async_games_changed()
