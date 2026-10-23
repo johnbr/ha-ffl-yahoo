@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.25.0...v0.26.0) (2026-10-23)
+
+
+### Features
+
+* refresh the moment the games feed moves, not at the next poll ([#76](https://github.com/johnbr/ha-ffl-yahoo/issues/76)) ([8180fd3](https://github.com/johnbr/ha-ffl-yahoo/commit/8180fd3e99f417c845e98a275503555fbadb66ae))
+
 ## [0.25.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.24.3...v0.25.0) (2026-10-19)
 
 
