@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.26.0...v0.26.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* no-op release for testing (no code changes) ([#78](https://github.com/johnbr/ha-ffl-yahoo/issues/78)) ([4dab7b5](https://github.com/johnbr/ha-ffl-yahoo/commit/4dab7b5c03f9abe47f92ad09f7320729812a425b))
+
 ## [0.26.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.25.0...v0.26.0) (2026-10-23)
 
 
