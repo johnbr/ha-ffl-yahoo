@@ -2,8 +2,8 @@
 
 A league is identified by the numeric id in its Yahoo URL, e.g. ``802904`` in
 ``football.fantasysports.yahoo.com/f1/802904``. That is all this source needs —
-no OAuth, no credentials, and, unlike the older HTML tier, **no requirement
-that the league be public**.
+no OAuth or credentials are configured. Access depends on Yahoo permitting
+anonymous requests; an access refusal is reported separately from connection failures.
 
 Two steps, because the second one can only be built from the first's answer:
 
@@ -32,6 +32,7 @@ from .const import (
     DEFAULT_NAME,
     DOMAIN,
 )
+from .http_client import YahooAccessDenied, fetch_text
 from .redzone_client import USER_AGENT, RedzoneClient, YahooWebError
 from .yahoo_web import extract_league_id
 
@@ -54,9 +55,8 @@ class YahooFantasyFootballConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         session = async_get_clientsession(self.hass)
 
         async def _fetch(url: str) -> str:
-            async with session.get(url, headers={"User-Agent": USER_AGENT}) as resp:
-                resp.raise_for_status()
-                return await resp.text()
+            body, _ = await fetch_text(session, url, headers={"User-Agent": USER_AGENT})
+            return body or ""
 
         return RedzoneClient(_fetch, league_id)
 
@@ -72,6 +72,9 @@ class YahooFantasyFootballConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 try:
                     seed = await self._client(league_id).async_fetch_seed()
+                except YahooAccessDenied as err:
+                    _LOGGER.debug("League %s access refused: %s", league_id, err)
+                    errors["base"] = "yahoo_access_denied"
                 except YahooWebError as err:
                     _LOGGER.debug("League %s failed validation: %s", league_id, err)
                     errors["base"] = "cannot_connect"

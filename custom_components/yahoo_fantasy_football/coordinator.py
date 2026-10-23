@@ -35,6 +35,7 @@ from .const import (
     SCAN_INTERVAL_LIVE_SECONDS,
 )
 from .history_client import PlayerNotRostered, SeasonHistory
+from .http_client import fetch_text
 from .league_state import down_and_distance, find_team, poll_interval
 from .pending_plays import Landed, PendingPlays, period_end_not_reached, situation_of
 from .plays import (
@@ -112,28 +113,23 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         session = async_get_clientsession(hass)
 
         async def _fetch(url: str) -> str:
-            async with session.get(
-                url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT
-            ) as resp:
-                resp.raise_for_status()
-                return await resp.text()
+            body, _ = await fetch_text(session, url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+            return body or ""
 
         async def _fetch_if_modified(url: str, since: str | None) -> tuple[str | None, str]:
             headers = {"User-Agent": USER_AGENT}
             if since:
                 headers["If-Modified-Since"] = since
-            async with session.get(url, headers=headers, timeout=REQUEST_TIMEOUT) as resp:
-                if resp.status == 304:
-                    return None, since or ""
-                resp.raise_for_status()
-                return await resp.text(), resp.headers.get("Last-Modified", "")
+            body, modified = await fetch_text(
+                session, url, headers=headers, timeout=REQUEST_TIMEOUT, allow_not_modified=True
+            )
+            return body, (since or "") if body is None else modified
 
         async def _fetch_with(url: str, headers: dict[str, str] | None) -> str:
-            async with session.get(
-                url, headers={"User-Agent": USER_AGENT, **(headers or {})}, timeout=REQUEST_TIMEOUT
-            ) as resp:
-                resp.raise_for_status()
-                return await resp.text()
+            body, _ = await fetch_text(
+                session, url, headers={"User-Agent": USER_AGENT, **(headers or {})}, timeout=REQUEST_TIMEOUT
+            )
+            return body or ""
 
         self.client = RedzoneClient(
             _fetch, self.league_id, fetch_if_modified=_fetch_if_modified

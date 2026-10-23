@@ -1,9 +1,12 @@
 # Yahoo Fantasy Football for Home Assistant
 
+<img src="custom_components/yahoo_fantasy_football/brand/icon.png" alt="Fantasy football icon" width="80" height="80">
+
 Live Yahoo Fantasy Football league scoreboards in Home Assistant, with three bundled Lovelace cards.
 
-> **Status: working.** Running live against a real league since 2026-09-09. The data source, the
-> coordinator, the scoring-play engine and all three cards are in place.
+> The data source, coordinator, scoring-play engine and all three cards are implemented.
+> Yahoo can reject anonymous access with HTTP 401/403, preventing league setup and updates.
+> See [Yahoo access errors](#yahoo-access-errors) before assuming an installation or league-id problem.
 
 ## Features
 
@@ -28,9 +31,10 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with three bun
 
 ## How it gets the data
 
-It reads Yahoo's **GameChannel** tier — the same anonymous endpoints
-`sports.yahoo.com/nfl/gamechannel/` runs on. **No Yahoo account, no OAuth, no API key, and no
-approval process.** Private leagues work; so do public ones.
+It requests Yahoo's **GameChannel** tier, also used by `sports.yahoo.com/nfl/gamechannel/`.
+The integration does not implement Yahoo sign-in, OAuth or API-key configuration. It can read
+public and private leagues only when Yahoo permits anonymous access to this tier; availability
+is not guaranteed for every league or network.
 
 - `pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=…` — teams, rosters, matchups,
   per-player projections, and your league's own scoring modifiers.
@@ -124,6 +128,22 @@ no manual resource entry and no file copying. (In YAML resource mode it can't re
 the URL to add instead.)
 
 ## Configuration
+
+### Yahoo access errors
+
+If setup says **Yahoo refused access to its league data (HTTP 401/403)**, the request reached
+Yahoo but was rejected. One observed response is **Unable to retrieve cookie.** This is distinct
+from a timeout, a rate limit, a server failure or a malformed league id. The integration does not
+currently provide a Yahoo session/login flow to resolve that refusal. Reinstalling or repeatedly
+submitting the same id is unlikely to help.
+
+Setup and polling now share HTTP access-error classification. Only the recognized cookie error
+is translated into a fixed diagnostic; arbitrary response bodies and cookie values are not logged.
+This improves diagnosis, **not authentication**. It does not bypass Yahoo's access controls or
+claim that fetching a public page first restores access. A verified supported authorization route
+or upstream endpoint fix is still needed for affected installations.
+
+### League and team
 
 You need the numeric league id from your league URL — `802904` in
 `https://football.fantasysports.yahoo.com/f1/802904`. Paste either the number or the whole URL. The
