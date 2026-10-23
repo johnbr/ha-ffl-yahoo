@@ -118,6 +118,16 @@ FEED_HOLD_SECONDS: dict[str, float] = {"stats": STALE_AFTER_SECONDS, "games": 12
 # during a game — points move constantly, lineups do not.
 SEED_TTL_SECONDS = 180.0
 
+# How long past its TTL an aged-out seed still stands in while a fresh one is
+# fetched in the background (see :meth:`RedzoneClient.async_refresh_seed`).
+#
+# Fetching it inside the refresh made every eighteenth live poll wait on
+# 178 KB before showing a single new point. A minute covers the live cadence
+# — the first poll after the TTL serves the old seed and the next one finds
+# the new — without letting a seed go stale for a whole near-game or idle
+# interval: a poll that comes later than this fetches it in line, as before.
+SEED_GRACE_SECONDS = 60.0
+
 # How long the NFL player dictionary is reused when nothing says it has grown.
 #
 # It answers "who is [42654]". It was cached on the belief that the answer
@@ -191,6 +201,9 @@ class RedzoneClient:
         # worth paying exactly once per fetch.
         self._seed: dict | None = None
         self._seed_at: float = 0.0
+        # ``Last-Modified`` of the games feed the last refresh read — what
+        # :meth:`async_games_changed` asks the relay about.
+        self._games_modified = ""
         self._players: dict[str, str] | None = None
         self._players_at: float = 0.0
         # ``{feed: (last body that arrived, when)}``, held over a failed
@@ -292,10 +305,15 @@ class RedzoneClient:
     async def _seed_payload(self, now: float) -> dict:
         """The league seed, refetched only once it has aged out.
 
-        See :data:`SEED_TTL_SECONDS` for why this is cached at all.
+        See :data:`SEED_TTL_SECONDS` for why this is cached at all. Just past
+        the TTL the old seed still serves, for :data:`SEED_GRACE_SECONDS`,
+        while the caller refreshes it in the background.
         """
-        if self._seed is not None and (now - self._seed_at) < self._seed_ttl:
+        if self._seed is not None and (now - self._seed_at) < self._seed_ttl + SEED_GRACE_SECONDS:
             return self._seed
+        return await self._fetch_seed_payload(now)
+
+    async def _fetch_seed_payload(self, now: float) -> dict:
         body = await self._get(redzone_url(self.league_id, self.sport))
         try:
             payload = json.loads(body)
@@ -303,6 +321,54 @@ class RedzoneClient:
             raise FetchFailed(f"league {self.league_id} seed is not JSON: {err}") from err
         self._seed, self._seed_at = payload, now
         return payload
+
+    def seed_due(self, now: float) -> bool:
+        """Whether a cached seed has aged out and wants refetching."""
+        return self._seed is not None and (now - self._seed_at) >= self._seed_ttl
+
+    async def async_refresh_seed(self, now: float) -> None:
+        """Refetch the seed off the refresh's path. A failure keeps the old one.
+
+        The next refresh tries again; past the grace it fetches in line, and
+        a failure there is the refresh's failure, as it always was.
+        """
+        try:
+            await self._fetch_seed_payload(now)
+        except YahooWebError as err:
+            _LOGGER.debug("background seed refresh failed: %s", err)
+
+    async def _get_games(self) -> str:
+        """The games feed, keeping its ``Last-Modified`` for :meth:`async_games_changed`."""
+        url = relay_url("games", self.sport)
+        if self._fetch_if_modified is None:
+            return await self._get_optional(url)
+        try:
+            body, last_modified = await self._fetch_if_modified(url, None)
+        except Exception as err:  # a dropped live feed is held, see _live_feed
+            _LOGGER.debug("live feed %s unavailable: %s", url, err)
+            return ""
+        if not body or len(body) < MIN_BODY:
+            return ""
+        self._games_modified = last_modified
+        return body
+
+    async def async_games_changed(self) -> bool:
+        """Whether the games feed has moved since the last refresh read it.
+
+        One conditional request: an unchanged feed answers ``304`` with no
+        body (verified 2026-10-22), so asking every couple of seconds costs a
+        few hundred bytes. ``False`` when there is nothing to compare against
+        or the ask fails — the next scheduled refresh is never skipped, so a
+        wrong ``False`` only costs the head start.
+        """
+        if self._fetch_if_modified is None or not self._games_modified:
+            return False
+        try:
+            body, _ = await self._fetch_if_modified(relay_url("games", self.sport), self._games_modified)
+        except Exception as err:  # the scheduled refresh will try in earnest
+            _LOGGER.debug("games feed check failed: %s", err)
+            return False
+        return body is not None
 
     async def async_players(self, now: float, needed: Iterable[str] = ()) -> dict[str, str]:
         """``{player_id: name}`` for everyone who has played this week, cached.
@@ -389,7 +455,7 @@ class RedzoneClient:
         seed, stats, games = await asyncio.gather(
             self._seed_payload(now),
             self._get_optional(relay_url("stats", self.sport)),
-            self._get_optional(relay_url("games", self.sport)),
+            self._get_games(),
         )
         stats = self._live_feed("stats", stats, now)
         games = self._live_feed("games", games, now)
