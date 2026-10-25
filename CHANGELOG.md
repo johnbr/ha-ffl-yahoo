@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.28.1...v0.28.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* my-score card centres its play line under the scores ([#90](https://github.com/johnbr/ha-ffl-yahoo/issues/90)) ([762d265](https://github.com/johnbr/ha-ffl-yahoo/commit/762d26571f1d857986d78071205f3c6a801b2113))
+
 ## [0.28.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.28.0...v0.28.1) (2026-10-25)
 
 
