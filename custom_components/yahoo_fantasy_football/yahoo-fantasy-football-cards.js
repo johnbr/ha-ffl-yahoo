@@ -674,6 +674,29 @@ function renderMatchupRow(row, options = {}) {
 }
 
 /**
+ * How long the score card's play line stays up, in seconds. It's a glance
+ * card, so a play is news for a few minutes and then just takes up room. The
+ * open card keeps the line, because it's how to get to the scoring plays.
+ */
+const MY_SCORE_PLAY_SECONDS = 180;
+
+/**
+ * How much of its three minutes the score card's play line has left, in ms.
+ *
+ * Timed from the play's `timestamp`, the poll that found the score, so a
+ * dashboard reloaded on an old play doesn't show it for another three minutes.
+ * That is the server's clock against the browser's, which agree to within a
+ * second or two on any machine keeping time. A play with no time on it (an
+ * older integration) never expires.
+ */
+function playLineLeftMs(play, nowMs = Date.now()) {
+  if (!play) return 0;
+  const at = Number(play.timestamp);
+  if (!Number.isFinite(at) || at <= 0) return Infinity;
+  return Math.max(0, at * 1000 + MY_SCORE_PLAY_SECONDS * 1000 - nowMs);
+}
+
+/**
  * Your matchup at a glance, after the phone app's home-screen widget: your
  * team over your opponent, each line its name, live projection and points,
  * then in brackets how many of its starters have a game still to finish —
@@ -728,7 +751,10 @@ function renderMyScore(row, teamId, options = {}) {
 
   // The name's track gives way; every figure column is as wide as its wider entry.
   const columns = ["minmax(0, 1fr)", projections ? "auto" : "", "auto", counts ? "auto" : ""].filter(Boolean).join(" ");
-  const play = row.last_play
+  // Three minutes, then the play line goes, unless the card is open: then it
+  // is the lineup's context, or the scoring plays' own heading.
+  const showPlay = Boolean(row.last_play) && (expanded || playLineLeftMs(row.last_play, options.now) > 0);
+  const play = showPlay
     ? `
       <div class="ffl-ms-play${row.last_play.correction ? " ffl-correction" : ""}${playsOpen ? " ffl-play-open" : ""}"
            role="button" tabindex="0" data-history="1"
@@ -1368,7 +1394,13 @@ class FflMyScoreCard extends FflMyMatchupCard {
       return;
     }
     const row = rows[0];
-    this._paint(renderMyScore(row, this._teamId(st), this._rowOptions(row)));
+    const now = Date.now();
+    this._paint(renderMyScore(row, this._teamId(st), { ...this._rowOptions(row), now }));
+    // Nothing else repaints the card when its play line expires: the score
+    // may not move again for an hour. So the expiry gets its own repaint.
+    clearTimeout(this._playTimer);
+    const left = playLineLeftMs(row.last_play, now);
+    if (left > 0 && Number.isFinite(left)) this._playTimer = setTimeout(() => this._invalidate(), left + 50);
   }
 }
 
@@ -2209,6 +2241,8 @@ if (typeof module !== "undefined" && module.exports) {
     fmtDelta,
     renderMatchupRow,
     renderMyScore,
+    playLineLeftMs,
+    MY_SCORE_PLAY_SECONDS,
     renderHeader,
     renderRowPlay,
     renderWinBar,
