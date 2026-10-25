@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.28.0...v0.28.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* my-score card drops its play line three minutes after the play ([#88](https://github.com/johnbr/ha-ffl-yahoo/issues/88)) ([982c46c](https://github.com/johnbr/ha-ffl-yahoo/commit/982c46cdfb4f6319a3cde507dfc6a3d5dbb20e29))
+
 ## [0.28.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.27.0...v0.28.0) (2026-10-25)
 
 
