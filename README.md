@@ -5,6 +5,8 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with four bund
 > **Status: working.** Running live against a real league since 2026-09-09. The data source, the
 > coordinator, the scoring-play engine and all four cards are in place.
 
+![The league scoreboard card and the NFL games card side by side on a tablet dashboard during the early Sunday games](https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/dashboard.png)
+
 ## Features
 
 - **Four cards.** One for your own matchup, one for every matchup in the league, and one for the
@@ -26,6 +28,33 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with four bund
   "opponent scored" and "lead change", which you can pick as triggers in the automation editor.
   Every scoring play in the league also fires on the Home Assistant event bus. See
   [Automations](#automations).
+
+<table>
+  <tr>
+    <td valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/matchup-lineup.png" width="100%"
+           alt="An open matchup: both projections against the pre-game ones, a 94% to 6% win bar, and the two lineups facing each other by slot, with each player's points, projection and game">
+      <br><sub><b>Tap a matchup</b> for both lineups, both projections and the win probability.</sub>
+    </td>
+    <td valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/player-season.png" width="100%"
+           alt="Jahmyr Gibbs's season, week by week: opponent, Yahoo's projection and his points, green above the projection and red below">
+      <br><sub><b>Tap a player</b> for his season, week by week.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/scoring-plays.png" width="100%"
+           alt="A matchup's scoring history: each play with the player it scored for and the points it was worth">
+      <br><sub><b>Tap a matchup's play line</b> for its scoring history.</sub>
+    </td>
+    <td valign="top">
+      <img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/nfl-play-list.png" width="100%"
+           alt="An NFL game opened on the games card: the score, clock, down and distance, field position bar, and every play with its down and time">
+      <br><sub><b>Tap an NFL game</b> for its play list.</sub>
+    </td>
+  </tr>
+</table>
 
 ## How it gets the data
 
@@ -153,6 +182,9 @@ the number of live games, then your team over your opponent. Each line has the l
 (green above the pre-game projection, red below) and the points, with the decimal points lined up.
 The last play goes underneath. Once the matchup is over, the projections drop away and the winner
 turns gold. Tap the score for both lineups, or the play for the matchup's scoring history.
+
+<img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/my-score-card.png" width="400"
+     alt="The my-score card: Kush, 3 live; Tesla on 111.74 points, projected 152.04 in green, over Wallyworld 34 on 58.45, projected 104.98 in red; last play P. Nacua 1 rec, 4 yds">
 
 ```yaml
 type: custom:ffl-my-score-card
