@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.27.0...v0.28.0) (2026-10-25)
+
+
+### Features
+
+* my-score card shows starters left to play, and loses its heading ([#86](https://github.com/johnbr/ha-ffl-yahoo/issues/86)) ([a661366](https://github.com/johnbr/ha-ffl-yahoo/commit/a66136604966faf855221b5bb4dfb4f4107f17da))
+
 ## [0.27.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.26.2...v0.27.0) (2026-10-25)
 
 
