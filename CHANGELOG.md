@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.26.2...v0.27.0) (2026-10-25)
+
+
+### Features
+
+* add a my-score card, your matchup at a glance like the phone widget ([#83](https://github.com/johnbr/ha-ffl-yahoo/issues/83)) ([d20d770](https://github.com/johnbr/ha-ffl-yahoo/commit/d20d770a1dce62d3feb44c89fb17f54b61c9abe5))
+
 ## [0.26.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.26.1...v0.26.2) (2026-10-25)
 
 
