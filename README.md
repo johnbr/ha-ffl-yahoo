@@ -1,16 +1,17 @@
 # Yahoo Fantasy Football for Home Assistant
 
-Live Yahoo Fantasy Football league scoreboards in Home Assistant, with three bundled Lovelace cards.
+Live Yahoo Fantasy Football league scoreboards in Home Assistant, with four bundled Lovelace cards.
 
 > **Status: working.** Running live against a real league since 2026-09-09. The data source, the
-> coordinator, the scoring-play engine and all three cards are in place.
+> coordinator, the scoring-play engine and all four cards are in place.
 
 ## Features
 
-- **Three cards.** One for your own matchup, one for every matchup in the league, and one for the
+- **Four cards.** One for your own matchup, one for every matchup in the league, and one for the
   week's real NFL games. The two fantasy cards show only the
   team names, each with its season record (`Tesla (0-4)`), and the scores at rest; clicking a matchup
-  opens a roster popup with each player's live points.
+  opens a roster popup with each player's live points. The fourth is just your matchup's score, laid
+  out like the Android app's home-screen widget, and tapping it opens the same roster.
 - **Live team scores and projections.** Yahoo publishes a live projected total per team that moves
   during games — both cards show current points alongside the projection.
 - **Per-matchup scoring plays.** Under each matchup, the play that last moved *that* score,
@@ -143,8 +144,23 @@ entity: sensor.kush_scoreboard
 
 ```yaml
 type: custom:ffl-my-matchup-card
-entity: sensor.kush_my_team
+entity: sensor.kush_scoreboard
 ```
+
+The my-score card is that matchup at a glance, as the
+[Android app's](https://github.com/johnbr/ffl-yahoo-android) widget shows it. It shows the league and
+the number of live games, then your team over your opponent. Each line has the live projection
+(green above the pre-game projection, red below) and the points, with the decimal points lined up.
+The last play goes underneath. Once the matchup is over, the projections drop away and the winner
+turns gold. Tap the score for both lineups, or the play for the matchup's scoring history.
+
+```yaml
+type: custom:ffl-my-score-card
+entity: sensor.kush_scoreboard
+```
+
+Both find your team through the league's `sensor.kush_my_team`. A `team_id:` in the card config
+overrides that.
 
 The NFL games card shows the week's real NFL slate — live scores, the down and distance, and each
 game's play list — whether or not anyone in the league has a player in it:
@@ -154,7 +170,7 @@ type: custom:ffl-nfl-games-card
 entity: sensor.kush_nfl_games
 ```
 
-All three can be added from the dashboard's card picker, which fills in the entity.
+All four can be added from the dashboard's card picker, which fills in the entity.
 
 ## Automations
 
