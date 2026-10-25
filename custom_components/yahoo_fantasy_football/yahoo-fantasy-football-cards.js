@@ -2169,8 +2169,9 @@ const CARD_CSS = `
   .ffl-ms-left { font-size: 0.8rem; font-weight: 500; color: var(--secondary-text-color); margin-left: -8px; }
   .ffl-ms-name.ffl-won { font-size: 1.02rem; }
   .ffl-ms-name.ffl-won, .ffl-ms-pts.ffl-won { color: var(--ffl-winner-color, #fbc02d); }
+  /* Centred under the two score lines, so it doesn't read as a third team. */
   .ffl-ms-play {
-    padding: 1px 6px; border-radius: 6px; cursor: pointer;
+    padding: 1px 6px; border-radius: 6px; cursor: pointer; text-align: center;
     font-size: 0.8rem; line-height: 1.2; font-weight: 500; color: var(--primary-text-color);
   }
   .ffl-ms-play:hover, .ffl-ms-play:focus-visible { background: var(--secondary-background-color); outline: none; }
