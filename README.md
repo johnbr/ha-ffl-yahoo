@@ -176,12 +176,13 @@ type: custom:ffl-my-matchup-card
 entity: sensor.kush_scoreboard
 ```
 
-The my-score card is that matchup at a glance, as the
-[Android app's](https://github.com/johnbr/ffl-yahoo-android) widget shows it. It shows the league and
-the number of live games, then your team over your opponent. Each line has the live projection
-(green above the pre-game projection, red below) and the points, with the decimal points lined up.
-The last play goes underneath. Once the matchup is over, the projections drop away and the winner
-turns gold. Tap the score for both lineups, or the play for the matchup's scoring history.
+The my-score card is that matchup at a glance, after the
+[Android app's](https://github.com/johnbr/ffl-yahoo-android) widget: your team over your opponent,
+with no heading. Each line has the live projection (green above the pre-game projection, red below)
+and the points, with the decimal points lined up. Then, in brackets, comes how many of that team's
+starters still have a game to finish, in progress or yet to kick off. The last play goes underneath.
+Once the matchup is over, the projections and the counts drop away and the winner turns gold. Tap the
+score for both lineups, or the play for the matchup's scoring history.
 
 <img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/my-score-card.png" width="400"
      alt="The my-score card: Kush, 3 live; Tesla on 111.74 points, projected 152.04 in green, over Wallyworld 34 on 58.45, projected 104.98 in red; last play P. Nacua 1 rec, 4 yds">
