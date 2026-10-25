@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.26.1...v0.26.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* drop the 2 s games-feed watch, back to the 10 s live poll ([#81](https://github.com/johnbr/ha-ffl-yahoo/issues/81)) ([273849b](https://github.com/johnbr/ha-ffl-yahoo/commit/273849b5cede8903fc36f78d5c00552c8879cbb8))
+
 ## [0.26.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.26.0...v0.26.1) (2026-10-23)
 
 
