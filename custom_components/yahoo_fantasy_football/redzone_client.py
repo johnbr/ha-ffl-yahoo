@@ -201,9 +201,6 @@ class RedzoneClient:
         # worth paying exactly once per fetch.
         self._seed: dict | None = None
         self._seed_at: float = 0.0
-        # ``Last-Modified`` of the games feed the last refresh read — what
-        # :meth:`async_games_changed` asks the relay about.
-        self._games_modified = ""
         self._players: dict[str, str] | None = None
         self._players_at: float = 0.0
         # ``{feed: (last body that arrived, when)}``, held over a failed
@@ -337,39 +334,6 @@ class RedzoneClient:
         except YahooWebError as err:
             _LOGGER.debug("background seed refresh failed: %s", err)
 
-    async def _get_games(self) -> str:
-        """The games feed, keeping its ``Last-Modified`` for :meth:`async_games_changed`."""
-        url = relay_url("games", self.sport)
-        if self._fetch_if_modified is None:
-            return await self._get_optional(url)
-        try:
-            body, last_modified = await self._fetch_if_modified(url, None)
-        except Exception as err:  # a dropped live feed is held, see _live_feed
-            _LOGGER.debug("live feed %s unavailable: %s", url, err)
-            return ""
-        if not body or len(body) < MIN_BODY:
-            return ""
-        self._games_modified = last_modified
-        return body
-
-    async def async_games_changed(self) -> bool:
-        """Whether the games feed has moved since the last refresh read it.
-
-        One conditional request: an unchanged feed answers ``304`` with no
-        body (verified 2026-10-22), so asking every couple of seconds costs a
-        few hundred bytes. ``False`` when there is nothing to compare against
-        or the ask fails — the next scheduled refresh is never skipped, so a
-        wrong ``False`` only costs the head start.
-        """
-        if self._fetch_if_modified is None or not self._games_modified:
-            return False
-        try:
-            body, _ = await self._fetch_if_modified(relay_url("games", self.sport), self._games_modified)
-        except Exception as err:  # the scheduled refresh will try in earnest
-            _LOGGER.debug("games feed check failed: %s", err)
-            return False
-        return body is not None
-
     async def async_players(self, now: float, needed: Iterable[str] = ()) -> dict[str, str]:
         """``{player_id: name}`` for everyone who has played this week, cached.
 
@@ -455,7 +419,7 @@ class RedzoneClient:
         seed, stats, games = await asyncio.gather(
             self._seed_payload(now),
             self._get_optional(relay_url("stats", self.sport)),
-            self._get_games(),
+            self._get_optional(relay_url("games", self.sport)),
         )
         stats = self._live_feed("stats", stats, now)
         games = self._live_feed("games", games, now)

@@ -32,7 +32,6 @@ from .const import (
     DOMAIN,
     EVENT_LEAD_CHANGE,
     EVENT_SCORING_PLAY,
-    SCAN_INTERVAL_LIVE_SECONDS,
 )
 from .history_client import PlayerNotRostered, SeasonHistory
 from .league_state import down_and_distance, find_team, poll_interval
@@ -82,15 +81,6 @@ MAX_NFL_LAST_PLAY_FEEDS = 16
 # re-read is a conditional request, answered ``304`` until the text lands, and
 # it stops once the text does or ``CHASE_FOR_SECONDS`` passes.
 CHASE_SECONDS = 3.0
-
-# How often the games feed is asked whether it has moved, between polls,
-# while a game is on. The live poll is 10 s and the feed moves on every snap
-# — every ~11 s with one game on (sampled 2026-10-22), every ~7 s with eight
-# — so a change waited ~5 s on average for the poll that would show it. A
-# conditional ask, answered ``304`` with no body while nothing has moved,
-# cuts that to ~1 s, and a change triggers the full refresh at once. The poll
-# itself is unchanged: this only ever brings the next refresh forward.
-WATCH_SECONDS = 2.0
 
 
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
@@ -165,7 +155,6 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         # one at a time, so an older read can never land on top of a newer.
         self._nfl_lock = asyncio.Lock()
         self._chase: asyncio.Task | None = None
-        self._watch: asyncio.Task | None = None
         self._seed_refresh: asyncio.Task | None = None
 
         super().__init__(
@@ -237,7 +226,6 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         await self._refresh_nfl_last_plays(data, now)
         self._start_chase(now)
         self.update_interval = _interval(data, self.update_interval)
-        self._start_watch()
         self._start_seed_refresh(now)
         return data
 
@@ -337,29 +325,6 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             if play.sequence == sequence:
                 return Landed(sequence, situation_of(play), play.period, play.clock, play.play_type)
         return Landed(sequence, ("", 0, 0, 0))
-
-    def _live(self) -> bool:
-        return self.update_interval == timedelta(seconds=SCAN_INTERVAL_LIVE_SECONDS)
-
-    def _start_watch(self) -> None:
-        """Watch the games feed between polls while a game is on."""
-        if not self._live() or (self._watch is not None and not self._watch.done()):
-            return
-        self._watch = self.entry.async_create_background_task(
-            self.hass, self._async_watch(), f"{DOMAIN} {self.league_id} games watch"
-        )
-
-    async def _async_watch(self) -> None:
-        """Refresh the moment the games feed moves, not at the next poll.
-
-        ``async_refresh`` takes the same lock as the scheduled poll, so the
-        two never overlap, and it re-arms the schedule from now. Ends when the
-        cadence leaves live; the next refresh to find a game on starts it again.
-        """
-        while self._live():
-            await asyncio.sleep(WATCH_SECONDS)
-            if self._live() and await self.client.async_games_changed():
-                await self.async_refresh()
 
     def _start_seed_refresh(self, now: float) -> None:
         """Refetch an aged-out league seed off the poll's path."""

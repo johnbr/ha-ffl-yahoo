@@ -41,6 +41,12 @@ CARD_FILENAME = "yahoo-fantasy-football-cards.js"
 #
 # Going below ~7s would buy little and cost proportionally: the feed simply
 # has nothing new to say more often than that.
+#
+# Asking between polls is not free either. A watch that asked the games feed
+# every 2s whether it had moved, and refreshed the moment it had (v0.26.0),
+# was withdrawn after the relay started refusing the host running it (HTTP
+# 999, "Request denied") twelve minutes into its first full Sunday,
+# 2026-10-25. A ``304`` is still a request.
 SCAN_INTERVAL_LIVE_SECONDS = 10
 SCAN_INTERVAL_NEAR_GAME_SECONDS = 300
 SCAN_INTERVAL_IDLE_SECONDS = 1800
