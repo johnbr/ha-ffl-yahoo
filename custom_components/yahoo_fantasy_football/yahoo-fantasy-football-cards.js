@@ -5,6 +5,7 @@ const MY_MATCHUP_TAG = "ffl-my-matchup-card";
 const LEAGUE_TAG = "ffl-league-scoreboard-card";
 const NFL_GAMES_TAG = "ffl-nfl-games-card";
 const MY_SCORE_TAG = "ffl-my-score-card";
+const MY_SCORE_EDITOR = "ffl-my-score-card-editor";
 const MY_MATCHUP_EDITOR = "ffl-my-matchup-card-editor";
 const LEAGUE_EDITOR = "ffl-league-scoreboard-card-editor";
 const NFL_GAMES_EDITOR = "ffl-nfl-games-card-editor";
@@ -673,13 +674,18 @@ function renderMatchupRow(row, options = {}) {
 }
 
 /**
- * Your matchup as the phone app's home-screen widget draws it: the league and
- * how many games are live, then your team over your opponent, each line its
- * name, live projection and points, and the last play under them.
+ * Your matchup at a glance, after the phone app's home-screen widget: your
+ * team over your opponent, each line its name, live projection and points,
+ * then in brackets how many of its starters have a game still to finish —
+ * in progress or yet to kick off — and the last play under them.
  *
  * One grid for both teams, so each figure shares a column with the other
  * team's. Every figure has two decimals and the digits are tabular, so
  * right-aligning the column lines the decimal points up.
+ *
+ * The count is the team's `remaining`, the same number that makes a matchup
+ * final when it reaches zero on both sides, so it goes once the matchup is
+ * over, with the projections: what is left then is the result.
  *
  * Unlike the widget, it opens: the score block opens the lineup beneath it,
  * the same panel a matchup row opens, and the play line opens the scoring
@@ -694,6 +700,10 @@ function renderMyScore(row, teamId, options = {}) {
   const final = row.final === true;
   // A finished matchup's projections are just its scores again.
   const projections = !final && [me, them].some((t) => fmtPoints(t.live_projected ?? t.projected) !== "—");
+  // `remaining` is null from a tier that cannot count; a side that cannot is
+  // left blank rather than claiming nobody is left.
+  const counted = (team) => Number.isFinite(team.remaining);
+  const counts = !final && [me, them].some(counted);
   const expanded = options.expanded === true;
   const playsOpen = expanded && options.panel === "plays";
   const panelId = matchupPanelId(row);
@@ -710,16 +720,14 @@ function renderMyScore(row, teamId, options = {}) {
           team.live_projected ?? team.projected
         )}</span>`
       : "";
+    const left = counts ? `<span class="ffl-ms-left">${counted(team) ? `(${team.remaining})` : ""}</span>` : "";
     return `<span class="${name}">${escapeHtml(team.name)}</span>${projected}<span class="${points}">${fmtPoints(
       team.points
-    )}</span>`;
+    )}</span>${left}`;
   };
 
-  // Only while something is being played, as on the header of the other cards.
-  const live = Number(options.live) || 0;
-  const head = options.title
-    ? `<div class="ffl-ms-head">${escapeHtml(options.title)}${live ? ` · <span class="ffl-ms-live">${live} live</span>` : ""}</div>`
-    : "";
+  // The name's track gives way; every figure column is as wide as its wider entry.
+  const columns = ["minmax(0, 1fr)", projections ? "auto" : "", "auto", counts ? "auto" : ""].filter(Boolean).join(" ");
   const play = row.last_play
     ? `
       <div class="ffl-ms-play${row.last_play.correction ? " ffl-correction" : ""}${playsOpen ? " ffl-play-open" : ""}"
@@ -738,8 +746,7 @@ function renderMyScore(row, teamId, options = {}) {
            aria-expanded="${expanded && !playsOpen ? "true" : "false"}"
            aria-controls="${panelId}"
            aria-label="${escapeHtml(`${me.name} ${fmtPoints(me.points)}, ${them.name} ${fmtPoints(them.points)}`)}">
-        ${head}
-        <div class="ffl-ms-grid${projections ? "" : " ffl-ms-noproj"}">${line(me)}${line(them)}</div>
+        <div class="ffl-ms-grid" style="grid-template-columns: ${columns}">${line(me)}${line(them)}</div>
       </div>
       ${play}
       ${renderMatchupDetail(row, options)}
@@ -1335,14 +1342,24 @@ class FflMyMatchupCard extends FflBaseCard {
 /* --------------------------------------------------------- my score card */
 
 /*
- * Just your matchup's score, the way the phone app's widget shows it, for a
- * dashboard that wants the number at a glance. Same entity, same team lookup
- * and same panels as the my-matchup card, so it is that card with another
- * face; its editor is that card's too.
+ * Just your matchup's score, for a dashboard that wants the number at a
+ * glance. Same entity, same team lookup and same panels as the my-matchup
+ * card, so it is that card with another face. It has no heading, so its
+ * editor drops the title.
  */
 class FflMyScoreCard extends FflMyMatchupCard {
+  static getConfigElement() {
+    return document.createElement(MY_SCORE_EDITOR);
+  }
+
   getCardSize() {
     return 2;
+  }
+
+  _build() {
+    super._build();
+    // Tighter than the other cards' padding: this one exists to be small.
+    this.card.classList.add("ffl-ms-card");
   }
 
   _paintBody(st, rows) {
@@ -1351,13 +1368,7 @@ class FflMyScoreCard extends FflMyMatchupCard {
       return;
     }
     const row = rows[0];
-    this._paint(
-      renderMyScore(row, this._teamId(st), {
-        ...this._rowOptions(row),
-        title: this.config.title || st.attributes.league_name || "Fantasy Football",
-        live: st.attributes.active_games,
-      })
-    );
+    this._paint(renderMyScore(row, this._teamId(st), this._rowOptions(row)));
   }
 }
 
@@ -1624,6 +1635,12 @@ class FflNflGamesEditor extends FflBaseEditor {
 class FflMyMatchupEditor extends FflBaseEditor {
   _schema() {
     return [ENTITY_SELECTOR, { name: "title", selector: { text: {} } }, { name: "team_id", selector: { text: {} } }];
+  }
+}
+
+class FflMyScoreEditor extends FflBaseEditor {
+  _schema() {
+    return [ENTITY_SELECTOR, { name: "team_id", selector: { text: {} } }];
   }
 }
 
@@ -2095,20 +2112,17 @@ const CARD_CSS = `
      and the points, each right-aligned in a column both teams share. Names
      stay on one line, as the widget's do: two lines of name would split
      the figures they sit beside. */
-  .ffl-ms { padding: 6px; border-radius: 8px; cursor: pointer; }
+  .ffl-ms-card .card-content { padding: 6px 10px; }
+  .ffl-ms { padding: 3px 6px; border-radius: 8px; cursor: pointer; }
   .ffl-ms:hover, .ffl-ms:focus-visible { background: var(--secondary-background-color); outline: none; }
   .ffl-expanded > .ffl-ms { background: var(--secondary-background-color); }
   .ffl-plays-open > .ffl-ms { background: none; }
-  .ffl-ms-head {
-    font-size: 0.78rem; color: var(--secondary-text-color); padding-bottom: 4px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .ffl-ms-live { color: var(--success-color, #43a047); font-weight: 600; }
+  /* The columns are set on the element: the projection and count tracks are
+     there only while there is something to put in them. */
   .ffl-ms-grid {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
-    column-gap: 14px; row-gap: 2px; align-items: baseline; font-variant-numeric: tabular-nums;
+    display: grid; column-gap: 14px; row-gap: 2px; align-items: baseline;
+    font-variant-numeric: tabular-nums;
   }
-  .ffl-ms-grid.ffl-ms-noproj { grid-template-columns: minmax(0, 1fr) auto; }
   .ffl-ms-name {
     font-size: 0.95rem; font-weight: 500; color: var(--primary-text-color);
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2119,10 +2133,12 @@ const CARD_CSS = `
      the decimal points apart even in tabular figures. */
   .ffl-ms-pts { font-size: 1.1rem; font-weight: 700; text-align: end; color: var(--primary-text-color); }
   .ffl-ms-pts.ffl-ms-behind { color: var(--secondary-text-color); }
+  /* Starters still to finish: an aside to the score, so it sits close to it. */
+  .ffl-ms-left { font-size: 0.8rem; font-weight: 500; color: var(--secondary-text-color); margin-left: -8px; }
   .ffl-ms-name.ffl-won { font-size: 1.02rem; }
   .ffl-ms-name.ffl-won, .ffl-ms-pts.ffl-won { color: var(--ffl-winner-color, #fbc02d); }
   .ffl-ms-play {
-    margin-top: 2px; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+    padding: 1px 6px; border-radius: 6px; cursor: pointer;
     font-size: 0.8rem; line-height: 1.2; font-weight: 500; color: var(--primary-text-color);
   }
   .ffl-ms-play:hover, .ffl-ms-play:focus-visible { background: var(--secondary-background-color); outline: none; }
@@ -2159,6 +2175,7 @@ if (typeof customElements !== "undefined") {
   customElements.define(NFL_GAMES_TAG, FflNflGamesCard);
   customElements.define(MY_SCORE_TAG, FflMyScoreCard);
   customElements.define(MY_MATCHUP_EDITOR, FflMyMatchupEditor);
+  customElements.define(MY_SCORE_EDITOR, FflMyScoreEditor);
   customElements.define(LEAGUE_EDITOR, FflLeagueEditor);
   customElements.define(NFL_GAMES_EDITOR, FflNflGamesEditor);
 

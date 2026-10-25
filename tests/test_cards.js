@@ -317,7 +317,7 @@ test("a finished matchup drops the projections and turns the winner gold", () =>
     ["Your daddy", "104.09"],
     ["Tesla", "180.67"],
   ]);
-  assert.ok(html.includes("ffl-ms-noproj"), "the grid loses its projection column");
+  assert.ok(html.includes('style="grid-template-columns: minmax(0, 1fr) auto"'), "the grid loses its projection column");
   assert.ok(html.includes('<span class="ffl-ms-name ffl-leader ffl-won">Tesla</span>'));
   assert.ok(html.includes('<span class="ffl-ms-pts ffl-won">180.67</span>'));
 });
@@ -328,11 +328,47 @@ test("a tied score card marks nobody", () => {
   assert.ok(!html.includes("ffl-ms-behind"));
 });
 
-test("the score card's head carries the league and the live count, only while games are on", () => {
-  assert.ok(renderMyScore(LIVE_ROW, "1", { title: "Kush", live: 3 }).includes('Kush · <span class="ffl-ms-live">3 live</span>'));
-  const quiet = renderMyScore(LIVE_ROW, "1", { title: "Kush", live: 0 });
-  assert.ok(quiet.includes(">Kush</div>"));
-  assert.ok(!quiet.includes("live"));
+test("the score card has no heading line, whatever it is passed", () => {
+  const html = renderMyScore(LIVE_ROW, "1", { title: "Kush", live: 3 });
+  assert.ok(!html.includes("Kush"));
+  assert.ok(!html.includes("live<"));
+});
+
+const COUNTED_ROW = {
+  ...LIVE_ROW,
+  home: { ...LIVE_ROW.home, remaining: 3 },
+  away: { ...LIVE_ROW.away, remaining: 0 },
+};
+
+test("each score is followed by how many starters still have a game to finish", () => {
+  assert.deepStrictEqual(scoreLines(renderMyScore(COUNTED_ROW, "5")), [
+    ["Your daddy", "110.50", "104.09", "(0)"],
+    ["Tesla", "150.25", "180.67", "(3)"],
+  ]);
+  assert.ok(renderMyScore(COUNTED_ROW, "5").includes("grid-template-columns: minmax(0, 1fr) auto auto auto"));
+});
+
+test("a side that cannot count is blank, not zero", () => {
+  const html = renderMyScore({ ...COUNTED_ROW, away: { ...COUNTED_ROW.away, remaining: null } }, "1");
+  assert.deepStrictEqual(scoreLines(html), [
+    ["Tesla", "150.25", "180.67", "(3)"],
+    ["Your daddy", "110.50", "104.09", ""],
+  ]);
+});
+
+test("with no counts at all there is no count column", () => {
+  const html = renderMyScore(LIVE_ROW, "1");
+  assert.ok(!html.includes("ffl-ms-left"));
+  assert.ok(html.includes("grid-template-columns: minmax(0, 1fr) auto auto\""));
+});
+
+test("the counts go once the matchup is over, with the projections", () => {
+  const html = renderMyScore({ ...COUNTED_ROW, home: { ...COUNTED_ROW.home, remaining: 0 }, final: true }, "1");
+  assert.ok(!html.includes("ffl-ms-left"));
+  assert.deepStrictEqual(scoreLines(html), [
+    ["Tesla", "180.67"],
+    ["Your daddy", "104.09"],
+  ]);
 });
 
 test("the score block opens the lineup and the play line opens the scoring plays", () => {
