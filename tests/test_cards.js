@@ -33,6 +33,8 @@ const {
   fmtDelta,
   renderMatchupRow,
   renderMyScore,
+  playLineLeftMs,
+  MY_SCORE_PLAY_SECONDS,
   renderHeader,
   renderRowPlay,
   renderWinBar,
@@ -389,6 +391,39 @@ test("the score block opens the lineup and the play line opens the scoring plays
   assert.ok(plays.includes("PLAYS"));
   assert.ok(!plays.includes("ffl-projs"));
   assert.ok(plays.includes("ffl-ms-play ffl-play-open"));
+});
+
+test("the score card's play line goes three minutes after the play", () => {
+  const at = 1_800_000_000;
+  const row = { ...LIVE_ROW, last_play: { ...LIVE_ROW.last_play, timestamp: at } };
+  const fresh = renderMyScore(row, "1", { now: (at + MY_SCORE_PLAY_SECONDS - 1) * 1000 });
+  assert.ok(fresh.includes("P. Nacua"), "still within its three minutes");
+  const stale = renderMyScore(row, "1", { now: (at + MY_SCORE_PLAY_SECONDS) * 1000 });
+  assert.ok(!stale.includes("P. Nacua"));
+  assert.ok(!stale.includes("data-history"));
+});
+
+test("an open score card keeps its play line, however old the play", () => {
+  const at = 1_800_000_000;
+  const row = { ...LIVE_ROW, last_play: { ...LIVE_ROW.last_play, timestamp: at } };
+  const later = (at + 3600) * 1000;
+  for (const panel of ["roster", "plays", "player"]) {
+    const html = renderMyScore(row, "1", { expanded: true, panel, detailHtml: "<div></div>", now: later });
+    assert.ok(html.includes("P. Nacua"), `the ${panel} panel keeps the play line`);
+  }
+});
+
+test("a play with no time on it never expires", () => {
+  assert.strictEqual(playLineLeftMs({ text: "x" }, Date.now()), Infinity);
+  assert.ok(renderMyScore(LIVE_ROW, "1", { now: 4_000_000_000_000 }).includes("P. Nacua"));
+});
+
+test("the play line's time left counts down to zero and stays there", () => {
+  const play = { timestamp: 1000 };
+  assert.strictEqual(playLineLeftMs(play, 1000 * 1000), MY_SCORE_PLAY_SECONDS * 1000);
+  assert.strictEqual(playLineLeftMs(play, (1000 + 60) * 1000), (MY_SCORE_PLAY_SECONDS - 60) * 1000);
+  assert.strictEqual(playLineLeftMs(play, (1000 + 9999) * 1000), 0);
+  assert.strictEqual(playLineLeftMs(null, 0), 0);
 });
 
 test("a score card without a play has no play line", () => {

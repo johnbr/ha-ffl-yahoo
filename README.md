@@ -180,7 +180,8 @@ The my-score card is that matchup at a glance, after the
 [Android app's](https://github.com/johnbr/ffl-yahoo-android) widget: your team over your opponent,
 with no heading. Each line has the live projection (green above the pre-game projection, red below)
 and the points, with the decimal points lined up. Then, in brackets, comes how many of that team's
-starters still have a game to finish, in progress or yet to kick off. The last play goes underneath.
+starters still have a game to finish, in progress or yet to kick off. The last play goes underneath
+for three minutes after it scores, and stays while the card is open.
 Once the matchup is over, the projections and the counts drop away and the winner turns gold. Tap the
 score for both lineups, or the play for the matchup's scoring history.
 
