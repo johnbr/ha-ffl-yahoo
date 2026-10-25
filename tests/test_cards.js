@@ -32,6 +32,7 @@ const {
   fmtPoints,
   fmtDelta,
   renderMatchupRow,
+  renderMyScore,
   renderHeader,
   renderRowPlay,
   renderWinBar,
@@ -259,6 +260,111 @@ test("a row carries the identifiers the click handler reads", () => {
   assert.ok(html.includes('data-matchup-id="w13.m1"'));
   assert.ok(html.includes('role="button"'), "rows must be keyboard reachable");
   assert.ok(html.includes('tabindex="0"'));
+});
+
+/* ------------------------------------------------------------- my score */
+
+const LIVE_ROW = {
+  ...ROW,
+  home: { ...ROW.home, live_projected: 150.25 },
+  away: { ...ROW.away, live_projected: 110.5 },
+  last_play: { text: "Nacua 24 Yd TD", short_who: "P. Nacua", short_what: "1 rec, 24 yd, 1 TD", side: "home" },
+};
+
+/** The score card's two team lines, in order, as [name, ...figures]. */
+function scoreLines(html) {
+  const grid = html.slice(html.indexOf("ffl-ms-grid"));
+  const spans = [...grid.matchAll(/<span class="(ffl-ms-[a-z]+)[^"]*">([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
+  const lines = [];
+  for (const [cls, text] of spans) {
+    if (cls === "ffl-ms-name") lines.push([text]);
+    else if (lines.length) lines[lines.length - 1].push(text);
+  }
+  return lines;
+}
+
+test("the score card puts your team first, wherever it plays", () => {
+  assert.deepStrictEqual(scoreLines(renderMyScore(LIVE_ROW, "1")), [
+    ["Tesla", "150.25", "180.67"],
+    ["Your daddy", "110.50", "104.09"],
+  ]);
+  assert.deepStrictEqual(scoreLines(renderMyScore(LIVE_ROW, "5")), [
+    ["Your daddy", "110.50", "104.09"],
+    ["Tesla", "150.25", "180.67"],
+  ]);
+});
+
+test("without a team the score card shows the home team first", () => {
+  assert.strictEqual(scoreLines(renderMyScore(LIVE_ROW, ""))[0][0], "Tesla");
+});
+
+test("the score card colours each live projection against the morning's", () => {
+  const html = renderMyScore(LIVE_ROW, "1");
+  assert.ok(html.includes('<span class="ffl-ms-proj ffl-up">150.25</span>'));
+  assert.ok(html.includes('<span class="ffl-ms-proj ffl-down">110.50</span>'));
+});
+
+test("the leader is bold and the trailing score is muted, but nobody is gold mid-game", () => {
+  const html = renderMyScore(LIVE_ROW, "5");
+  assert.ok(html.includes('<span class="ffl-ms-name ffl-leader">Tesla</span>'));
+  assert.ok(html.includes('<span class="ffl-ms-pts ffl-ms-behind">104.09</span>'));
+  assert.ok(!html.includes("ffl-won"));
+});
+
+test("a finished matchup drops the projections and turns the winner gold", () => {
+  const html = renderMyScore({ ...LIVE_ROW, final: true }, "5");
+  assert.deepStrictEqual(scoreLines(html), [
+    ["Your daddy", "104.09"],
+    ["Tesla", "180.67"],
+  ]);
+  assert.ok(html.includes("ffl-ms-noproj"), "the grid loses its projection column");
+  assert.ok(html.includes('<span class="ffl-ms-name ffl-leader ffl-won">Tesla</span>'));
+  assert.ok(html.includes('<span class="ffl-ms-pts ffl-won">180.67</span>'));
+});
+
+test("a tied score card marks nobody", () => {
+  const html = renderMyScore({ ...LIVE_ROW, leader: null }, "1");
+  assert.ok(!html.includes("ffl-leader"));
+  assert.ok(!html.includes("ffl-ms-behind"));
+});
+
+test("the score card's head carries the league and the live count, only while games are on", () => {
+  assert.ok(renderMyScore(LIVE_ROW, "1", { title: "Kush", live: 3 }).includes('Kush · <span class="ffl-ms-live">3 live</span>'));
+  const quiet = renderMyScore(LIVE_ROW, "1", { title: "Kush", live: 0 });
+  assert.ok(quiet.includes(">Kush</div>"));
+  assert.ok(!quiet.includes("live"));
+});
+
+test("the score block opens the lineup and the play line opens the scoring plays", () => {
+  const html = renderMyScore(LIVE_ROW, "1");
+  assert.ok(html.includes('data-matchup-index="1"'));
+  assert.ok(html.includes('data-matchup-id="w13.m1"'));
+  assert.ok(html.includes('data-history="1"'));
+  assert.ok(html.includes("P. Nacua"));
+  assert.ok(!html.includes("ffl-row-detail"), "nothing is open until asked");
+
+  const open = renderMyScore(LIVE_ROW, "1", { expanded: true, panel: "roster", detailHtml: "<div>LINEUP</div>" });
+  assert.ok(open.includes("ffl-expanded"));
+  assert.ok(open.includes("LINEUP"));
+  assert.ok(open.includes("ffl-projs"), "the lineup opens with both projections, as a matchup row's does");
+  assert.ok(open.includes('id="ffl-detail-w13-m1"'));
+
+  const plays = renderMyScore(LIVE_ROW, "1", { expanded: true, panel: "plays", detailHtml: "<ul>PLAYS</ul>" });
+  assert.ok(plays.includes("PLAYS"));
+  assert.ok(!plays.includes("ffl-projs"));
+  assert.ok(plays.includes("ffl-ms-play ffl-play-open"));
+});
+
+test("a score card without a play has no play line", () => {
+  assert.ok(!renderMyScore(ROW, "1").includes("data-history"));
+});
+
+test("a hostile name on the score card cannot inject markup", () => {
+  const html = renderMyScore({ ...LIVE_ROW, away: { ...LIVE_ROW.away, name: "<img src=x onerror=alert(1)>" } }, "1", {
+    title: "<b>league</b>",
+  });
+  assert.ok(!html.includes("<img"));
+  assert.ok(!html.includes("<b>league"));
 });
 
 /* ------------------------------------------------------------- play line */

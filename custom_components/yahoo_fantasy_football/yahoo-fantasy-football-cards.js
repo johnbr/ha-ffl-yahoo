@@ -4,6 +4,7 @@ const CARD_VERSION = "0.26.2"; // x-release-please-version
 const MY_MATCHUP_TAG = "ffl-my-matchup-card";
 const LEAGUE_TAG = "ffl-league-scoreboard-card";
 const NFL_GAMES_TAG = "ffl-nfl-games-card";
+const MY_SCORE_TAG = "ffl-my-score-card";
 const MY_MATCHUP_EDITOR = "ffl-my-matchup-card-editor";
 const LEAGUE_EDITOR = "ffl-league-scoreboard-card-editor";
 const NFL_GAMES_EDITOR = "ffl-nfl-games-card-editor";
@@ -286,32 +287,37 @@ function renderProjections(row) {
 function renderRowPlay(play, matchupId, open) {
   if (!play) return "";
   const side = play.side === "home" || play.side === "away" ? play.side : "unknown";
-  // The compact player-side form on the row — "T. Etienne Jr. 1 rec, 1 yd".
-  // The full sentence is not lost, it is what the expanded play list shows;
-  // here it would lead with a quarterback nobody rosters and force a wrap.
-  // Falls back to `text` so a payload from an older integration still renders.
-  // No point delta here — the row already shows the live projection moving,
-  // and "+2.80" beside a five-word play was the part that forced the line to
-  // truncate on a phone. The delta is on every row of the expanded play list.
-  //
-  // The player and the result are two boxes, not one run of text, so that a
-  // row too narrow for both breaks BETWEEN them — "A. St. Brown" over
-  // "1 rec, 23 yd, 1 TD" — instead of wherever the width runs out. A payload
-  // without the halves (an older integration) still renders as one span.
-  const text =
-    play.short_who && play.short_what
-      ? `<span class="ffl-row-play-who">${escapeHtml(play.short_who)}</span> <span class="ffl-row-play-what">${escapeHtml(
-          play.short_what
-        )}</span>`
-      : escapeHtml(play.short_text || play.text);
   return `
     <div class="ffl-row-play ffl-play-${side}${play.correction ? " ffl-correction" : ""}${open ? " ffl-play-open" : ""}"
          role="button" tabindex="0" data-history="1"
          data-matchup-id="${escapeHtml(matchupId || "")}"
          aria-expanded="${open ? "true" : "false"}"
          aria-label="Show scoring play history">
-      <span class="ffl-row-play-text">${text}</span>
+      <span class="ffl-row-play-text">${rowPlayText(play)}</span>
     </div>`;
+}
+
+/**
+ * A matchup's last play in its compact player-side form — "T. Etienne Jr. 1 rec, 1 yd".
+ *
+ * The full sentence is not lost, it is what the expanded play list shows;
+ * here it would lead with a quarterback nobody rosters and force a wrap.
+ * Falls back to `text` so a payload from an older integration still renders.
+ * No point delta here — the row already shows the live projection moving,
+ * and "+2.80" beside a five-word play was the part that forced the line to
+ * truncate on a phone. The delta is on every row of the expanded play list.
+ *
+ * The player and the result are two boxes, not one run of text, so that a
+ * row too narrow for both breaks BETWEEN them — "A. St. Brown" over
+ * "1 rec, 23 yd, 1 TD" — instead of wherever the width runs out. A payload
+ * without the halves (an older integration) still renders as one span.
+ */
+function rowPlayText(play) {
+  return play.short_who && play.short_what
+    ? `<span class="ffl-row-play-who">${escapeHtml(play.short_who)}</span> <span class="ffl-row-play-what">${escapeHtml(
+        play.short_what
+      )}</span>`
+    : escapeHtml(play.short_text || play.text);
 }
 
 /**
@@ -616,22 +622,35 @@ function scoreClass(isLeader, final) {
   return final ? " ffl-leader ffl-won" : " ffl-leader";
 }
 
-function renderMatchupRow(row, options = {}) {
-  const { home, away, leader } = row;
-  const expanded = options.expanded === true;
-  const panel = expanded ? options.panel || "roster" : "";
-  const playsOpen = panel === "plays";
-  const panelId = `ffl-detail-${String(row.matchup_id).replace(/[^A-Za-z0-9_-]/g, "-")}`;
+/** The id of a matchup's open panel, which the element that opens it names in `aria-controls`. */
+function matchupPanelId(row) {
+  return `ffl-detail-${String(row.matchup_id).replace(/[^A-Za-z0-9_-]/g, "-")}`;
+}
+
+/**
+ * Whatever is open under a matchup: its lineup, its scoring plays or a
+ * player's season. Empty while nothing is.
+ */
+function renderMatchupDetail(row, options = {}) {
+  if (options.expanded !== true) return "";
+  const panel = options.panel || "roster";
   // The win bar belongs to the lineup, not to the play list or a player's
   // season: it is about where the matchup is heading, which is what the lineup
   // answers.
   const loading = { plays: "Loading plays…", player: "Loading season…" }[panel] || "Loading rosters…";
   const lineup = panel === "roster" ? renderProjections(row) + renderWinBar(row) : "";
-  const detail = expanded
-    ? `<div class="ffl-row-detail" id="${panelId}">${lineup}${
-        options.detailHtml || `<div class="ffl-loading">${loading}</div>`
-      }</div>`
-    : "";
+  return `<div class="ffl-row-detail" id="${matchupPanelId(row)}">${lineup}${
+    options.detailHtml || `<div class="ffl-loading">${loading}</div>`
+  }</div>`;
+}
+
+function renderMatchupRow(row, options = {}) {
+  const { home, away, leader } = row;
+  const expanded = options.expanded === true;
+  const panel = expanded ? options.panel || "roster" : "";
+  const playsOpen = panel === "plays";
+  const panelId = matchupPanelId(row);
+  const detail = renderMatchupDetail(row, options);
   return `
     <div class="ffl-row-wrap${expanded ? " ffl-expanded" : ""}${playsOpen ? " ffl-plays-open" : ""}">
       <div class="ffl-row" role="button" tabindex="0"
@@ -650,6 +669,80 @@ function renderMatchupRow(row, options = {}) {
       </div>
       ${renderRowFoot(row, playsOpen)}
       ${detail}
+    </div>`;
+}
+
+/**
+ * Your matchup as the phone app's home-screen widget draws it: the league and
+ * how many games are live, then your team over your opponent, each line its
+ * name, live projection and points, and the last play under them.
+ *
+ * One grid for both teams, so each figure shares a column with the other
+ * team's. Every figure has two decimals and the digits are tabular, so
+ * right-aligning the column lines the decimal points up.
+ *
+ * Unlike the widget, it opens: the score block opens the lineup beneath it,
+ * the same panel a matchup row opens, and the play line opens the scoring
+ * plays. Both carry the attributes the base card's click handler reads.
+ *
+ * `teamId` picks which side is yours. Without one the home team goes first,
+ * as the my-matchup card shows the first matchup.
+ */
+function renderMyScore(row, teamId, options = {}) {
+  const mineIsAway = Boolean(teamId) && String(row.away.team_id) === String(teamId);
+  const [me, them] = mineIsAway ? [row.away, row.home] : [row.home, row.away];
+  const final = row.final === true;
+  // A finished matchup's projections are just its scores again.
+  const projections = !final && [me, them].some((t) => fmtPoints(t.live_projected ?? t.projected) !== "—");
+  const expanded = options.expanded === true;
+  const playsOpen = expanded && options.panel === "plays";
+  const panelId = matchupPanelId(row);
+
+  const line = (team) => {
+    const ahead = Boolean(row.leader) && row.leader === team.team_id;
+    const behind = Boolean(row.leader) && !ahead;
+    // Gold for the winner once the matchup is over — never mid-game.
+    const won = ahead && final;
+    const name = `ffl-ms-name${ahead ? " ffl-leader" : ""}${won ? " ffl-won" : ""}`;
+    const points = `ffl-ms-pts${won ? " ffl-won" : behind ? " ffl-ms-behind" : ""}`;
+    const projected = projections
+      ? `<span class="ffl-ms-proj${trendClass(team.live_projected, team.projected)}">${fmtPoints(
+          team.live_projected ?? team.projected
+        )}</span>`
+      : "";
+    return `<span class="${name}">${escapeHtml(team.name)}</span>${projected}<span class="${points}">${fmtPoints(
+      team.points
+    )}</span>`;
+  };
+
+  // Only while something is being played, as on the header of the other cards.
+  const live = Number(options.live) || 0;
+  const head = options.title
+    ? `<div class="ffl-ms-head">${escapeHtml(options.title)}${live ? ` · <span class="ffl-ms-live">${live} live</span>` : ""}</div>`
+    : "";
+  const play = row.last_play
+    ? `
+      <div class="ffl-ms-play${row.last_play.correction ? " ffl-correction" : ""}${playsOpen ? " ffl-play-open" : ""}"
+           role="button" tabindex="0" data-history="1"
+           data-matchup-id="${escapeHtml(row.matchup_id || "")}"
+           aria-expanded="${playsOpen ? "true" : "false"}"
+           aria-label="Show scoring play history">
+        <span class="ffl-row-play-text">${rowPlayText(row.last_play)}</span>
+      </div>`
+    : "";
+  return `
+    <div class="ffl-ms-wrap${expanded ? " ffl-expanded" : ""}${playsOpen ? " ffl-plays-open" : ""}">
+      <div class="ffl-ms" role="button" tabindex="0"
+           data-matchup-index="${escapeHtml(row.index)}"
+           data-matchup-id="${escapeHtml(row.matchup_id)}"
+           aria-expanded="${expanded && !playsOpen ? "true" : "false"}"
+           aria-controls="${panelId}"
+           aria-label="${escapeHtml(`${me.name} ${fmtPoints(me.points)}, ${them.name} ${fmtPoints(them.points)}`)}">
+        ${head}
+        <div class="ffl-ms-grid${projections ? "" : " ffl-ms-noproj"}">${line(me)}${line(them)}</div>
+      </div>
+      ${play}
+      ${renderMatchupDetail(row, options)}
     </div>`;
 }
 
@@ -1235,6 +1328,35 @@ class FflMyMatchupCard extends FflBaseCard {
         row,
         this._rowOptions(row)
       )}</div>`
+    );
+  }
+}
+
+/* --------------------------------------------------------- my score card */
+
+/*
+ * Just your matchup's score, the way the phone app's widget shows it, for a
+ * dashboard that wants the number at a glance. Same entity, same team lookup
+ * and same panels as the my-matchup card, so it is that card with another
+ * face; its editor is that card's too.
+ */
+class FflMyScoreCard extends FflMyMatchupCard {
+  getCardSize() {
+    return 2;
+  }
+
+  _paintBody(st, rows) {
+    if (!rows.length) {
+      this._paint(`<div class="ffl-placeholder">Waiting for league data…</div>`);
+      return;
+    }
+    const row = rows[0];
+    this._paint(
+      renderMyScore(row, this._teamId(st), {
+        ...this._rowOptions(row),
+        title: this.config.title || st.attributes.league_name || "Fantasy Football",
+        live: st.attributes.active_games,
+      })
     );
   }
 }
@@ -1968,6 +2090,45 @@ const CARD_CSS = `
   .ffl-season-table .ffl-s-espn { font-style: italic; }
   .ffl-season-note { font-size: 0.7rem; color: var(--ffl-muted); padding-top: 6px; }
 
+  /* ---- My score ---- */
+  /* The widget's layout: a name track that gives way, then the projection
+     and the points, each right-aligned in a column both teams share. Names
+     stay on one line, as the widget's do: two lines of name would split
+     the figures they sit beside. */
+  .ffl-ms { padding: 6px; border-radius: 8px; cursor: pointer; }
+  .ffl-ms:hover, .ffl-ms:focus-visible { background: var(--secondary-background-color); outline: none; }
+  .ffl-expanded > .ffl-ms { background: var(--secondary-background-color); }
+  .ffl-plays-open > .ffl-ms { background: none; }
+  .ffl-ms-head {
+    font-size: 0.78rem; color: var(--secondary-text-color); padding-bottom: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ffl-ms-live { color: var(--success-color, #43a047); font-weight: 600; }
+  .ffl-ms-grid {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: 14px; row-gap: 2px; align-items: baseline; font-variant-numeric: tabular-nums;
+  }
+  .ffl-ms-grid.ffl-ms-noproj { grid-template-columns: minmax(0, 1fr) auto; }
+  .ffl-ms-name {
+    font-size: 0.95rem; font-weight: 500; color: var(--primary-text-color);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ffl-ms-name.ffl-leader { font-weight: 700; }
+  .ffl-ms-proj { font-size: 0.8rem; font-weight: 500; text-align: end; color: var(--secondary-text-color); }
+  /* Both scores in the same weight: bold digits are wider, and would push
+     the decimal points apart even in tabular figures. */
+  .ffl-ms-pts { font-size: 1.1rem; font-weight: 700; text-align: end; color: var(--primary-text-color); }
+  .ffl-ms-pts.ffl-ms-behind { color: var(--secondary-text-color); }
+  .ffl-ms-name.ffl-won { font-size: 1.02rem; }
+  .ffl-ms-name.ffl-won, .ffl-ms-pts.ffl-won { color: var(--ffl-winner-color, #fbc02d); }
+  .ffl-ms-play {
+    margin-top: 2px; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+    font-size: 0.8rem; line-height: 1.2; font-weight: 500; color: var(--primary-text-color);
+  }
+  .ffl-ms-play:hover, .ffl-ms-play:focus-visible { background: var(--secondary-background-color); outline: none; }
+  .ffl-ms-play.ffl-play-open { background: var(--secondary-background-color); }
+  .ffl-ms-play.ffl-correction { color: var(--error-color); }
+
   /* One colour vocabulary for "against expectation", used by team totals and
      by individual players alike: ahead of the pre-game projection is green,
      behind it is red, exactly level is grey — which before kickoff is
@@ -1996,6 +2157,7 @@ if (typeof customElements !== "undefined") {
   customElements.define(MY_MATCHUP_TAG, FflMyMatchupCard);
   customElements.define(LEAGUE_TAG, FflLeagueScoreboardCard);
   customElements.define(NFL_GAMES_TAG, FflNflGamesCard);
+  customElements.define(MY_SCORE_TAG, FflMyScoreCard);
   customElements.define(MY_MATCHUP_EDITOR, FflMyMatchupEditor);
   customElements.define(LEAGUE_EDITOR, FflLeagueEditor);
   customElements.define(NFL_GAMES_EDITOR, FflNflGamesEditor);
@@ -2003,6 +2165,11 @@ if (typeof customElements !== "undefined") {
   window.customCards = window.customCards || [];
   for (const entry of [
     { type: MY_MATCHUP_TAG, name: "Fantasy Football — My Matchup", description: "Your Yahoo fantasy matchup." },
+    {
+      type: MY_SCORE_TAG,
+      name: "Fantasy Football — My Score",
+      description: "Your matchup's score at a glance, like the phone widget. Tap for the lineups.",
+    },
     { type: LEAGUE_TAG, name: "Fantasy Football — League Scoreboard", description: "Every matchup in your league." },
     { type: NFL_GAMES_TAG, name: "Fantasy Football — NFL Games", description: "The real NFL slate, live." },
   ]) {
@@ -2024,6 +2191,7 @@ if (typeof module !== "undefined" && module.exports) {
     fmtPoints,
     fmtDelta,
     renderMatchupRow,
+    renderMyScore,
     renderHeader,
     renderRowPlay,
     renderWinBar,
