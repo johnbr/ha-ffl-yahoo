@@ -11,14 +11,15 @@ URL = "https://pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=
 
 
 @pytest.mark.parametrize("status", [401, 403])
-async def test_cookie_refusal_is_distinct_and_handles_chunked_body(status):
+async def test_missing_league_is_distinct_and_handles_chunked_body(status):
     body = json.dumps({"error": {"description": "Unable to retrieve cookie.", "detail": "SECRET"}})
     session = Session(Response(status, body, chunk_size=7))
     with pytest.raises(YahooAccessDenied) as caught:
         await fetch_text(session, URL, headers={})
     assert caught.value.status == status
-    assert caught.value.cookie_error
-    assert "cookie" in str(caught.value)
+    assert caught.value.league_not_found == (status == 403)
+    assert ("no NFL league" in str(caught.value)) == (status == 403)
+    assert "sign-in" not in str(caught.value)
     assert "SECRET" not in str(caught.value)
     assert len(session.calls) == 1  # No repeated requests on a refusal.
 
@@ -27,7 +28,7 @@ async def test_cookie_refusal_is_distinct_and_handles_chunked_body(status):
 async def test_other_refusals_do_not_echo_arbitrary_body(body):
     with pytest.raises(YahooAccessDenied) as caught:
         await fetch_text(Session(Response(403, body)), URL, headers={})
-    assert not caught.value.cookie_error
+    assert not caught.value.league_not_found
     assert "SECRET" not in str(caught.value)
 
 

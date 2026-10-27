@@ -2,8 +2,8 @@
 
 A league is identified by the numeric id in its Yahoo URL, e.g. ``802904`` in
 ``football.fantasysports.yahoo.com/f1/802904``. That is all this source needs —
-no OAuth or credentials are configured. Access depends on Yahoo permitting
-anonymous requests; an access refusal is reported separately from connection failures.
+no OAuth, no credentials, and, unlike the older HTML tier, **no requirement
+that the league be public**.
 
 Two steps, because the second one can only be built from the first's answer:
 
@@ -74,7 +74,7 @@ class YahooFantasyFootballConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     seed = await self._client(league_id).async_fetch_seed()
                 except YahooAccessDenied as err:
                     _LOGGER.debug("League %s access refused: %s", league_id, err)
-                    errors["base"] = "yahoo_access_denied"
+                    errors["base"] = "league_not_found" if err.league_not_found else "yahoo_access_denied"
                 except YahooWebError as err:
                     _LOGGER.debug("League %s failed validation: %s", league_id, err)
                     errors["base"] = "cannot_connect"

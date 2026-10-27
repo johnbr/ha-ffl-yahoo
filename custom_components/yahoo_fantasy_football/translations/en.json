@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Set up Yahoo Fantasy Football",
-        "description": "Enter your league id, or paste the full address of your league page — the id is the number in the URL. Leave the display name blank to use the league's own name. This integration uses Yahoo's anonymous GameChannel feed; availability depends on Yahoo permitting anonymous access.",
+        "description": "Enter your league id, or paste the full address of your league page — the id is the number in the URL. Private leagues work; no Yahoo account or sign-in is needed. Leave the display name blank to use the league's own name.",
         "data": {
           "league_id": "League id or URL",
           "name": "Display name"
@@ -20,7 +20,8 @@
     "error": {
       "invalid_league_id": "No league id found. Enter the number from your league URL, or paste the whole address.",
       "cannot_connect": "Could not reach Yahoo, or that league id returned nothing. Check the id and try again.",
-      "yahoo_access_denied": "Yahoo refused access to its league data (HTTP 401/403). Yahoo may require a session cookie or sign-in that this integration does not currently support. Check the project's troubleshooting notes for updates; re-entering the same league id or reinstalling is unlikely to help."
+      "yahoo_access_denied": "Yahoo refused access to its league data (HTTP 401/403). Try again later. If the problem persists, report the error to the integration maintainer.",
+      "league_not_found": "Yahoo has no NFL league with that id this season. Check the number after /f1/ in your league's address."
     },
     "abort": {
       "already_configured": "This league is already configured."

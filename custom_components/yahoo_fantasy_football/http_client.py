@@ -14,16 +14,19 @@ from .web_client import YahooWebError
 
 
 class YahooAccessDenied(YahooWebError):
-    """Yahoo refused access; changing a league id need not resolve it."""
+    """Yahoo returned a missing-league response or a generic access refusal."""
 
-    def __init__(self, status: int, *, cookie_error: bool = False) -> None:
+    def __init__(self, status: int, *, league_not_found: bool = False) -> None:
         self.status = status
-        self.cookie_error = cookie_error
-        detail = "Yahoo could not retrieve a required cookie." if cookie_error else "Yahoo refused anonymous access."
-        super().__init__(f"Yahoo access denied (HTTP {status}). {detail} This integration has no Yahoo sign-in flow.")
+        self.league_not_found = league_not_found
+        if league_not_found:
+            detail = "Yahoo has no NFL league with that id this season. Check the number after /f1/ in your league address."
+        else:
+            detail = "Yahoo refused access to its league data."
+        super().__init__(f"Yahoo request failed (HTTP {status}). {detail}")
 
 
-def _cookie_error(body: str) -> bool:
+def _league_not_found(body: str) -> bool:
     """Recognize the known error without echoing arbitrary server text."""
     try:
         payload = json.loads(body)
@@ -61,7 +64,7 @@ async def fetch_text(
                     break
                 chunks.extend(chunk)
             body = chunks.decode("utf-8", errors="replace")
-            raise YahooAccessDenied(response.status, cookie_error=_cookie_error(body))
+            raise YahooAccessDenied(response.status, league_not_found=response.status == 403 and _league_not_found(body))
         if response.status == 304 and allow_not_modified:
             return None, ""
         response.raise_for_status()

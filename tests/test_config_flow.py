@@ -59,13 +59,13 @@ def flow_factory(monkeypatch):
     return create
 
 
-@pytest.mark.parametrize("league", ["726304", "https://football.fantasysports.yahoo.com/f1/913531"])
-async def test_yahoo_cookie_refusal_has_actionable_form_error(flow_factory, league):
+@pytest.mark.parametrize("league", ["726304", "https://football.fantasysports.yahoo.com/f1/913531", "99999999"])
+async def test_missing_league_has_actionable_form_error(flow_factory, league):
     flow, session = flow_factory(Response(403, json.dumps({"error": {"description": "Unable to retrieve cookie."}})))
     result = await flow.async_step_user({"league_id": league})
     assert result["type"] == "form"
     assert result["step_id"] == "user"
-    assert result["errors"] == {"base": "yahoo_access_denied"}
+    assert result["errors"] == {"base": "league_not_found"}
     assert len(session.calls) == 1
 
 
@@ -92,3 +92,10 @@ async def test_success_still_offers_real_teams_and_creates_entry(flow_factory):
     assert entry["type"] == "create_entry"
     assert entry["data"] == {"league_id": "999999", "name": "My league", "team_id": team_id}
     assert len(session.calls) == 1
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_other_refusals_keep_generic_access_error(flow_factory, status):
+    flow, _ = flow_factory(Response(status, "<html>Do not expose this response</html>"))
+    result = await flow.async_step_user({"league_id": "802904"})
+    assert result["errors"] == {"base": "yahoo_access_denied"}
