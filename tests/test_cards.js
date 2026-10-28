@@ -132,6 +132,11 @@ test("a pre-game player from an integration without kickoffs still reads", () =>
   assert.ok(html.includes(">@ SF<"));
 });
 
+test("a player on a bye says so where the kickoff would be", () => {
+  const html = renderPlayerBlock(P({ slot: "BN", game: "Bye", game_state: "bye", kickoff: null, points: 0, stat_line: "" }), "home");
+  assert.ok(html.includes(`<div class="ffl-lu-game">Bye</div>`));
+});
+
 test("a hostile player name cannot inject markup", () => {
   const html = renderPlayerBlock(
     { slot: "QB", name: `<b>x</b>`, game: "", projected: 1, points: 1, stat_line: "", game_state: "post" },
@@ -654,7 +659,8 @@ test("a player block shows the name with its club, points, projection and stat l
   assert.ok(!html.includes("QB · Buf") && !html.includes("ffl-lu-meta"));
   assert.ok(html.includes("20.47"), "actual points");
   assert.ok(html.includes("1 Rush TD, 123 Pass Yds"));
-  assert.ok(html.includes("Final W 26-7 @ Pit"));
+  // A finished game's team result is not the player's: no game line at all.
+  assert.ok(!html.includes("Final W 26-7 @ Pit") && !html.includes("ffl-lu-game"));
   // No club known (an older integration): a bare name, no empty brackets.
   const bare = renderPlayerBlock(P({ nfl_team: "" }), "home");
   assert.ok(!bare.includes("ffl-lu-club") && !bare.includes("()"));

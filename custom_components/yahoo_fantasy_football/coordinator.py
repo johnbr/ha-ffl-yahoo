@@ -125,15 +125,16 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 resp.raise_for_status()
                 return await resp.text()
 
-        self.client = RedzoneClient(
-            _fetch, self.league_id, fetch_if_modified=_fetch_if_modified
-        )
         # A player's season, opened from the lineup. Finished weeks' projections are saved with
         # the entry so a restart does not fetch a whole season's seeds again.
         self._season_store: Store = Store(
             hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.season"
         )
         self.history = SeasonHistory(_fetch_with, self.league_id, save=self._save_season)
+        # The bye clubs come from the same ESPN schedule the season panel reads, kept a day.
+        self.client = RedzoneClient(
+            _fetch, self.league_id, fetch_if_modified=_fetch_if_modified, byes=self.history.byes
+        )
         self.feed = PlayFeed()
         self._previous = None
         self._store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.plays")

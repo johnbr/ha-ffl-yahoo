@@ -1286,8 +1286,12 @@ def _player(
     games: dict[str, GameState],
     side: int,
     held_over: frozenset[str] = frozenset(),
+    byes: frozenset[str] = frozenset(),
 ) -> WebPlayer:
     nfl_team = str(meta.get("teamId") or "")
+    # A bye is only ever ESPN's word for it (see ``league_from_payloads``), and only
+    # for a club with no game in the feed: a game there outranks the schedule.
+    bye = nfl_team in byes and games.get(nfl_team) is None
     # A held-over club's row is last week's game, which says nothing about
     # this one beyond that it has not been played yet.
     game = None if nfl_team in held_over else games.get(nfl_team)
@@ -1302,7 +1306,7 @@ def _player(
         projected=projected,
         live_projected=live_projection(points, projected, game),
         stat_line=stat_line(stats),
-        game_note=game.note_for(nfl_team) if game else "",
+        game_note=game.note_for(nfl_team) if game else "Bye" if bye else "",
         kickoff=_epoch(game.start_time) if game else None,
         has_ball=game.has_ball(nfl_team) if game else False,
         red_zone=game.in_red_zone(nfl_team) if game else False,
@@ -1310,11 +1314,13 @@ def _player(
         team_side=side,
         stats=stats,
         nfl_team=str(meta.get("team") or ""),
-        # A club with no row in the games feed reads ``unknown``, never
-        # ``bye``. The feed carries the whole week's slate, so a real bye and a
-        # feed that arrived short look identical from here — and calling it a
-        # bye would drop the poll cadence to idle in the middle of a Sunday.
-        game_state_hint=game.state if game else "pre" if nfl_team in held_over else "unknown",
+        # A club with no row in the games feed reads ``unknown`` unless ESPN's
+        # schedule says it is a bye. The feed carries the whole week's slate, so
+        # a real bye and a feed that arrived short look identical from here — and
+        # guessing bye would drop the poll cadence to idle in the middle of a Sunday.
+        game_state_hint=(
+            game.state if game else "pre" if nfl_team in held_over else "bye" if bye else "unknown"
+        ),
     )
 
 
@@ -1328,6 +1334,7 @@ def _roster(
     side: int,
     held_over: frozenset[str] = frozenset(),
     now: float = 0.0,
+    byes: frozenset[str] = frozenset(),
 ) -> list[WebPlayer]:
     meta_all = service.get("players") or {}
     players = []
@@ -1340,11 +1347,14 @@ def _roster(
             # No game of this club's this week has been played, so these
             # stats are last week's — see WEEK_SLACK_SECONDS.
             stats = {}
+        elif game is None and club in byes:
+            # No game this week at all: whatever the relay holds is last week's.
+            stats = {}
         elif _is_defense(entry, meta):
             stats = defense_by_team.get(club, {})
         else:
             stats = stats_by_player.get(pid, {})
-        players.append(_player(entry, meta, stats, modifiers, games, side, held_over))
+        players.append(_player(entry, meta, stats, modifiers, games, side, held_over, byes))
     return players
 
 
@@ -1367,8 +1377,9 @@ def _team(team: dict[str, Any], roster: list[WebPlayer]) -> WebTeam:
         live_projected=live,
         # "in" counts: a player on the field can still move the score, and so
         # does "delayed" — the game is stopped, not over. A missing game
-        # (``unknown`` — a bye, or a feed that arrived short) does not, or a
-        # bye-week starter would keep a matchup open all week.
+        # (``unknown`` — a feed that arrived short, or a bye the schedule could
+        # not confirm) does not, nor does a ``bye``, or a bye-week starter
+        # would keep a matchup open all week.
         remaining=sum(1 for p in starters if p.game_state in ("pre", "in", "delayed")),
         remaining_var=round(
             sum(max(0.0, (p.live_projected or 0.0) - (p.points or 0.0)) ** 2 for p in starters), 4
@@ -1395,8 +1406,13 @@ def league_from_payloads(
     games_text: str,
     league_id: str | int,
     now: float,
+    byes: frozenset[str] = frozenset(),
 ) -> LeagueData:
-    """Fold one poll's three payloads into the shape the entities consume."""
+    """Fold one poll's three payloads into the shape the entities consume.
+
+    ``byes`` is the clubs on a bye this week, by club id — ESPN's schedule, which
+    the coordinator supplies; the feeds here cannot tell a bye from a short feed.
+    """
     service = _service(redzone)
     league = _league(service, league_id)
 
@@ -1438,7 +1454,7 @@ def league_from_payloads(
                 team = teams.get(str(team_id)) or {}
                 roster = _roster(
                     team, service, stats_by_player, defense_by_team, modifiers, games, side,
-                    held_over, now,
+                    held_over, now, byes,
                 )
                 players.extend(roster)
                 sides.append(_team(team, roster))

@@ -845,11 +845,15 @@ function renderPlayerBlock(player, align) {
   // "vs Min" says who; a player yet to play also needs WHEN — "Sun 10:00 AM
   // vs Min" — and the kickoff reads the way the games card prints it, weekday
   // included unless it is today. Once the game is on, the note carries the
-  // clock and the score and the kickoff is history.
+  // clock and the score and the kickoff is history. Once it is over there
+  // is no line at all: the gold points already say "done", and how his
+  // club fared ("Final W 26-7 @ Pit") is not what a fantasy lineup is for.
   const game =
-    player.game_state === "pre" && player.kickoff
-      ? [fmtKickoff(player.kickoff), player.game].filter(Boolean).join(" ")
-      : player.game;
+    player.game_state === "post"
+      ? ""
+      : player.game_state === "pre" && player.kickoff
+        ? [fmtKickoff(player.kickoff), player.game].filter(Boolean).join(" ")
+        : player.game;
   // "C. Williams (Chi)": the first initial and the surname, as the play line
   // prints a player, with the club joined by a non-breaking space so a
   // wrapped name never strands "(Chi)" on a line of its own. The position

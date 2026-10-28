@@ -347,6 +347,17 @@ def parse_espn_schedule(payload: Any) -> dict[str, dict[int, Fixture]]:
     return clubs
 
 
+def bye_clubs(schedule: dict[str, dict[int, Fixture]], week: int) -> frozenset[str]:
+    """The clubs with no game in ``week``: its byes.
+
+    Empty for a week nobody plays in, and for one most clubs sit out — a
+    playoff week, where a club without a game is out, not resting. The NFL
+    never rests more than six at once.
+    """
+    idle = frozenset(club for club, weeks in schedule.items() if week not in weeks)
+    return idle if len(idle) * 2 < len(schedule) else frozenset()
+
+
 def season_weeks(schedule: dict[str, dict[int, Fixture]]) -> list[int]:
     """Every week anyone plays in — the regular season, bye weeks and all."""
     return sorted({week for weeks in schedule.values() for week in weeks})
