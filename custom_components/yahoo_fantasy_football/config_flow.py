@@ -32,6 +32,7 @@ from .const import (
     DEFAULT_NAME,
     DOMAIN,
 )
+from .http_client import YahooAccessDenied, fetch_text
 from .redzone_client import USER_AGENT, RedzoneClient, YahooWebError
 from .yahoo_web import extract_league_id
 
@@ -54,9 +55,8 @@ class YahooFantasyFootballConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         session = async_get_clientsession(self.hass)
 
         async def _fetch(url: str) -> str:
-            async with session.get(url, headers={"User-Agent": USER_AGENT}) as resp:
-                resp.raise_for_status()
-                return await resp.text()
+            body, _ = await fetch_text(session, url, headers={"User-Agent": USER_AGENT})
+            return body or ""
 
         return RedzoneClient(_fetch, league_id)
 
@@ -72,6 +72,9 @@ class YahooFantasyFootballConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 try:
                     seed = await self._client(league_id).async_fetch_seed()
+                except YahooAccessDenied as err:
+                    _LOGGER.debug("League %s access refused: %s", league_id, err)
+                    errors["base"] = "league_not_found" if err.league_not_found else "yahoo_access_denied"
                 except YahooWebError as err:
                     _LOGGER.debug("League %s failed validation: %s", league_id, err)
                     errors["base"] = "cannot_connect"

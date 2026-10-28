@@ -22,7 +22,7 @@ jobs:
       - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio ruff
+          pip install pytest pytest-asyncio ruff voluptuous
       - name: Lint
         run: ruff check .
       - name: Run tests

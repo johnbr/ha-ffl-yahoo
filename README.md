@@ -155,6 +155,13 @@ the URL to add instead.)
 
 ## Configuration
 
+### League not found
+
+If setup reports that Yahoo has no NFL league with that id this season, check the number
+after `/f1/` in your current NFL league's address. Yahoo returns `Unable to retrieve cookie.`
+for this case; it does not mean you need to sign in or supply a cookie.
+
+
 You need the numeric league id from your league URL — `802904` in
 `https://football.fantasysports.yahoo.com/f1/802904`. Paste either the number or the whole URL. The
 second step lists your league's real team names so you can pick your own; skip it and you get the

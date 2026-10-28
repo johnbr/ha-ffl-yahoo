@@ -19,7 +19,9 @@
     },
     "error": {
       "invalid_league_id": "No league id found. Enter the number from your league URL, or paste the whole address.",
-      "cannot_connect": "Could not reach Yahoo, or that league id returned nothing. Check the id and try again."
+      "cannot_connect": "Could not reach Yahoo, or that league id returned nothing. Check the id and try again.",
+      "yahoo_access_denied": "Yahoo refused access to its league data (HTTP 401/403). Try again later. If the problem persists, report the error to the integration maintainer.",
+      "league_not_found": "Yahoo has no NFL league with that id this season. Check the number after /f1/ in your league's address."
     },
     "abort": {
       "already_configured": "This league is already configured."
