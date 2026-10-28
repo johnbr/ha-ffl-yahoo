@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.28.2...v0.29.0) (2026-10-28)
+
+
+### Features
+
+* lineup says "Bye" for a bye week and drops a finished player's team result ([#96](https://github.com/johnbr/ha-ffl-yahoo/issues/96)) ([2137155](https://github.com/johnbr/ha-ffl-yahoo/commit/213715517c50706419f9f401c03cc610667e00c5))
+
 ## [0.28.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.28.1...v0.28.2) (2026-10-25)
 
 
