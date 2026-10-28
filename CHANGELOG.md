@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.29.0...v0.29.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* explain Yahoo access refusals and complete brand assets ([#80](https://github.com/johnbr/ha-ffl-yahoo/issues/80)) ([f862497](https://github.com/johnbr/ha-ffl-yahoo/commit/f86249793d571847ec19e000b34058e0f991e384))
+
 ## [0.29.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.28.2...v0.29.0) (2026-10-28)
 
 
