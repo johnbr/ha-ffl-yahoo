@@ -28,6 +28,7 @@ from .history import (
     ESPN_ACTUAL,
     ESPN_PLAYERS_FILTER,
     ESPN_PROJECTED,
+    bye_clubs,
     espn_players_url,
     espn_schedule_url,
     espn_stats_filter,
@@ -52,6 +53,9 @@ _LOGGER = logging.getLogger(__name__)
 PROJECTION_TTL_SECONDS = 6 * 3600
 ESPN_TTL_SECONDS = 6 * 3600
 DIRECTORY_TTL_SECONDS = 24 * 3600
+# After a schedule fetch fails, how long the live poll leaves ESPN alone. The poll runs every
+# ten seconds on a Sunday; a bye line is not worth asking that often for.
+SCHEDULE_RETRY_SECONDS = 15 * 60
 
 # Seeds fetched at once on a cold start. Eighteen weeks of them is the first opening's whole
 # cost; four at a time keeps it to a few seconds without asking Yahoo for eighteen at once.
@@ -92,6 +96,7 @@ class SeasonHistory:
         self._open: dict[int, _Kept] = {}
         self._current: _Kept | None = None
         self._schedule: _Kept | None = None
+        self._schedule_retry_at = 0.0
         self._players: _Kept | None = None
         self._lines: dict[int, _Kept] = {}
         self._lock = asyncio.Lock()
@@ -162,6 +167,33 @@ class SeasonHistory:
             "rows": rows,
             "totals": season_totals(rows),
         }
+
+    async def byes(self, seed: dict[str, Any], now: float) -> frozenset[str]:
+        """The clubs on a bye in the seed's week, by Yahoo club id, from ESPN's schedule.
+
+        For the live poll, so it never raises and never waits on a season being opened:
+        no lock, and a failed fetch keeps the last schedule (or none) for a while rather
+        than asking ESPN again on every poll. Empty when the schedule cannot be had —
+        those players then read as before, with no game line.
+        """
+        week_info = seed_week_info(seed, self.league_id)
+        season = season_of(week_info)
+        try:
+            week = int(week_info.get("week") or 0)
+        except (TypeError, ValueError):
+            week = 0
+        if season is None or week <= 0:
+            return frozenset()
+        kept = self._schedule
+        usable = kept is not None and kept.value[0] == season
+        if not (usable and kept.fresh(now, DIRECTORY_TTL_SECONDS)) and now >= self._schedule_retry_at:
+            try:
+                await self._schedule_for(season, now)
+                kept, usable = self._schedule, True
+            except Exception as err:  # a missing bye line is no reason to fail a poll
+                _LOGGER.debug("ESPN schedule unavailable for byes: %s", err)
+                self._schedule_retry_at = now + SCHEDULE_RETRY_SECONDS
+        return bye_clubs(kept.value[1], week) if usable else frozenset()
 
     async def _current_seed(self, week: int, now: float) -> dict[str, Any]:
         kept = self._current

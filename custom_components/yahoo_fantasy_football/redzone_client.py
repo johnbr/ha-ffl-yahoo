@@ -189,8 +189,11 @@ class RedzoneClient:
         sport: str = "nfl",
         seed_ttl: float = SEED_TTL_SECONDS,
         fetch_if_modified: ConditionalFetcher | None = None,
+        byes: Callable[[dict, float], Awaitable[frozenset[str]]] | None = None,
     ) -> None:
         self._fetch = fetch
+        # The clubs on a bye this week, from the seed — Yahoo's feeds do not say.
+        self._byes = byes
         self._fetch_if_modified = fetch_if_modified
         self.league_id = str(league_id)
         self.sport = sport
@@ -423,9 +426,15 @@ class RedzoneClient:
         )
         stats = self._live_feed("stats", stats, now)
         games = self._live_feed("games", games, now)
+        byes: frozenset[str] = frozenset()
+        if self._byes is not None:
+            try:
+                byes = await self._byes(seed, now)
+            except Exception as err:  # a missing bye line is no reason to fail a poll
+                _LOGGER.debug("bye clubs unavailable: %s", err)
 
         try:
-            data = league_from_payloads(seed, stats, games, self.league_id, now)
+            data = league_from_payloads(seed, stats, games, self.league_id, now, byes)
         except (ValueError, KeyError, TypeError) as err:
             # A seed that will not parse into a league is worse than no cache:
             # every subsequent poll would fail the same way until the TTL ran

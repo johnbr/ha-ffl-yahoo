@@ -15,6 +15,7 @@ from yahoo_fantasy_football.history import (
     ESPN_PROJECTED,
     Fixture,
     Identity,
+    bye_clubs,
     match_espn_player,
     parse_espn_players,
     parse_espn_schedule,
@@ -153,6 +154,15 @@ def test_the_schedule_names_each_week_and_leaves_the_bye_empty(schedule) -> None
     assert 11 not in schedule["17"]  # New England's bye
     assert 5 not in schedule["12"]  # Kansas City's
     assert "0" not in schedule  # ESPN's free-agent "club"
+
+
+def test_a_weeks_byes_are_the_clubs_without_a_game(schedule) -> None:
+    assert "17" in bye_clubs(schedule, 11)  # New England
+    assert "12" in bye_clubs(schedule, 5)  # Kansas City
+    assert 0 < len(bye_clubs(schedule, 11)) <= 6
+    assert bye_clubs(schedule, 1) == frozenset()  # nobody rests in week one
+    # A week nobody plays — a playoff week, say — is not thirty-two byes.
+    assert bye_clubs(schedule, 25) == frozenset()
 
 
 def test_season_is_the_year_of_its_autumn() -> None:

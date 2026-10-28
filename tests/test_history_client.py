@@ -151,3 +151,26 @@ def test_no_schedule_no_season() -> None:
 def test_a_player_on_no_roster_is_said_so() -> None:
     with pytest.raises(PlayerNotRostered):
         _season(SeasonHistory(FakeFetch(), LEAGUE), player="1")
+
+
+def _seed_for_week(fetch: FakeFetch, week: int) -> dict:
+    seed = json.loads(json.dumps(fetch.seed))
+    seed["service"]["leagues"][LEAGUE]["weekInfo"] = {"week": week, "start": "2026-11-18", "end": "2026-11-23"}
+    return seed
+
+
+def test_the_live_poll_learns_the_weeks_byes_from_the_schedule() -> None:
+    fetch = FakeFetch()
+    history = SeasonHistory(fetch, LEAGUE)
+    assert "17" in asyncio.run(history.byes(_seed_for_week(fetch, 11), NOW))
+    # Kept a day: the next poll asks nobody.
+    asyncio.run(history.byes(_seed_for_week(fetch, 11), NOW + 10))
+    assert fetch.calls.count(espn_schedule_url(2026)) == 1
+
+
+def test_no_schedule_no_byes_and_espn_is_not_asked_every_poll() -> None:
+    fetch = FakeFetch(fail=(espn_schedule_url(2026),))
+    history = SeasonHistory(fetch, LEAGUE)
+    assert asyncio.run(history.byes(_seed_for_week(fetch, 11), NOW)) == frozenset()
+    assert asyncio.run(history.byes(_seed_for_week(fetch, 11), NOW + 10)) == frozenset()
+    assert fetch.calls.count(espn_schedule_url(2026)) == 1

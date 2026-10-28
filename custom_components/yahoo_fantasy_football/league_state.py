@@ -57,7 +57,8 @@ def poll_interval(data: LeagueData | None, previous: int | None = None) -> int:
     # So a slate like that may never slow the cadence — only a poll that had a
     # feed to read can. Capped at the near-game interval so it cannot speed one
     # up either, which leaves a genuinely empty slate exactly where it was.
-    if previous is not None and states and states <= {"unknown"}:
+    # A bye is the schedule's word, not the feed's, so it says no more about the games.
+    if previous is not None and states and states <= {"unknown", "bye"}:
         return min(previous, SCAN_INTERVAL_NEAR_GAME_SECONDS)
     # A delayed game restarts without notice; polling as if it were about to
     # kick off is what catches the restart.

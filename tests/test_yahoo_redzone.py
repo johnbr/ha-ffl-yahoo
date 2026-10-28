@@ -1101,3 +1101,21 @@ def test_a_kickers_line_lists_each_bucket_once() -> None:
         "fieldGoalsMade50plus": 1.0, "patMade": 3.0,
     }
     assert stat_line(stats) == "1 FG 20-29, 1 FG 50+, 3 PAT"
+
+
+def test_a_club_on_the_schedules_bye_reads_bye(redzone: str, stats_text: str, games_text: str) -> None:
+    # No game for New England in the feed, and ESPN's schedule says it rests.
+    data = league_from_payloads(redzone, stats_text, "", LEAGUE, now=1000.0, byes=frozenset({"17"}))
+    maye = _players(data)["40881"]
+    assert (maye.game_state, maye.game_note, maye.stats, maye.points) == ("bye", "Bye", {}, 0.0)
+    # Not a starter still to play: with no games in the feed, nobody is.
+    assert all(t.remaining == 0 for m in data.matchups for t in m.teams)
+    # A game in the feed outranks the schedule.
+    live = _players(league_from_payloads(redzone, stats_text, games_text, LEAGUE, now=1000.0,
+                                         byes=frozenset({"17"})))["40881"]
+    assert live.game_state != "bye" and live.game_note != "Bye"
+
+
+def test_without_the_schedule_a_missing_game_is_still_unknown(redzone: str, stats_text: str) -> None:
+    maye = _players(league_from_payloads(redzone, stats_text, "", LEAGUE, now=1000.0))["40881"]
+    assert (maye.game_state, maye.game_note) == ("unknown", "")
