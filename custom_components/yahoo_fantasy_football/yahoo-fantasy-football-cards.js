@@ -924,6 +924,19 @@ function renderRosters(sides) {
 }
 
 const SEASON_BACK = `<button class="ffl-season-back" type="button" data-back>‹ Lineup</button>`;
+
+/**
+ * The way back to the lineup and the player's name, on the side of the
+ * lineup he was opened from: mirrored for the away team's column, as its
+ * player blocks are.
+ */
+function renderSeasonHead(who, away) {
+  return `
+      <div class="ffl-season-head${away ? " ffl-season-away" : ""}">
+        ${SEASON_BACK}
+        ${who ? `<div class="ffl-season-who">${escapeHtml(who)}</div>` : ""}
+      </div>`;
+}
 const SEASON_ESPN_PROJECTION =
   "ESPN's, scored with your league's settings. Yahoo projects only players on a roster in your league that week.";
 
@@ -941,8 +954,10 @@ const SEASON_ESPN_PROJECTION =
  * way and set in italics. A finished week's points are green above the
  * projection and red below it — the lineup's colours — and left alone level
  * with it; this week's are still running, so they stay uncoloured.
+ *
+ * `options.away` sets the head and the summary to the away team's side.
  */
-function renderSeason(payload) {
+function renderSeason(payload, options = {}) {
   const season = payload || {};
   const rows = season.rows || [];
   const totals = season.totals || {};
@@ -987,11 +1002,8 @@ function renderSeason(payload) {
     .join("");
   return `
     <div class="ffl-season">
-      <div class="ffl-season-head">
-        ${SEASON_BACK}
-        <div class="ffl-season-who">${escapeHtml(who)}</div>
-      </div>
-      ${summary ? `<div class="ffl-season-sum">${escapeHtml(summary)}</div>` : ""}
+      ${renderSeasonHead(who, options.away)}
+      ${summary ? `<div class="ffl-season-sum${options.away ? " ffl-season-away" : ""}">${escapeHtml(summary)}</div>` : ""}
       <table class="ffl-season-table">
         <thead><tr><th>Wk</th><th>Opp</th><th class="ffl-s-num">Proj</th><th class="ffl-s-num">Pts</th></tr></thead>
         <tbody>${body}</tbody>
@@ -1034,6 +1046,8 @@ class FflBaseCard extends HTMLElement {
     this._expandedPanel = "";
     // The player whose season the "player" panel shows.
     this._playerId = "";
+    // Whether he plays for the away team, whose side the season's head takes.
+    this._playerAway = false;
     this._detailHtml = "";
     // Bumped whenever the detail payload changes, so the fingerprint guard
     // lets an async roster arrival through to the DOM.
@@ -1159,7 +1173,9 @@ class FflBaseCard extends HTMLElement {
     }
     const playerEl = event.target.closest("[data-player-id]");
     if (playerEl && this._expandedId) {
-      this._openPlayer(this._expandedId, playerEl.getAttribute("data-player-id"));
+      this._openPlayer(this._expandedId, playerEl.getAttribute("data-player-id"), {
+        away: playerEl.classList.contains("ffl-lu-away"),
+      });
       return;
     }
     const historyEl = event.target.closest("[data-history]");
@@ -1211,9 +1227,10 @@ class FflBaseCard extends HTMLElement {
   }
 
   /** Swap the open lineup for one of its players' seasons. */
-  _openPlayer(matchupId, playerId) {
+  _openPlayer(matchupId, playerId, options = {}) {
     if (!matchupId || !playerId) return;
     this._playerId = playerId;
+    this._playerAway = Boolean(options.away);
     this._openPanel(matchupId, "player");
   }
 
@@ -1230,14 +1247,14 @@ class FflBaseCard extends HTMLElement {
     fetchPlayerHistory(this._hass, this._leagueId(st), this._playerId)
       .then((payload) => {
         if (!this._stillOpen(token, matchupId, "player")) return;
-        this._detailHtml = renderSeason(payload);
+        this._detailHtml = renderSeason(payload, { away: this._playerAway });
         this._invalidate();
       })
       .catch((err) => {
         if (!this._stillOpen(token, matchupId, "player")) return;
         // The panel keeps its way back to the lineup, whatever went wrong.
         if (options.silent && this._detailHtml) return;
-        this._detailHtml = `<div class="ffl-season-head">${SEASON_BACK}</div><div class="ffl-error">${escapeHtml(
+        this._detailHtml = `${renderSeasonHead("", this._playerAway)}<div class="ffl-error">${escapeHtml(
           err.message || String(err)
         )}</div>`;
         this._invalidate();
@@ -2130,6 +2147,9 @@ const CARD_CSS = `
   }
   .ffl-season-who { font-weight: 600; min-width: 0; }
   .ffl-season-sum { font-size: 0.8rem; color: var(--ffl-muted); padding-bottom: 6px; }
+  /* An away player's season keeps to his side of the lineup, mirrored as his block is. */
+  .ffl-season-head.ffl-season-away { flex-direction: row-reverse; }
+  .ffl-season-away .ffl-season-who, .ffl-season-sum.ffl-season-away { text-align: end; }
   .ffl-season-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
   .ffl-season-table th {
     font-size: 0.7rem; font-weight: 600; color: var(--ffl-muted); text-align: left;
