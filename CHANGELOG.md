@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.29.1...v0.29.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* align a player's season header with his team's side ([#102](https://github.com/johnbr/ha-ffl-yahoo/issues/102)) ([afbbaae](https://github.com/johnbr/ha-ffl-yahoo/commit/afbbaae38e33db5dd956e1853af4a190e8206ec9))
+
 ## [0.29.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.29.0...v0.29.1) (2026-10-28)
 
 
