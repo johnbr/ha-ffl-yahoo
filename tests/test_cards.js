@@ -1636,6 +1636,14 @@ test("ESPN's stand-in projection is set apart and said so", () => {
   assert.ok(!renderSeason({ ...SEASON, rows: yahooOnly }).includes("Italic projections"));
 });
 
+test("an away player's season keeps to the away side", () => {
+  const home = renderSeason(SEASON);
+  assert.ok(!home.includes("ffl-season-away"));
+  const away = renderSeason(SEASON, { away: true });
+  assert.match(away, /class="ffl-season-head ffl-season-away"/);
+  assert.match(away, /class="ffl-season-sum ffl-season-away"/);
+});
+
 test("a season with no ESPN match says why its past weeks have no points", () => {
   assert.ok(renderSeason({ ...SEASON, matched: false }).includes("ESPN has no match"));
   assert.ok(!renderSeason(SEASON).includes("ESPN has no match"));
