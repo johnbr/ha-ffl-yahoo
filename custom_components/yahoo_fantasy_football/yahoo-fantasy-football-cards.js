@@ -1740,12 +1740,12 @@ const CARD_CSS = `
        read as a data problem rather than a layout one. */
     grid-column: 1; grid-row: 1;
     min-width: 0; padding: 1px 4px; font-size: 0.8rem; line-height: 1.2;
-    /* Primary ink at medium weight, the recipe the NFL card's last play got
-       for the same complaint: this is the matchup's newest play, the thing
-       the row exists to show, and in the theme's secondary grey it read as
-       a caption. Size and the projections' heavier weight beside it still
-       rank it below the scores. */
-    color: var(--primary-text-color); font-weight: 500; cursor: pointer; border-radius: 6px;
+    /* Medium weight in the theme's info blue: this is the matchup's newest
+       play, the thing the row exists to show, and in secondary grey it read
+       as a caption. Blue sets it apart from the names and the green/red
+       projections beside it; size still ranks it below the scores.
+       --ffl-play-color overrides it. */
+    color: var(--ffl-play-color, var(--info-color, #039be5)); font-weight: 500; cursor: pointer; border-radius: 6px;
   }
   .ffl-row-play:hover, .ffl-row-play:focus-visible { background: var(--secondary-background-color); outline: none; }
   /* Reads inward from the scoring team's edge — position alone says which
@@ -2196,7 +2196,8 @@ const CARD_CSS = `
   /* Centred under the two score lines, so it doesn't read as a third team. */
   .ffl-ms-play {
     padding: 1px 6px; border-radius: 6px; cursor: pointer; text-align: center;
-    font-size: 0.8rem; line-height: 1.2; font-weight: 500; color: var(--primary-text-color);
+    font-size: 0.8rem; line-height: 1.2; font-weight: 500;
+    color: var(--ffl-play-color, var(--info-color, #039be5));
   }
   .ffl-ms-play:hover, .ffl-ms-play:focus-visible { background: var(--secondary-background-color); outline: none; }
   .ffl-ms-play.ffl-play-open { background: var(--secondary-background-color); }

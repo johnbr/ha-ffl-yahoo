@@ -508,14 +508,18 @@ test("both foot children are pinned to one grid row", () => {
   assert.match(rule(".ffl-rowprojs"), /grid-row:\s*1/);
 });
 
-test("the row's play reads in primary ink, like the NFL card's last play", () => {
+test("the last scoring play reads in the theme's info blue", () => {
   // It was the theme's secondary grey at regular weight, and on a dark
-  // theme it disappeared into the divider. Same recipe as .ffl-nfl-last.
-  assert.match(rule(".ffl-row-play"), /color:\s*var\(--primary-text-color\)/);
-  assert.match(rule(".ffl-row-play"), /font-weight:\s*500/);
-  assert.doesNotMatch(rule(".ffl-row-play"), /secondary-text-color/);
+  // theme it disappeared into the divider; then primary ink, which read as
+  // another team name. Blue, overridable, on both the row and the my-score card.
+  for (const sel of [".ffl-row-play", ".ffl-ms-play"]) {
+    assert.match(rule(sel), /color:\s*var\(--ffl-play-color,\s*var\(--info-color/);
+    assert.match(rule(sel), /font-weight:\s*500/);
+    assert.doesNotMatch(rule(sel), /secondary-text-color/);
+  }
   // A correction still overrides it in red.
   assert.match(rule(".ffl-row-play.ffl-correction"), /color:\s*var\(--error-color\)/);
+  assert.match(rule(".ffl-ms-play.ffl-correction"), /color:\s*var\(--error-color\)/);
 });
 
 test("the play sits on the scoring side's own track", () => {
