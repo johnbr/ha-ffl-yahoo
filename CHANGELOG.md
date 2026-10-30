@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.29.2...v0.30.0) (2026-10-30)
+
+
+### Features
+
+* color the last scoring play in blue ([#104](https://github.com/johnbr/ha-ffl-yahoo/issues/104)) ([b606572](https://github.com/johnbr/ha-ffl-yahoo/commit/b606572fa4fb4a26a6dfcd49dcd40e73794792f7))
+
 ## [0.29.2](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.29.1...v0.29.2) (2026-10-29)
 
 
