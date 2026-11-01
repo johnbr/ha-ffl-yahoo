@@ -1032,14 +1032,22 @@ function renderSeason(payload, options = {}) {
     </div>`;
 }
 
-function renderHistory(plays) {
+/**
+ * A matchup's scoring plays. The delta sits on the side of the team that
+ * scored it, as the row's play line does: a home (left) team's play puts its
+ * delta on the left and its description against the right edge; an away
+ * team's, or one that names neither team, reads the other way round.
+ * ``homeTeamId`` ties a play's ``team_key`` (``{league}.t.{id}``) to a side.
+ */
+function renderHistory(plays, homeTeamId) {
   if (!plays.length) return `<div class="ffl-empty">No scoring plays recorded yet.</div>`;
+  const home = (p) => homeTeamId != null && homeTeamId !== "" && String(p.team_key || "").endsWith(`.t.${homeTeamId}`);
   return `
     <ul class="ffl-history">
       ${plays
         .map(
           (p) => `
-        <li class="${p.correction ? "ffl-correction" : ""}">
+        <li class="${[p.correction ? "ffl-correction" : "", home(p) ? "ffl-h-home" : ""].filter(Boolean).join(" ")}">
           <span class="ffl-h-player">${escapeHtml(p.player)}</span>
           <span class="ffl-h-text">${escapeHtml(p.text)}</span>
           <span class="ffl-h-delta">${escapeHtml(fmtDelta(p.delta))}</span>
@@ -1326,7 +1334,8 @@ class FflBaseCard extends HTMLElement {
     fetchPlayHistory(this._hass, this._leagueId(st), { matchupId, limit: 100 })
       .then((payload) => {
         if (!this._stillOpen(token, matchupId, "plays")) return;
-        this._detailHtml = renderHistory((payload && payload.plays) || []);
+        const row = this._rows(st).find((r) => r.matchup_id === matchupId);
+        this._detailHtml = renderHistory((payload && payload.plays) || [], row && row.home && row.home.team_id);
         this._invalidate();
       })
       .catch((err) => {
@@ -2156,6 +2165,10 @@ const CARD_CSS = `
   .ffl-h-text { flex: 1 1 auto; color: var(--ffl-muted); }
   .ffl-h-delta { flex: 0 0 auto; font-weight: 700; color: var(--success-color); font-variant-numeric: tabular-nums; }
   .ffl-history li.ffl-correction .ffl-h-delta { color: var(--error-color); }
+  /* The home team's play: delta first, description pushed to the right edge. */
+  .ffl-history li.ffl-h-home .ffl-h-delta { order: -1; }
+  .ffl-history li.ffl-h-home .ffl-h-player { margin-left: auto; }
+  .ffl-history li.ffl-h-home .ffl-h-text { flex: 0 1 auto; text-align: right; }
 
   /* A player's season, opened from the lineup. The block is the button. */
   .ffl-lu-block[data-player-id] { cursor: pointer; }

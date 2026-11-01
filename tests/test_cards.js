@@ -1677,3 +1677,20 @@ test("a relay refusing the host says so, with the held time and the retry", () =
   assert.match(html, /Yahoo is refusing live updates/);
   assert.match(html, /Scores as of .+; trying again at .+\./);
 });
+
+test("a scoring play's delta sits on the side of the team that scored it", () => {
+  const plays = [
+    { player: "Home Guy", text: "1 Rec", delta: 3.5, team_key: "461.l.802904.t.3" },
+    { player: "Away Guy", text: "1 Rush TD", delta: 6, team_key: "461.l.802904.t.7" },
+    { player: "Nobody", text: "x", delta: 1, team_key: "" },
+  ];
+  const items = renderHistory(plays, "3").split("<li").slice(1);
+  assert.match(items[0], /class="ffl-h-home"/);
+  assert.doesNotMatch(items[1], /ffl-h-home/);
+  assert.doesNotMatch(items[2], /ffl-h-home/);
+  // Without the home team id nothing moves.
+  assert.doesNotMatch(renderHistory(plays), /ffl-h-home/);
+  // A home team's id must match the whole id, not its tail: team 3 is not team 13.
+  assert.doesNotMatch(renderHistory([{ ...plays[0], team_key: "461.l.802904.t.13" }], "3"), /ffl-h-home/);
+  assert.match(rule(".ffl-history li.ffl-h-home .ffl-h-delta"), /order:\s*-1/);
+});
