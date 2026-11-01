@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.30.0...v0.30.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* back off when Yahoo's relay refuses the host, and say so ([#106](https://github.com/johnbr/ha-ffl-yahoo/issues/106)) ([21ea9b8](https://github.com/johnbr/ha-ffl-yahoo/commit/21ea9b83fa2d63b1d30a86098a401d07d3e3c579))
+
 ## [0.30.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.29.2...v0.30.0) (2026-10-30)
 
 
