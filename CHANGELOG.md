@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.31.0...v0.32.0) (2026-11-01)
+
+
+### Features
+
+* open a matchup's scoring plays from anywhere above its lineup ([#110](https://github.com/johnbr/ha-ffl-yahoo/issues/110)) ([ba44378](https://github.com/johnbr/ha-ffl-yahoo/commit/ba443786a5cc07e258daf579da40d996dbfa92e7))
+
 ## [0.31.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.30.1...v0.31.0) (2026-11-01)
 
 
