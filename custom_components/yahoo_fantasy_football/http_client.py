@@ -26,6 +26,23 @@ class YahooAccessDenied(YahooWebError):
         super().__init__(f"Yahoo request failed (HTTP {status}). {detail}")
 
 
+class YahooRefused(YahooWebError):
+    """Yahoo is turning this host away: HTTP 999 ("Request denied") or 429.
+
+    Not an answer about the league, and not a transport failure to retry on
+    the next poll: it says the host has been asking too often, and the
+    caller's job is to stop asking for a while (see ``redzone_client``).
+    """
+
+    def __init__(self, status: int) -> None:
+        self.status = status
+        super().__init__(f"Yahoo is refusing requests from this host (HTTP {status}).")
+
+
+# 999 is Yahoo's own "Request denied", served to a host it has throttled.
+REFUSED_STATUSES = frozenset({429, 999})
+
+
 def _league_not_found(body: str) -> bool:
     """Recognize the known error without echoing arbitrary server text."""
     try:
@@ -55,6 +72,8 @@ async def fetch_text(
     if timeout is not None:
         kwargs["timeout"] = timeout
     async with session.get(url, **kwargs) as response:
+        if response.status in REFUSED_STATUSES:
+            raise YahooRefused(response.status)
         if response.status in (401, 403):
             # Bound the read: a denied request may serve a large HTML page.
             chunks = bytearray()

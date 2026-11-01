@@ -127,6 +127,13 @@ The first player opened costs about twenty requests and a few seconds; after tha
   matchup final, and slowed the poll that would have undone it. Each feed's last reading stands in
   for it — 15 minutes for stats, 2 for games, since a stopped clock gives itself away faster than
   stale points — and past that the refresh fails rather than serving a hole.
+- **When Yahoo refuses the host, the integration stops asking.** The relay answers a host it has
+  throttled with HTTP 999 ("Request denied"). The integration then sends it nothing for 2 minutes,
+  then 5, 15 and 30 on each further refusal, and resumes as soon as a retry is answered. Meanwhile
+  the scores stay as they were and every card says so, with the time they date from and the next
+  retry; the sensors carry the same as a `live_refused` attribute (`since` and `retry_at`, in epoch
+  seconds; `null` while the relay is answering). To stay under that limit it asks for a live game's
+  play-by-play only when the game has moved, while a play's text is due, or every 30 seconds.
 
 ## Installation
 

@@ -36,7 +36,7 @@ from .const import (
 from .history_client import PlayerNotRostered, SeasonHistory
 from .http_client import fetch_text
 from .league_state import down_and_distance, find_team, poll_interval
-from .pending_plays import Landed, PendingPlays, period_end_not_reached, situation_of
+from .pending_plays import Landed, PendingPlays, PlaysSchedule, period_end_not_reached, situation_of
 from .plays import (
     PLAY_TEXT_LAG_SECONDS,
     PlayFeed,
@@ -80,8 +80,10 @@ MAX_NFL_LAST_PLAY_FEEDS = 16
 # snap, so the text is known to be on its way; waiting for the next 10 s poll
 # added up to ten seconds to a line that is usually 15-20 s late already. Each
 # re-read is a conditional request, answered ``304`` until the text lands, and
-# it stops once the text does or ``CHASE_FOR_SECONDS`` passes.
-CHASE_SECONDS = 3.0
+# it stops once the text does or ``CHASE_FOR_SECONDS`` passes. Five seconds,
+# not the three it was: with eight games live the chase was the larger half of
+# the host's relay traffic when the relay began refusing it (2026-11-01).
+CHASE_SECONDS = 5.0
 
 
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
@@ -139,6 +141,8 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._nfl_plays: dict[str, _GamePlays] = {}
         # {plays_id: newest play text} for live games, refreshed every poll.
         self._nfl_last_plays: dict[str, str] = {}
+        # Which live games' play feeds each poll asks for.
+        self._plays_due = PlaysSchedule()
         # {plays_id: newest play sequence} as of the END of the last poll. A
         # scoring event raised this poll can only have come from a play above
         # it — see ``ScoringEvent.play_floor``.
@@ -245,12 +249,14 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         watching change, and a scheduled one has none — fetching either would
         be paying for a line that will never move.
 
-        Every live game, every poll. The play feed is the only way to know a
+        Every live game that moved, and every other one now and then (see
+        :class:`pending_plays.PlaysSchedule`). The play feed is the only way to know a
         play's text has landed: the games feed reflects the snap 2-30 s before
         the text follows (measured live 2026-09-17), so a fetch cued by the
-        games feed was too early more often than not, and the line then sat a
-        play behind until the next snap cued another. The client answers an
-        unchanged feed with a ``304``, which is what makes every poll cheap.
+        games feed alone is too early more often than not. What follows it up
+        is the pending play: until the text lands the game counts as awaited,
+        is asked again every poll, and the chase asks between polls. The client
+        answers an unchanged feed with a ``304``.
 
         Every failure is swallowed: a missing line is cosmetic where a failed
         refresh would blank the scores.
@@ -270,8 +276,10 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         }
         if only is None:
             live = list(games)[:MAX_NFL_LAST_PLAY_FEEDS]
+            fresh = self._plays_due.due({p: games[p] for p in live}, self._pending.awaiting(now), now)
         else:
             live = [plays_id for plays_id in only if plays_id in games]
+            fresh = set(live)
 
         async with self._nfl_lock:
             before = (self._nfl_last_plays, self._pending.texts())
@@ -280,7 +288,9 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                 self._pending.forget_others(set(live))
             results = await asyncio.gather(
                 *(
-                    self.async_game_plays(plays_id, 1, now=now, game=games[plays_id])
+                    self.async_game_plays(
+                        plays_id, 1, now=now, game=games[plays_id], fresh=plays_id in fresh
+                    )
                     for plays_id in live
                 ),
                 return_exceptions=True,
@@ -311,6 +321,14 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
                         changed = True
             self._nfl_last_plays = last_plays
             return changed or (self._nfl_last_plays, self._pending.texts()) != before
+
+    @property
+    def live_refused(self) -> dict[str, float] | None:
+        """``{"since", "retry_at"}`` while Yahoo's relay refuses this host, else ``None``."""
+        relay = self.client.relay
+        if relay.since is None:
+            return None
+        return {"since": relay.since, "retry_at": relay.retry_at}
 
     def _landed(self, plays_id: str, play_id: str) -> Landed | None:
         """The play on a game's card, and the situation it ran from."""
@@ -518,7 +536,12 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         return [described(event) for event in events]
 
     async def async_game_plays(
-        self, plays_id: str, limit: int = 12, now: float | None = None, game: Any = None
+        self,
+        plays_id: str,
+        limit: int = 12,
+        now: float | None = None,
+        game: Any = None,
+        fresh: bool = True,
     ) -> list[dict[str, Any]]:
         """Recent plays for ONE NFL game, newest first.
 
@@ -547,7 +570,7 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         cached = self._nfl_plays.get(plays_id)
 
         try:
-            body = await self.client.async_plays(plays_id, now)
+            body = await self.client.async_plays(plays_id, now, fresh)
             if cached is not None and cached.body == body:
                 plays, needed = cached.plays, cached.needed
             else:

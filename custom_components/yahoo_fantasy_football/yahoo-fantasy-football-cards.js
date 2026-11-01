@@ -177,6 +177,26 @@ function fmtClock(when) {
     .trim();
 }
 
+/**
+ * Yahoo's live relay turning this host away (HTTP 999). The integration stops
+ * asking until its retry time and holds the scores where they were, so the
+ * card says so rather than looking live and frozen.
+ */
+function renderRefused(st) {
+  const r = st && st.attributes && st.attributes.live_refused;
+  if (!r || !r.since) return "";
+  const at = (seconds) => fmtClock(new Date(seconds * 1000));
+  return `<div class="ffl-refused" role="status">Yahoo is refusing live updates. Scores as of ${escapeHtml(
+    at(r.since)
+  )}; trying again at ${escapeHtml(at(r.retry_at))}.</div>`;
+}
+
+/** The notice's part of a card's repaint guard. */
+function refusedKey(st) {
+  const r = st && st.attributes && st.attributes.live_refused;
+  return r && r.since ? `${r.since}-${r.retry_at}` : "";
+}
+
 /* -------------------------------------------------------------- websocket */
 
 function callWS(hass, message) {
@@ -1096,7 +1116,7 @@ class FflBaseCard extends HTMLElement {
 
   /** Scalar-only. Never JSON.stringify over the play arrays. */
   _dataFingerprint(st, rows) {
-    const parts = [this.constructor.name, st.state, st.attributes.week, st.attributes.partial ? 1 : 0];
+    const parts = [this.constructor.name, st.state, st.attributes.week, st.attributes.partial ? 1 : 0, refusedKey(st)];
     for (const r of rows) {
       parts.push(r.matchup_id, r.home.points, r.away.points, r.home.projected, r.away.projected, r.leader);
       parts.push(r.home.live_projected, r.away.live_projected, r.win_prob, r.final ? 1 : 0);
@@ -1334,7 +1354,7 @@ class FflLeagueScoreboardCard extends FflBaseCard {
     }
     const stale = st.attributes.partial ? `<div class="ffl-stale">Some rosters could not be loaded</div>` : "";
     const body = rows.map((row) => renderMatchupRow(row, this._rowOptions(row))).join("");
-    this._paint(`${renderHeader(st, this.config)}<div class="ffl-rows">${body}</div>${stale}`);
+    this._paint(`${renderHeader(st, this.config)}${renderRefused(st)}<div class="ffl-rows">${body}</div>${stale}`);
   }
 }
 
@@ -1378,7 +1398,7 @@ class FflMyMatchupCard extends FflBaseCard {
     }
     const row = rows[0];
     this._paint(
-      `${renderHeader(st, this.config)}<div class="ffl-rows ffl-single">${renderMatchupRow(
+      `${renderHeader(st, this.config)}${renderRefused(st)}<div class="ffl-rows ffl-single">${renderMatchupRow(
         row,
         this._rowOptions(row)
       )}</div>`
@@ -1416,7 +1436,7 @@ class FflMyScoreCard extends FflMyMatchupCard {
     }
     const row = rows[0];
     const now = Date.now();
-    this._paint(renderMyScore(row, this._teamId(st), { ...this._rowOptions(row), now }));
+    this._paint(renderRefused(st) + renderMyScore(row, this._teamId(st), { ...this._rowOptions(row), now }));
     // Nothing else repaints the card when its play line expires: the score
     // may not move again for an hour. So the expiry gets its own repaint.
     clearTimeout(this._playTimer);
@@ -1522,7 +1542,7 @@ class FflNflGamesCard extends FflBaseCard {
 
   /** Scalar-only, like its sibling — never stringify the games array. */
   _dataFingerprint(st, rows) {
-    const parts = [this.constructor.name, st.state, st.attributes.live_tick, rows.length];
+    const parts = [this.constructor.name, st.state, st.attributes.live_tick, rows.length, refusedKey(st)];
     for (const g of rows) {
       const a = g.away || {};
       const h = g.home || {};
@@ -1617,7 +1637,7 @@ class FflNflGamesCard extends FflBaseCard {
         ? `${renderFoldToggle(kind, games.length, this._folds[kind])}${this._folds[kind] ? this._renderGames(games, banners) : ""}`
         : "";
     this._paint(
-      `${header}<div class="ffl-nfl-games">${this._renderGames(live, banners)}${this._renderGames(soon, banners)}${fold(
+      `${header}${renderRefused(st)}<div class="ffl-nfl-games">${this._renderGames(live, banners)}${this._renderGames(soon, banners)}${fold(
         "later",
         later
       )}${fold("final", done)}</div>`
@@ -2009,6 +2029,7 @@ const CARD_CSS = `
   .ffl-vs { color: var(--secondary-text-color); font-size: 0.8rem; }
 
   .ffl-stale { font-size: 0.75rem; color: var(--warning-color); padding: 4px 6px; }
+  .ffl-refused { font-size: 0.75rem; line-height: 1.3; color: var(--warning-color); padding: 2px 6px 6px; }
 
   .ffl-loading, .ffl-empty { color: var(--secondary-text-color); padding: 12px 0; }
   .ffl-error { color: var(--error-color); padding: 12px 0; }
@@ -2270,6 +2291,7 @@ if (typeof module !== "undefined" && module.exports) {
     playLineLeftMs,
     MY_SCORE_PLAY_SECONDS,
     renderHeader,
+    renderRefused,
     renderRowPlay,
     renderWinBar,
     trendClass,

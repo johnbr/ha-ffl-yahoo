@@ -36,6 +36,7 @@ const {
   playLineLeftMs,
   MY_SCORE_PLAY_SECONDS,
   renderHeader,
+  renderRefused,
   renderRowPlay,
   renderWinBar,
   trendClass,
@@ -1666,4 +1667,13 @@ test("the win bar stays with the lineup, not a player's season", () => {
   assert.ok(!season.includes("ffl-win") && season.includes("Loading season…"));
   // The season is a view inside the lineup: the row still reads as expanded.
   assert.match(season, /aria-expanded="true"/);
+});
+
+test("a relay refusing the host says so, with the held time and the retry", () => {
+  assert.equal(renderRefused({ attributes: { live_refused: null } }), "");
+  assert.equal(renderRefused({ attributes: {} }), "");
+  const html = renderRefused({ attributes: { live_refused: { since: 1793559600, retry_at: 1793559720 } } });
+  assert.match(html, /class="ffl-refused"/);
+  assert.match(html, /Yahoo is refusing live updates/);
+  assert.match(html, /Scores as of .+; trying again at .+\./);
 });
