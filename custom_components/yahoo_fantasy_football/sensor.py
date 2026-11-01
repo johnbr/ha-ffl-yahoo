@@ -79,6 +79,14 @@ class _LeagueEntity(CoordinatorEntity[YahooFantasyCoordinator], SensorEntity):
             entry_type=DeviceEntryType.SERVICE,
         )
 
+    @property
+    def _refused(self) -> dict:
+        """``live_refused``: ``{"since", "retry_at"}`` while Yahoo's relay turns
+        this host away and the scores are held, else ``None``. Every sensor
+        carries it, so a card or an automation can say why nothing is moving.
+        """
+        return {"live_refused": self.coordinator.live_refused}
+
 
 class YahooScoreboardSensor(_LeagueEntity):
     """Every matchup in the league."""
@@ -96,12 +104,15 @@ class YahooScoreboardSensor(_LeagueEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        return scoreboard_attributes(
-            self.coordinator.league_data,
-            self.coordinator.feed,
-            self._league_id,
-            self._league_name,
-        )
+        return {
+            **scoreboard_attributes(
+                self.coordinator.league_data,
+                self.coordinator.feed,
+                self._league_id,
+                self._league_name,
+            ),
+            **self._refused,
+        }
 
 
 class YahooNflGamesSensor(_LeagueEntity):
@@ -129,13 +140,16 @@ class YahooNflGamesSensor(_LeagueEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        return nfl_games_attributes(
-            self.coordinator.league_data,
-            self._league_id,
-            self.coordinator.nfl_last_plays,
-            self.coordinator.nfl_pending_plays,
-            self.coordinator.nfl_score_banners,
-        )
+        return {
+            **nfl_games_attributes(
+                self.coordinator.league_data,
+                self._league_id,
+                self.coordinator.nfl_last_plays,
+                self.coordinator.nfl_pending_plays,
+                self.coordinator.nfl_score_banners,
+            ),
+            **self._refused,
+        }
 
 
 class YahooMyTeamSensor(_LeagueEntity):
@@ -168,7 +182,7 @@ class YahooMyTeamSensor(_LeagueEntity):
     def extra_state_attributes(self) -> dict:
         found = self._found
         if not found:
-            return {"league_id": self._league_id, "team_id": self._team_id, "matchup_id": None}
+            return {"league_id": self._league_id, "team_id": self._team_id, "matchup_id": None, **self._refused}
         last = self.coordinator.feed.last_play(matchup_id=found["matchup_id"])
         return {
             # The card pairs this sensor with its league's scoreboard by
@@ -184,4 +198,5 @@ class YahooMyTeamSensor(_LeagueEntity):
             "opponent_projected": found["opponent"]["projected"],
             "winning": found["winning"],
             "last_play": play_dict(last) if last else None,
+            **self._refused,
         }

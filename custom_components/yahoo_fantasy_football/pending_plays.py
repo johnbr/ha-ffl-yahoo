@@ -21,6 +21,7 @@ game per poll and reads the answer back.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
@@ -47,6 +48,18 @@ PERIOD_END = "25"
 # (``plays.PLAY_TEXT_LAG_SECONDS``). The provisional line itself does not
 # expire: it is still the truest thing to say about the last snap.
 CHASE_FOR_SECONDS = 60.0
+
+# How long a live game's play feed goes unasked while the game stands still.
+#
+# A play moves the game's down, distance, spot, possession or score in the
+# games feed, and that movement is what earns the game a play-feed request
+# that poll; the pending play then keeps it asked for, and the coordinator's
+# chase follows it between polls, until the text lands. A game that has not
+# moved — a timeout, a review, a commercial break — is asked this often
+# anyway, for the plays that move none of those and for Yahoo's in-place
+# rewording. Asking every live game every poll was eight requests per 10 s
+# poll for eight games mostly standing still.
+PLAYS_QUIET_SECONDS = 30.0
 
 
 @dataclass(frozen=True)
@@ -408,3 +421,35 @@ class PendingPlays:
     def awaiting(self, now: float) -> list[str]:
         """Games whose play feed is worth re-reading before the next poll."""
         return [pid for pid, s in self._games.items() if s.text and now - s.since < CHASE_FOR_SECONDS]
+
+
+class PlaysSchedule:
+    """Which live games' play feeds a poll asks for.
+
+    A game that moved since its feed was last asked, one whose play text is
+    still awaited, and one left unasked for :data:`PLAYS_QUIET_SECONDS`.
+    """
+
+    def __init__(self) -> None:
+        # {plays_id: (the game's snap and period, when)} as of the poll that
+        # last asked for its feed.
+        self._asked: dict[str, tuple[tuple[Snap, str], float]] = {}
+
+    def due(self, games: dict[str, Any], awaited: Iterable[str], now: float) -> set[str]:
+        """``games`` is ``{plays_id: games-feed row}`` for the live games."""
+        awaited = set(awaited)
+        due: set[str] = set()
+        for plays_id, game in games.items():
+            mark = (snap_of(game), str(getattr(game, "period", "") or ""))
+            asked = self._asked.get(plays_id)
+            if (
+                asked is None
+                or asked[0] != mark
+                or plays_id in awaited
+                or now - asked[1] >= PLAYS_QUIET_SECONDS
+            ):
+                due.add(plays_id)
+                self._asked[plays_id] = (mark, now)
+        for plays_id in set(self._asked) - set(games):
+            del self._asked[plays_id]
+        return due

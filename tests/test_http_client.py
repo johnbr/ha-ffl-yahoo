@@ -4,7 +4,7 @@ import json
 
 import pytest
 from http_fakes import HttpFailure, Response, Session
-from yahoo_fantasy_football.http_client import YahooAccessDenied, fetch_text
+from yahoo_fantasy_football.http_client import YahooAccessDenied, YahooRefused, fetch_text
 from yahoo_fantasy_football.redzone_client import RedzoneClient
 
 URL = "https://pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=726304"
@@ -39,7 +39,18 @@ async def test_denial_body_read_is_bounded():
     assert response.read_bytes == 4096
 
 
-@pytest.mark.parametrize("status", [404, 429, 500, 503])
+@pytest.mark.parametrize("status", [429, 999])
+async def test_a_throttled_host_is_refused_not_failed(status):
+    # 999 is Yahoo's "Request denied" for a host it has throttled: the caller
+    # must stop asking, which a transient failure would not tell it.
+    session = Session(Response(status, "Request denied"))
+    with pytest.raises(YahooRefused) as caught:
+        await fetch_text(session, URL, headers={})
+    assert caught.value.status == status
+    assert len(session.calls) == 1
+
+
+@pytest.mark.parametrize("status", [404, 500, 503])
 async def test_other_http_failures_keep_their_original_classification(status):
     with pytest.raises(HttpFailure, match=str(status)):
         await fetch_text(Session(Response(status)), URL, headers={})

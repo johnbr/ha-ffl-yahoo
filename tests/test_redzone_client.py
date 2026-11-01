@@ -10,12 +10,14 @@ import asyncio
 
 import pytest
 from conftest import FIXTURES
+from yahoo_fantasy_football.http_client import YahooRefused
 from yahoo_fantasy_football.redzone_client import (
     FEED_HOLD_SECONDS,
     PLAYERS_RETRY_SECONDS,
     PLAYERS_TTL_SECONDS,
     PLAYS_MIN_INTERVAL_SECONDS,
     PLAYS_RECHECK_SECONDS,
+    REFUSED_BACKOFF_SECONDS,
     SEED_GRACE_SECONDS,
     SEED_TTL_SECONDS,
     FetchFailed,
@@ -542,3 +544,120 @@ async def test_eight_games_asking_at_once_is_one_fetch():
     assert feed.asks == 2
     assert all(d is got[0] for d in got), "one dictionary object, handed to all eight"
 
+
+
+# -- the relay refusing the host (HTTP 999) ----------------------------------
+
+
+def _refusing(bodies: dict[str, str], log: list[str], refuse: dict[str, bool]):
+    """The fetcher of a host the relay has throttled while ``refuse["on"]``."""
+
+    async def fetch(url: str) -> str:
+        log.append(url)
+        if refuse["on"] and "relay-stream" in url:
+            raise YahooRefused(999)
+        return await _fetcher(bodies)(url)
+
+    return fetch
+
+
+def _relay_asks(log: list[str]) -> int:
+    return sum("relay-stream" in url for url in log)
+
+
+@pytest.mark.asyncio
+async def test_a_refusing_relay_is_left_alone_until_its_retry():
+    """2026-11-01: the relay refused the host and was asked every 10 s regardless."""
+    log: list[str] = []
+    refuse = {"on": False}
+    client = RedzoneClient(_refusing(_bodies(), log, refuse), LEAGUE)
+    good = await client.async_refresh(now=100.0)
+
+    refuse["on"] = True
+    await client.async_refresh_or_stale(now=110.0)
+    assert client.relay.refused and client.relay.since == 110.0
+    assert client.relay.retry_at == 110.0 + REFUSED_BACKOFF_SECONDS[0]
+    asked = _relay_asks(log)
+
+    for t in range(120, int(client.relay.retry_at), 10):
+        data = await client.async_refresh_or_stale(now=float(t))
+        assert _scores(data) == _scores(good), "the scores are held, not zeroed"
+    assert _relay_asks(log) == asked, "nothing is sent to the relay while it refuses us"
+
+
+@pytest.mark.asyncio
+async def test_each_refusal_in_a_row_waits_longer():
+    log: list[str] = []
+    client = RedzoneClient(_refusing(_bodies(), log, {"on": True}), LEAGUE)
+    client.relay.refuse(0.0)
+    waits = []
+    now = 0.0
+    for _ in range(len(REFUSED_BACKOFF_SECONDS) + 1):
+        now = client.relay.retry_at
+        await client._get_relay("https://relay-stream.sports.yahoo.com/nfl/games.txt", now)
+        waits.append(client.relay.retry_at - now)
+    assert waits == [*REFUSED_BACKOFF_SECONDS[1:], REFUSED_BACKOFF_SECONDS[-1], REFUSED_BACKOFF_SECONDS[-1]]
+    assert client.relay.since == 0.0, "still the same run of refusals"
+
+
+@pytest.mark.asyncio
+async def test_two_feeds_refused_in_one_poll_are_one_strike():
+    log: list[str] = []
+    client = RedzoneClient(_refusing(_bodies(), log, {"on": True}), LEAGUE)
+    await client.async_refresh(now=100.0)
+    assert 1 <= _relay_asks(log) <= 2
+    assert client.relay.retry_at == 100.0 + REFUSED_BACKOFF_SECONDS[0]
+
+
+@pytest.mark.asyncio
+async def test_an_answer_opens_the_relay_again():
+    log: list[str] = []
+    refuse = {"on": True}
+    client = RedzoneClient(_refusing(_bodies(), log, refuse), LEAGUE)
+    client.relay.refuse(0.0)
+    refuse["on"] = False
+    data = await client.async_refresh(now=client.relay.retry_at)
+    assert any(_scores(data).values())
+    assert not client.relay.refused and client.relay.open(0.0)
+
+
+@pytest.mark.asyncio
+async def test_held_scores_outlast_the_stale_limit_while_refused():
+    """A refusal can last hours; the held scores stay up, flagged by ``relay.since``."""
+    refuse = {"on": False}
+    client = RedzoneClient(_refusing(_bodies(), [], refuse), LEAGUE)
+    good = await client.async_refresh(now=100.0)
+    refuse["on"] = True
+    data = await client.async_refresh_or_stale(now=100.0 + STALE_AFTER_SECONDS + 600)
+    assert _scores(data) == _scores(good)
+    assert client.relay.refused
+
+
+@pytest.mark.asyncio
+async def test_a_refused_play_feed_serves_what_it_had_and_closes_the_relay():
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+    assert await client.async_plays("2", now=100.0) == PLAYS_V1
+
+    async def refused(url: str, since: str | None):
+        relay.asks.append(since)
+        raise YahooRefused(999)
+
+    client._fetch_if_modified = refused
+    assert await client.async_plays("2", now=110.0) == PLAYS_V1
+    assert client.relay.refused
+    asks = len(relay.asks)
+    assert await client.async_plays("2", now=120.0) == PLAYS_V1
+    assert await client.async_plays("7", now=120.0) == ""
+    assert len(relay.asks) == asks, "no play feed is asked for while the relay refuses"
+
+
+@pytest.mark.asyncio
+async def test_a_play_feed_not_due_is_the_copy_in_hand():
+    relay = _Relay(PLAYS_V1)
+    client = _plays_client(relay)
+    await client.async_plays("2", now=100.0)
+    relay.publish(PLAYS_V2, "Thu, 17 Sep 2026 02:15:00 GMT")
+    assert await client.async_plays("2", now=110.0, fresh=False) == PLAYS_V1
+    assert len(relay.asks) == 1
+    assert await client.async_plays("2", now=120.0) == PLAYS_V2

@@ -6,8 +6,10 @@ from types import SimpleNamespace
 
 from yahoo_fantasy_football.pending_plays import (
     CHASE_FOR_SECONDS,
+    PLAYS_QUIET_SECONDS,
     Landed,
     PendingPlays,
+    PlaysSchedule,
     describe_change,
     period_end_not_reached,
     snap_of,
@@ -380,3 +382,41 @@ def test_a_clock_that_cannot_be_read_holds_nothing_back() -> None:
     end_of_half = _EARLY_HALF[1]
     assert not period_end_not_reached(end_of_half, _clock("", ""))
     assert not period_end_not_reached(end_of_half, _clock("2", "Halftime"))
+
+
+# -- which play feeds a poll asks for ----------------------------------------
+
+
+def test_every_live_game_is_asked_for_on_first_sight():
+    schedule = PlaysSchedule()
+    assert schedule.due({"8": _game(), "9": _game()}, [], 100.0) == {"8", "9"}
+
+
+def test_a_game_standing_still_is_not_asked_again_until_it_has_been_quiet_a_while():
+    schedule = PlaysSchedule()
+    schedule.due({"8": _game()}, [], 100.0)
+    assert schedule.due({"8": _game(clock="14:10")}, [], 110.0) == set(), "a ticking clock is not a play"
+    assert schedule.due({"8": _game()}, [], 100.0 + PLAYS_QUIET_SECONDS - 1) == set()
+    assert schedule.due({"8": _game()}, [], 100.0 + PLAYS_QUIET_SECONDS) == {"8"}
+
+
+def test_a_game_that_moved_is_asked_for_that_poll():
+    schedule = PlaysSchedule()
+    schedule.due({"8": _game()}, [], 100.0)
+    assert schedule.due({"8": _game(down=2, distance=3, to_goal=68)}, [], 110.0) == {"8"}
+    assert schedule.due({"8": _game(down=2, distance=3, to_goal=68)}, [], 120.0) == set()
+    assert schedule.due({"8": _game(down=2, distance=3, to_goal=68, away=3)}, [], 130.0) == {"8"}
+
+
+def test_a_game_whose_text_is_awaited_is_asked_every_poll():
+    schedule = PlaysSchedule()
+    schedule.due({"8": _game()}, [], 100.0)
+    assert schedule.due({"8": _game()}, ["8"], 110.0) == {"8"}
+    assert schedule.due({"8": _game()}, ["8"], 120.0) == {"8"}
+
+
+def test_a_game_that_ends_is_forgotten():
+    schedule = PlaysSchedule()
+    schedule.due({"8": _game()}, [], 100.0)
+    schedule.due({}, [], 110.0)
+    assert schedule.due({"8": _game()}, [], 120.0) == {"8"}, "a game back in the list is new again"

@@ -29,10 +29,11 @@ plus one *conditional* request per live game's play-by-play, no per-matchup
 fan-out, and no browser impersonation beyond a single ``User-Agent``. The
 endpoints answer without one — it is sent so the traffic is identifiable rather
 than to evade anything. If Yahoo starts refusing, the correct response is to
-fetch less, not to evade harder.
+fetch less, not to evade harder — and when it does refuse (HTTP 999), to
+stop: see :class:`RelayGate`.
 
-The play feeds are the one thing polled every refresh, and they are polled with
-``If-Modified-Since`` because the relay honours it (verified 2026-09-17: a real
+The play feeds are asked for most often — each live game's whenever it moved —
+and they are asked with ``If-Modified-Since`` because the relay honours it (verified 2026-09-17: a real
 ``Last-Modified``, ``304`` on an unchanged file). A ``304`` is a couple of
 hundred bytes, so asking every 10 s costs less than the old scheme of fetching
 the whole feed whenever the games feed *looked* like a play had run — and it
@@ -51,6 +52,7 @@ import logging
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
+from .http_client import YahooRefused
 from .web_client import (  # noqa: F401  (LeagueIsPrivate re-exported for callers)
     STALE_AFTER_SECONDS,
     FetchFailed,
@@ -101,6 +103,15 @@ MIN_BODY = 40
 # checks against a television. Two minutes of a stopped clock still passes for
 # "the poll is a little behind"; past that, holding is its own lie.
 FEED_HOLD_SECONDS: dict[str, float] = {"stats": STALE_AFTER_SECONDS, "games": 120.0}
+
+# How long the relay is left alone after it turns this host away, by how many
+# refusals in a row it has been. HTTP 999 ("Request denied") is Yahoo
+# throttling the host, not a dropped request: on 2026-11-01 the relay refused
+# every feed mid-slate while the integration kept asking every 10 s, which
+# can only have kept the block in place. So a refusal stops all relay traffic
+# until its retry time; one request then asks again, and only an answer opens
+# the relay back up. The league seed is a different service and is unaffected.
+REFUSED_BACKOFF_SECONDS = (120.0, 300.0, 900.0, 1800.0)
 
 # How long the league seed is reused between refreshes.
 #
@@ -166,6 +177,50 @@ PLAYS_RECHECK_SECONDS = 90.0
 PLAYS_MIN_INTERVAL_SECONDS = 2.0
 
 
+class RelayGate:
+    """Whether the relay may be asked right now, after it refused this host.
+
+    One per client, shared by every relay feed: Yahoo refuses the host, not a
+    feed, so asking for plays while the games feed is refused only adds to
+    whatever the host is being refused for.
+    """
+
+    def __init__(self) -> None:
+        self.since: float | None = None
+        """When the current run of refusals began; ``None`` while answering."""
+        self.retry_at = 0.0
+        self._strikes = 0
+
+    @property
+    def refused(self) -> bool:
+        return self.since is not None
+
+    def open(self, now: float) -> bool:
+        return now >= self.retry_at
+
+    def refuse(self, now: float) -> None:
+        """Record a refusal and close the relay until the next retry."""
+        if now < self.retry_at:
+            return  # a sibling request of the same round already counted it
+        if self.since is None:
+            self.since = now
+        backoff = REFUSED_BACKOFF_SECONDS[min(self._strikes, len(REFUSED_BACKOFF_SECONDS) - 1)]
+        self._strikes += 1
+        self.retry_at = now + backoff
+        _LOGGER.warning(
+            "Yahoo's live relay is refusing requests from this host (HTTP 999); "
+            "scores are held as they were and the relay is next asked in %.0f minutes",
+            backoff / 60,
+        )
+
+    def answered(self) -> None:
+        if self.since is not None:
+            _LOGGER.warning("Yahoo's live relay is answering again; live scores resume")
+        self.since = None
+        self.retry_at = 0.0
+        self._strikes = 0
+
+
 @dataclass
 class _PlaysCache:
     """One game's play feed as last seen, and when."""
@@ -214,6 +269,7 @@ class RedzoneClient:
         # id was eight simultaneous full fetches.
         self._players_lock = asyncio.Lock()
         self._plays: dict[str, _PlaysCache] = {}
+        self.relay = RelayGate()
 
     # -- internals ---------------------------------------------------------
 
@@ -229,8 +285,8 @@ class RedzoneClient:
             raise FetchFailed(f"suspiciously short response from {url} ({len(body or '')}B)")
         return body
 
-    async def _get_optional(self, url: str) -> str:
-        """A live feed that may legitimately be missing.
+    async def _get_relay(self, url: str, now: float) -> str:
+        """A live feed that may legitimately be missing, ``""`` if it is.
 
         Between seasons, and in the hours before the first game of a week,
         Yahoo serves these empty or not at all. That is not a failure — it
@@ -240,17 +296,28 @@ class RedzoneClient:
         It cannot distinguish that from a fetch that failed, though, and for
         a live feed the two want opposite handling: see :meth:`_live_feed`,
         which every live body goes through before it is used.
+
+        Every relay request goes through :class:`RelayGate`. While the relay
+        refuses the host nothing is sent, and the caller sees ``""`` — a
+        failed fetch, which it holds its last copy over.
         """
+        if not self.relay.open(now):
+            return ""
         try:
-            return await self._get(url)
+            body = await self._get(url)
+        except YahooRefused:
+            self.relay.refuse(now)
+            return ""
         except YahooWebError as err:
             _LOGGER.debug("live feed %s unavailable: %s", url, err)
             return ""
+        self.relay.answered()
+        return body
 
     def _live_feed(self, feed: str, body: str, now: float) -> str:
         """One live relay feed, holding its last good copy over a failed fetch.
 
-        :meth:`_get_optional` cannot tell a feed Yahoo does not serve yet from
+        :meth:`_get_relay` cannot tell a feed Yahoo does not serve yet from
         one whose fetch just failed — both arrive as ``""``. Before the week's
         first kickoff the distinction does not matter. Mid-game it decides
         whether the card tells the truth, and each feed lies differently:
@@ -361,13 +428,13 @@ class RedzoneClient:
                 lacking = any(pid not in cached for pid in needed)
                 if age < PLAYERS_TTL_SECONDS and not (lacking and age >= PLAYERS_RETRY_SECONDS):
                     return cached
-            body = await self._get_optional(relay_url("players", self.sport))
+            body = await self._get_relay(relay_url("players", self.sport), now)
             if not body:
                 return cached or {}
             self._players, self._players_at = parse_relay_players(body), now
             return self._players
 
-    async def async_plays(self, plays_id: str, now: float) -> str:
+    async def async_plays(self, plays_id: str, now: float, fresh: bool = True) -> str:
         """One game's play-by-play feed, or ``""`` if it is not being served.
 
         This is the feed whose *text* changes — Yahoo posts a terse description
@@ -378,25 +445,36 @@ class RedzoneClient:
 
         ``now`` is the poll's timestamp. Two callers in one poll — the fantasy
         enrichment and the games card's last play — share one request.
+
+        ``fresh=False`` takes the copy in hand when there is one: the caller
+        has decided nothing in this game moved (see the coordinator's
+        ``PLAYS_QUIET_SECONDS``). While the relay refuses the host every caller
+        gets the copy in hand.
         """
         if not plays_id:
             return ""
         url = relay_url(f"plays-{plays_id}", self.sport)
         if self._fetch_if_modified is None:
-            return await self._get_optional(url)
+            return await self._get_relay(url, now)
 
         cached = self._plays.get(plays_id)
-        if cached is not None and now - cached.fetched_at < PLAYS_MIN_INTERVAL_SECONDS:
+        if cached is not None and (not fresh or now - cached.fetched_at < PLAYS_MIN_INTERVAL_SECONDS):
             return cached.body
+        if not self.relay.open(now):
+            return cached.body if cached is not None else ""
 
         since = None
         if cached is not None and now - cached.loaded_at < PLAYS_RECHECK_SECONDS:
             since = cached.last_modified or None
         try:
             body, last_modified = await self._fetch_if_modified(url, since)
+        except YahooRefused:
+            self.relay.refuse(now)
+            return cached.body if cached is not None else ""
         except Exception as err:  # a missing feed is cosmetic, never fatal
             _LOGGER.debug("live feed %s unavailable: %s", url, err)
             return cached.body if cached is not None else ""
+        self.relay.answered()
 
         if body is None:  # 304: what we have is what there is
             if cached is None:
@@ -421,8 +499,8 @@ class RedzoneClient:
         # usually a cache hit and returns without any IO at all.
         seed, stats, games = await asyncio.gather(
             self._seed_payload(now),
-            self._get_optional(relay_url("stats", self.sport)),
-            self._get_optional(relay_url("games", self.sport)),
+            self._get_relay(relay_url("stats", self.sport), now),
+            self._get_relay(relay_url("games", self.sport), now),
         )
         stats = self._live_feed("stats", stats, now)
         games = self._live_feed("games", games, now)
@@ -452,7 +530,10 @@ class RedzoneClient:
         """Refresh, falling back to the last good payload on a transient failure.
 
         Serving four-minute-old scores beats emptying the card mid-game; past
-        :data:`STALE_AFTER_SECONDS` it stops pretending and raises.
+        :data:`STALE_AFTER_SECONDS` it stops pretending and raises — unless
+        the relay is refusing the host, which can last hours. Then the last
+        good scores stay up, and ``relay.since`` is what tells the reader how
+        old they are (the sensors carry it as ``live_refused``).
         """
         try:
             return await self.async_refresh(now)
@@ -461,7 +542,7 @@ class RedzoneClient:
             if stale is None:
                 raise
             age = now - stale.fetched_at
-            if age > STALE_AFTER_SECONDS:
+            if age > STALE_AFTER_SECONDS and not self.relay.refused:
                 raise FetchFailed(f"no fresh data for {age:.0f}s: {err}") from err
             _LOGGER.debug("serving %.0fs-old data after a failed refresh: %s", age, err)
             return stale
