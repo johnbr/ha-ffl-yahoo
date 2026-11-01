@@ -1013,7 +1013,7 @@ test("a projection above the pre-game number is green, below is red, level is gr
   assert.equal(trendClass(null, 19.97), "");
 });
 
-test("an expanded team shows the original projection and the live one", () => {
+test("an expanded team shows the original projection, the live one only under the names", () => {
   const html = renderMatchupRow({
     matchup_id: "w1.m1",
     index: 1,
@@ -1024,9 +1024,29 @@ test("an expanded team shows the original projection and the live one", () => {
     win_prob: 0.39,
   }, { expanded: true, detailHtml: "<div></div>" });
   assert.ok(html.includes("orig 135.35"), "the pre-game number keeps its place");
-  assert.ok(html.includes("proj 123.15"));
-  assert.ok(html.includes("ffl-team-live ffl-down"), "Tesla is below its projection");
-  assert.ok(html.includes("ffl-team-live ffl-up"), "the opponent is above its own");
+  assert.ok(!html.includes("proj 123.15"), "the panel no longer repeats the live projection");
+  assert.ok(!html.includes("ffl-team-live"));
+  assert.equal(html.split("123.15").length - 1, 1, "the live number shows once, in the row's foot");
+});
+
+test("on an opened matchup, the space between the names and the lineup opens the plays", () => {
+  const row = {
+    matchup_id: "w1.m1",
+    index: 1,
+    home: { team_id: "1", name: "Tesla", points: 12.1, projected: 135.35, live_projected: 123.15 },
+    away: { team_id: "10", name: "Pass the Herb", points: 28.4, projected: 130.46, live_projected: 136.11 },
+    leader: "10",
+    last_play: null,
+    win_prob: 0.39,
+  };
+  const open = renderMatchupRow(row, { expanded: true, detailHtml: "<div></div>" });
+  assert.match(open, /class="ffl-detail-head"[^>]*data-history="1"/);
+  assert.match(open, /class="ffl-row-foot ffl-row-foot-open" data-history="1" data-matchup-id="w1.m1"/);
+  // Closed, the foot is not a target of its own (the play line inside it still is).
+  const closed = renderMatchupRow(row);
+  assert.doesNotMatch(closed, /ffl-row-foot-open|ffl-detail-head/);
+  // The plays panel has no head to tap.
+  assert.doesNotMatch(renderMatchupRow(row, { expanded: true, panel: "plays", detailHtml: "" }), /ffl-detail-head/);
 });
 
 test("before kickoff there is only one projection to show", () => {

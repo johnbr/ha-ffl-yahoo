@@ -263,28 +263,23 @@ function renderTeamSide(team, isLeader, align) {
 }
 
 /**
- * Both teams' projections, for the expanded panel.
+ * Both teams' morning projections, for the expanded panel: "orig" once the
+ * live projection has moved, "proj" while it has not.
  *
- * Both numbers, the way StatTracker prints "Orig Proj" over "Proj Pts": the
- * live figure alone says where a team is heading but not whether that is
- * better or worse than the morning's expectation, which is the whole point.
+ * Only the morning's number. The live one already sits under the team names
+ * in the row's foot, coloured against this one, so printing it again here
+ * was a line of the panel spent repeating it.
  *
  * Three tracks, matching the row and the play line above it, so each side
  * lands under its own team rather than floating.
  */
 function renderProjections(row) {
-  const side = (team, align) => {
-    const live = hasLive(team.live_projected, team.projected)
-      ? `<div class="ffl-team-live${trendClass(team.live_projected, team.projected)}">proj ${fmtPoints(
-          team.live_projected
-        )}</div>`
-      : "";
-    return `
+  const side = (team, align) => `
       <div class="ffl-proj-side ffl-proj-${align}">
-        <div class="ffl-team-proj">${live ? "orig" : "proj"} ${fmtPoints(team.projected)}</div>
-        ${live}
+        <div class="ffl-team-proj">${hasLive(team.live_projected, team.projected) ? "orig" : "proj"} ${fmtPoints(
+          team.projected
+        )}</div>
       </div>`;
-  };
   return `
     <div class="ffl-projs">
       ${side(row.home, "start")}
@@ -420,11 +415,17 @@ function renderRowProjections(home, away) {
  * Rendered only when there is something to put in it — a matchup with neither
  * a scoring play nor a projection would otherwise get an empty padded strip.
  */
-function renderRowFoot(row, playsOpen) {
+/**
+ * The play line and live projections under the names. On an opened matchup
+ * the whole foot opens its scoring plays, not just the play's own text; the
+ * play stays the keyboard's button for it.
+ */
+function renderRowFoot(row, playsOpen, expanded = false) {
   const play = row.last_play ? renderRowPlay(row.last_play, row.matchup_id, playsOpen) : "";
   const projections = renderRowProjections(row.home, row.away);
   if (!play && !projections) return "";
-  return `<div class="ffl-row-foot">${play}${projections}</div>`;
+  const target = expanded ? ` data-history="1" data-matchup-id="${escapeHtml(row.matchup_id)}"` : "";
+  return `<div class="ffl-row-foot${expanded ? " ffl-row-foot-open" : ""}"${target}>${play}${projections}</div>`;
 }
 
 /* ------------------------------------------------------------- NFL games */
@@ -659,7 +660,16 @@ function renderMatchupDetail(row, options = {}) {
   // season: it is about where the matchup is heading, which is what the lineup
   // answers.
   const loading = { plays: "Loading plays…", player: "Loading season…" }[panel] || "Loading rosters…";
-  const lineup = panel === "roster" ? renderProjections(row) + renderWinBar(row) : "";
+  // Everything between the names and the lineup opens the scoring plays: the
+  // row's play line is the usual way in, but it is gone once no starter is
+  // playing.
+  const lineup =
+    panel === "roster"
+      ? `<div class="ffl-detail-head" role="button" tabindex="0" data-history="1"
+             data-matchup-id="${escapeHtml(row.matchup_id)}" aria-label="Show scoring play history">${renderProjections(
+               row
+             )}${renderWinBar(row)}</div>`
+      : "";
   return `<div class="ffl-row-detail" id="${matchupPanelId(row)}">${lineup}${
     options.detailHtml || `<div class="ffl-loading">${loading}</div>`
   }</div>`;
@@ -688,7 +698,7 @@ function renderMatchupRow(row, options = {}) {
         </div>
         ${renderTeamSide(away, leader === away.team_id, "end")}
       </div>
-      ${renderRowFoot(row, playsOpen)}
+      ${renderRowFoot(row, playsOpen, expanded)}
       ${detail}
     </div>`;
 }
@@ -2000,7 +2010,8 @@ const CARD_CSS = `
   .ffl-team.ffl-leader .ffl-team-name { font-weight: 700; }
   .ffl-team-record { font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
   .ffl-team-proj { font-size: 0.72rem; font-weight: 500; color: var(--ffl-muted); }
-  .ffl-team-live { font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ffl-detail-head, .ffl-row-foot-open { cursor: pointer; }
+  .ffl-detail-head:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; border-radius: 6px; }
 
   /* Projected winner. Our own estimate, not Yahoo's licensed market number. */
   .ffl-winbar {

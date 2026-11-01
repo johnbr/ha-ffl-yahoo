@@ -19,7 +19,8 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with four bund
 - **Per-matchup scoring plays.** Under each matchup, the play that last moved *that* score,
   aligned to the side of the team it scored for. Bench players are excluded, since their points
   do not count. Clicking the line opens that matchup's full scoring history,
-  where each play's points sit on the side of the team that scored them.
+  where each play's points sit on the side of the team that scored them. Once a matchup is open,
+  clicking anywhere between the team names and the lineup opens it too.
 - **A player's season.** Clicking a player in the roster popup swaps it for his season, week by
   week: the opponent (or bye), Yahoo's projection, and the points he scored, with the weeks still to
   come projected against their opponents. The points before this week are computed from ESPN's stat
