@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.30.1...v0.31.0) (2026-11-01)
+
+
+### Features
+
+* put a scoring play's points on the side of the team that scored ([#108](https://github.com/johnbr/ha-ffl-yahoo/issues/108)) ([0dbecc2](https://github.com/johnbr/ha-ffl-yahoo/commit/0dbecc2a43082f2728439ac3b6c8c6313da2cf41))
+
 ## [0.30.1](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.30.0...v0.30.1) (2026-11-01)
 
 
