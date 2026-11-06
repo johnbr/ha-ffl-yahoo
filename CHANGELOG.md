@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.32.0...v0.33.0) (2026-11-06)
+
+
+### Features
+
+* colour a matchup's win percentages green and red ([#113](https://github.com/johnbr/ha-ffl-yahoo/issues/113)) ([1f6d083](https://github.com/johnbr/ha-ffl-yahoo/commit/1f6d083416fe9fd90acce2979ce780d9db3447c6))
+
 ## [0.32.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.31.0...v0.32.0) (2026-11-01)
 
 
