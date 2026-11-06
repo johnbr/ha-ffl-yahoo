@@ -366,6 +366,10 @@ function renderHeader(st, config) {
  * The percentages are this integration's own estimate from the live
  * projections and what is still to be played — Yahoo's number comes from a
  * betting market it licenses, so it cannot be reproduced, only approximated.
+ *
+ * The better chance reads green and the other red. They are compared as
+ * printed, so a 50.3/49.7 split showing 50% twice stays grey on both sides
+ * rather than putting one number in green against the same number in red.
  */
 function renderWinBar(row) {
   const p = row.win_prob;
@@ -373,17 +377,19 @@ function renderWinBar(row) {
   const home = Math.max(0, Math.min(1, Number(p)));
   const away = 1 - home;
   const homeFav = home >= away;
+  const homePct = Math.round(home * 100);
+  const awayPct = Math.round(away * 100);
   return `
     <div class="ffl-winbar" role="img"
          aria-label="${escapeHtml(
            `${homeFav ? row.home.name : row.away.name} projected to win, ${fmtPercent(Math.max(home, away))}`
          )}">
-      <span class="ffl-win-pct${homeFav ? " ffl-win-fav" : ""}">${fmtPercent(home)}</span>
+      <span class="ffl-win-pct${homeFav ? " ffl-win-fav" : ""}${trendClass(homePct, awayPct)}">${fmtPercent(home)}</span>
       <div class="ffl-win-track">
         <div class="ffl-win-seg${homeFav ? " ffl-win-fav" : ""}" style="flex-grow:${home.toFixed(4)}"></div>
         <div class="ffl-win-seg${homeFav ? "" : " ffl-win-fav"}" style="flex-grow:${away.toFixed(4)}"></div>
       </div>
-      <span class="ffl-win-pct${homeFav ? "" : " ffl-win-fav"}">${fmtPercent(away)}</span>
+      <span class="ffl-win-pct${homeFav ? "" : " ffl-win-fav"}${trendClass(awayPct, homePct)}">${fmtPercent(away)}</span>
     </div>`;
 }
 
@@ -2019,7 +2025,7 @@ const CARD_CSS = `
     padding: 2px 2px 10px; font-size: 0.75rem; font-variant-numeric: tabular-nums;
   }
   .ffl-win-pct { flex: 0 0 auto; color: var(--ffl-muted); }
-  .ffl-win-pct.ffl-win-fav { color: var(--primary-text-color); font-weight: 700; }
+  .ffl-win-pct.ffl-win-fav { font-weight: 700; }
   .ffl-win-track {
     flex: 1 1 auto; display: flex; gap: 2px; height: 6px;
     border-radius: 3px; overflow: hidden;

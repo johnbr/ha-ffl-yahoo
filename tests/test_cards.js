@@ -1080,6 +1080,35 @@ test("the win bar marks the favourite and only renders when expanded", () => {
   assert.ok(renderMatchupRow(row, { expanded: true }).includes("ffl-winbar"));
 });
 
+test("the better chance reads green and the other red, whichever side it is on", () => {
+  const teams = { home: { name: "A" }, away: { name: "B" } };
+  const away = renderWinBar({ ...teams, win_prob: 0.39 });
+  assert.match(away, /class="ffl-win-pct ffl-down">39%</);
+  assert.match(away, /class="ffl-win-pct ffl-win-fav ffl-up">61%</);
+  const home = renderWinBar({ ...teams, win_prob: 0.94 });
+  assert.match(home, /class="ffl-win-pct ffl-win-fav ffl-up">94%</);
+  assert.match(home, /class="ffl-win-pct ffl-down">6%</);
+  // Only the numbers: the bar between them keeps its own colours.
+  assert.doesNotMatch(home, /ffl-win-seg[^"]*ffl-(up|down)/);
+});
+
+test("two percentages that print the same are not green against red", () => {
+  const teams = { home: { name: "A" }, away: { name: "B" } };
+  for (const win_prob of [0.5, 0.503, 0.497]) {
+    const html = renderWinBar({ ...teams, win_prob });
+    assert.equal(html.split(">50%<").length - 1, 2);
+    assert.doesNotMatch(html, /ffl-up|ffl-down/);
+    assert.equal(html.split("ffl-flat").length - 1, 2);
+  }
+});
+
+test("nothing outranks the trend colour on a win percentage", () => {
+  // `.ffl-win-pct.ffl-win-fav` outranks `.ffl-up` on specificity, so a colour
+  // here would put the favourite back in the plain text colour.
+  assert.doesNotMatch(rule(".ffl-win-pct.ffl-win-fav"), /color:/);
+  assert.ok(CARD_CSS.indexOf(".ffl-win-pct {") < CARD_CSS.indexOf(".ffl-up {"), ".ffl-win-pct must be declared before .ffl-up");
+});
+
 test("an unknowable win probability renders nothing at all", () => {
   assert.equal(renderWinBar({ win_prob: null, home: {}, away: {} }), "");
 });
