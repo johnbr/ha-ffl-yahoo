@@ -13,13 +13,16 @@ This source is strictly better on both counts:
 
 * **Three requests per poll for the whole league**, regardless of size — the
   league seed plus two league-wide live feeds — against 1 + one-per-matchup.
-* **Private leagues work.** Verified against one. There is no login and no
-  token involved; this is the same anonymous tier the GameChannel page uses.
+* **Private leagues work with a member's cookie.** Anonymously the seed is
+  refused for a private league, exactly as for an id with no league. The
+  fetcher the caller injects adds the user's Yahoo cookie to the seed request
+  when one is configured (see :mod:`http_client`); this module never sees it.
 
 The error taxonomy is deliberately shared with :mod:`web_client` so the
 coordinator did not have to learn a second one. :class:`LeagueIsPrivate` is
-kept importable from here but is never raised: privacy is simply not a
-condition this tier has.
+kept importable from here but is never raised: this tier's refusal of a
+private league is indistinguishable from a missing one, and arrives as
+:class:`~http_client.YahooAccessDenied`.
 
 Politeness
 ----------
@@ -234,7 +237,7 @@ class _PlaysCache:
 
 
 class RedzoneClient:
-    """Read one league over Yahoo's anonymous GameChannel tier."""
+    """Read one league over Yahoo's GameChannel tier."""
 
     def __init__(
         self,

@@ -61,8 +61,9 @@ Live Yahoo Fantasy Football league scoreboards in Home Assistant, with four bund
 ## How it gets the data
 
 It reads Yahoo's **GameChannel** tier — the same anonymous endpoints
-`sports.yahoo.com/nfl/gamechannel/` runs on. **No Yahoo account, no OAuth, no API key, and no
-approval process.** Private leagues work; so do public ones.
+`sports.yahoo.com/nfl/gamechannel/` runs on. **No OAuth, no API key, and no approval process.**
+A public league needs no Yahoo account at all. A private league needs one thing more: a Yahoo
+cookie from a browser signed in as a league member — see [Private leagues](#private-leagues).
 
 - `pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=…` — teams, rosters, matchups,
   per-player projections, and your league's own scoring modifiers.
@@ -171,10 +172,56 @@ league scoreboard without the my-matchup sensor.
 
 ### League not found
 
-If setup reports that Yahoo has no NFL league with that id this season, check the number after
-`/f1/` in your **current** NFL league's address — an address with a year in it, such as
-`/2025/f1/…`, is an archived season. Yahoo answers this case with `Unable to retrieve cookie.`; it
-does not mean you need to sign in or supply a cookie.
+If setup reports that Yahoo has no league with that id this season, check the number after `/f1/`
+in your **current** NFL league's address — an address with a year in it, such as `/2025/f1/…`, is an
+archived season.
+
+If the id is right, your league is probably **private**. Yahoo answers a private league and a
+missing one the same way (`403 Unable to retrieve cookie.`), so setup cannot tell which it is. A
+quick check: open `https://football.fantasysports.yahoo.com/f1/<id>` in a private browser window.
+If it sends you to Yahoo's sign-in page, the league is private.
+
+### Private leagues
+
+Yahoo serves a private league's data only to its members. To read one, the integration sends your
+Yahoo browser cookie along with its request for the league data.
+
+**First, check it will work.** In a browser where you are signed in to Yahoo as a member of the
+league, open this address, with your league id at the end:
+
+```
+https://pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=<id>
+```
+
+If you see a page of league data (JSON, with your team names in it), the cookie will work. If you
+see `Unable to retrieve cookie.` even while signed in, it will not; please say so in an issue.
+
+**Copy the cookie** from that same tab:
+
+1. Open the browser's developer tools (<kbd>F12</kbd>, or <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd>
+   on a Mac) and select the **Network** tab.
+2. Reload the page. Select the request whose name starts with `nfl?league_id=`.
+3. Under **Headers** → **Request Headers**, find **Cookie**. Copy its whole value: a long line that
+   looks like `A1=…; A3=…; GUC=…; T=…; Y=…`. (In Firefox, turn on **Raw** to copy it in one piece.)
+
+**Give it to the integration.** Paste it into **Yahoo cookie** when you add the league. Leave the
+field blank for a public league.
+
+**When it expires.** Yahoo's cookie lasts until you sign out of Yahoo in that browser, or until Yahoo
+ends the session. When it stops working, Home Assistant shows a **Reconfigure** prompt for the league
+under Settings → Devices & Services; copy the cookie again and paste it there. Signing out of Yahoo
+ends the cookie at once, so copy it from a browser you stay signed in to.
+
+**What that cookie can do.** It signs in to your whole Yahoo account, Mail included, not just Fantasy.
+Treat it like a password:
+
+- It is stored in Home Assistant's config entries (`.storage/core.config_entries`), and so in your
+  Home Assistant backups.
+- The integration sends it only to `pub-api.fantasysports.yahoo.com`, Yahoo's fantasy league server,
+  and only for this league's data. It never goes to the live-score feeds, to ESPN, or anywhere else,
+  and it is never logged.
+- To revoke it, sign out of Yahoo in the browser you copied it from, or end that session from your
+  Yahoo account's security settings.
 
 ## Cards
 

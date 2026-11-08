@@ -4,8 +4,15 @@ import json
 
 import pytest
 from http_fakes import HttpFailure, Response, Session
-from yahoo_fantasy_football.http_client import YahooAccessDenied, YahooRefused, fetch_text
+from yahoo_fantasy_football.http_client import (
+    YahooAccessDenied,
+    YahooRefused,
+    fetch_text,
+    league_refused,
+    normalize_cookie,
+)
 from yahoo_fantasy_football.redzone_client import RedzoneClient
+from yahoo_fantasy_football.web_client import FetchFailed
 
 URL = "https://pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=726304"
 
@@ -74,3 +81,73 @@ async def test_client_preserves_access_denied_instead_of_wrapping_as_transient()
 
     with pytest.raises(YahooAccessDenied):
         await RedzoneClient(fetch, "726304").async_fetch_seed()
+
+
+COOKIE = "A1=one; T=two; Y=three"
+
+
+async def test_cookie_is_sent_with_the_league_seed():
+    session = Session(Response(200, "{}"))
+    await fetch_text(session, URL, headers={"User-Agent": "test"}, cookie=COOKIE)
+    assert session.calls[0][1]["headers"] == {"User-Agent": "test", "Cookie": COOKIE}
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://relay-stream.sports.yahoo.com/nfl/games.txt",
+        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
+        "http://pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=726304",
+        "https://pub-api.fantasysports.yahoo.com.example.com/fantasy/v3/redzone/nfl",
+    ],
+)
+async def test_cookie_never_leaves_the_league_host(url):
+    headers = {"User-Agent": "test"}
+    session = Session(Response(200, "{}"))
+    await fetch_text(session, url, headers=headers, cookie=COOKIE)
+    assert session.calls[0][1]["headers"] == {"User-Agent": "test"}
+    assert headers == {"User-Agent": "test"}
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("", ""),
+        ("   ", ""),
+        (COOKIE, COOKIE),
+        (f"Cookie: {COOKIE}", COOKIE),
+        (f"  cookie:{COOKIE}\n", COOKIE),
+        ("A1=one;\n T=two;\r\n Y=three", COOKIE),
+    ],
+)
+def test_pasted_cookie_is_normalized(raw, expected):
+    assert normalize_cookie(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["not a cookie", "A1=one\x00", "A1=one\x7f"])
+def test_text_that_cannot_be_a_cookie_is_refused(raw):
+    with pytest.raises(ValueError):
+        normalize_cookie(raw)
+
+
+def _wrapped(inner):
+    try:
+        try:
+            raise inner
+        except Exception as err:
+            raise FetchFailed("no fresh data for 901s") from err
+    except FetchFailed as outer:
+        return outer
+
+
+@pytest.mark.parametrize(
+    "err",
+    [YahooAccessDenied(403, league_not_found=True), _wrapped(YahooAccessDenied(403, league_not_found=True))],
+)
+def test_a_league_refusal_is_recognized_even_past_the_stale_window(err):
+    assert league_refused(err)
+
+
+@pytest.mark.parametrize("err", [YahooAccessDenied(403), FetchFailed("timeout"), _wrapped(FetchFailed("x")), None])
+def test_other_failures_are_not_a_refused_league(err):
+    assert not league_refused(err)
