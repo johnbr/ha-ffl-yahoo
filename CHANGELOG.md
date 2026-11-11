@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.33.0...v0.34.0) (2026-11-11)
+
+
+### Features
+
+* read a private league with a member's Yahoo cookie ([#116](https://github.com/johnbr/ha-ffl-yahoo/issues/116)) ([4864087](https://github.com/johnbr/ha-ffl-yahoo/commit/48640870f3af5c205fa0aa559b7b92740e09f57f))
+
 ## [0.33.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.32.0...v0.33.0) (2026-11-06)
 
 
