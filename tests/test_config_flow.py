@@ -7,6 +7,7 @@ import importlib.util
 import json
 import sys
 from types import ModuleType
+from typing import ClassVar
 
 import pytest
 from conftest import FIXTURES, REPO_ROOT
@@ -30,6 +31,12 @@ class ConfigFlowShell:
 
     def async_create_entry(self, **kwargs):
         return {"type": "create_entry", **kwargs}
+
+    def _get_reauth_entry(self):
+        return self.reauth_entry
+
+    def async_update_reload_and_abort(self, entry, *, data_updates):
+        return {"type": "abort", "reason": "reauth_successful", "entry": entry, "data_updates": data_updates}
 
 
 @pytest.fixture
@@ -99,3 +106,62 @@ async def test_other_refusals_keep_generic_access_error(flow_factory, status):
     flow, _ = flow_factory(Response(status, "<html>Do not expose this response</html>"))
     result = await flow.async_step_user({"league_id": "802904"})
     assert result["errors"] == {"base": "yahoo_access_denied"}
+
+
+SEED = (FIXTURES / "yahoo_redzone_2026_w1.json").read_text()
+DENIED = json.dumps({"error": {"description": "Unable to retrieve cookie."}})
+COOKIE = "A1=one; T=two; Y=three"
+
+
+async def test_private_league_is_read_with_the_cookie_and_keeps_it(flow_factory):
+    flow, session = flow_factory(Response(200, SEED))
+    result = await flow.async_step_user({"league_id": "999999", "cookie": f"Cookie: {COOKIE}\n"})
+    assert result["step_id"] == "team"
+    assert session.calls[0][1]["headers"]["Cookie"] == COOKIE
+    entry = await flow.async_step_team({"team_id": "none"})
+    assert entry["data"]["cookie"] == COOKIE
+
+
+async def test_public_league_entry_carries_no_cookie(flow_factory):
+    flow, session = flow_factory(Response(200, SEED))
+    await flow.async_step_user({"league_id": "999999", "cookie": "  "})
+    assert "Cookie" not in session.calls[0][1]["headers"]
+    entry = await flow.async_step_team({"team_id": "none"})
+    assert "cookie" not in entry["data"]
+
+
+async def test_a_cookie_yahoo_refuses_is_reported_as_the_cookie(flow_factory):
+    flow, _ = flow_factory(Response(403, DENIED))
+    result = await flow.async_step_user({"league_id": "999999", "cookie": COOKIE})
+    assert result["errors"] == {"base": "cookie_rejected"}
+
+
+async def test_text_that_is_not_a_cookie_never_makes_http_request(flow_factory):
+    flow, session = flow_factory(Response(200, SEED))
+    result = await flow.async_step_user({"league_id": "999999", "cookie": "my password"})
+    assert result["errors"] == {"base": "invalid_cookie"}
+    assert session.calls == []
+
+
+class Entry:
+    title = "Kush"
+    data: ClassVar[dict] = {"league_id": "999999", "name": "Kush", "cookie": "A1=old"}
+
+
+async def test_reauth_stores_a_cookie_only_once_yahoo_serves_the_league_with_it(flow_factory):
+    flow, session = flow_factory(Response(200, SEED))
+    flow.reauth_entry = Entry()
+    form = await flow.async_step_reauth(Entry.data)
+    assert form["step_id"] == "reauth_confirm"
+    result = await flow.async_step_reauth_confirm({"cookie": COOKIE})
+    assert result["reason"] == "reauth_successful"
+    assert result["data_updates"] == {"cookie": COOKIE}
+    assert session.calls[0][1]["headers"]["Cookie"] == COOKIE
+
+
+async def test_reauth_keeps_asking_while_yahoo_refuses_the_cookie(flow_factory):
+    flow, _ = flow_factory(Response(403, DENIED))
+    flow.reauth_entry = Entry()
+    result = await flow.async_step_reauth_confirm({"cookie": COOKIE})
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": "cookie_rejected"}

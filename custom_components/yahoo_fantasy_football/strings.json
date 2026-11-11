@@ -3,10 +3,14 @@
     "step": {
       "user": {
         "title": "Set up Yahoo Fantasy Football",
-        "description": "Enter your league id, or paste the full address of your league page — the id is the number in the URL. Private leagues work; no Yahoo account or sign-in is needed. Leave the display name blank to use the league's own name.",
+        "description": "Enter your league id, or paste the full address of your league page — the id is the number in the URL. A public league needs nothing else. A private league also needs your Yahoo cookie, copied from a browser where you are signed in to Yahoo; the README shows how. Leave the display name blank to use the league's own name.",
         "data": {
           "league_id": "League id or URL",
-          "name": "Display name"
+          "name": "Display name",
+          "cookie": "Yahoo cookie (private leagues only)"
+        },
+        "data_description": {
+          "cookie": "Leave blank for a public league. The cookie signs in to your whole Yahoo account; it is stored in Home Assistant and sent only to Yahoo's fantasy league server."
         }
       },
       "team": {
@@ -15,16 +19,26 @@
         "data": {
           "team_id": "Your team"
         }
+      },
+      "reauth_confirm": {
+        "title": "New Yahoo cookie needed",
+        "description": "Yahoo no longer accepts the cookie for {league}. It expires, and signing out of Yahoo ends it. Copy it again from a browser where you are signed in to Yahoo, as the README shows.",
+        "data": {
+          "cookie": "Yahoo cookie"
+        }
       }
     },
     "error": {
       "invalid_league_id": "No league id found. Enter the number from your league URL, or paste the whole address.",
       "cannot_connect": "Could not reach Yahoo, or that league id returned nothing. Check the id and try again.",
       "yahoo_access_denied": "Yahoo refused access to its league data (HTTP 401/403). Try again later. If the problem persists, report the error to the integration maintainer.",
-      "league_not_found": "Yahoo has no NFL league with that id this season. Check the number after /f1/ in your league's address."
+      "league_not_found": "Yahoo has no league with that id this season, or the league is private. Check the number after /f1/ in your league's address. For a private league, also enter your Yahoo cookie.",
+      "cookie_rejected": "Yahoo did not serve this league with that cookie. Check the league id, and copy the cookie again from a browser signed in to a Yahoo account in the league.",
+      "invalid_cookie": "That does not look like a cookie. Paste the value of the Cookie request header, e.g. A1=…; A3=…; T=…; Y=…"
     },
     "abort": {
-      "already_configured": "This league is already configured."
+      "already_configured": "This league is already configured.",
+      "reauth_successful": "The new cookie works. The league is reloading."
     }
   },
   "entity": {

@@ -17,6 +17,8 @@ CONF_LEAGUE_ID = "league_id"
 CONF_SEASON = "season"
 CONF_TEAM_ID = "team_id"
 """Which team is 'mine' — drives the my-matchup card. Optional."""
+CONF_COOKIE = "cookie"
+"""A league member's Yahoo browser cookie. Only a private league needs it."""
 
 DEFAULT_NAME = "Yahoo Fantasy Football"
 

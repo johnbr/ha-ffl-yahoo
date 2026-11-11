@@ -2,16 +2,19 @@
 
 This is the third source in the repo and the one that supersedes the others.
 It is what ``sports.yahoo.com/nfl/gamechannel/`` itself runs on, reached with
-no OAuth, no cookies, and no account — verified against a league whose privacy
-setting is *private*, which :mod:`yahoo_web` cannot read at all.
+no OAuth and no account for a public league. A *private* league's seed is
+refused anonymously (403, "Unable to retrieve cookie." — the same answer as an
+id with no league, checked 2026-11-08 against a sample of private ids) and is
+served only with a member's Yahoo cookie; see :mod:`http_client`.
 
-Two endpoints, both anonymous
------------------------------
+Two endpoints
+-------------
 * ``pub-api.fantasysports.yahoo.com/fantasy/v3/redzone/nfl?league_id=…`` — the
   league seed: teams, rosters, matchups, week window, per-player projections,
-  and the league's **own scoring modifiers**.
+  and the league's **own scoring modifiers**. Anonymous for a public league.
 * ``relay-stream.sports.yahoo.com/nfl/{games,stats,players,plays-N}.txt`` — the
   live tier: pipe-delimited, one line per record, refreshed every few seconds.
+  Always anonymous: it is the same for every league.
 
 Why the points are computed here rather than read
 -------------------------------------------------

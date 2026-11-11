@@ -19,6 +19,7 @@ from typing import Any
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -26,6 +27,7 @@ from homeassistant.util import dt as dt_util
 
 from .automation import LeadTracker, scoring_play_payload
 from .const import (
+    CONF_COOKIE,
     CONF_LEAGUE_ID,
     CONF_SEASON,
     CONF_TEAM_ID,
@@ -34,7 +36,7 @@ from .const import (
     EVENT_SCORING_PLAY,
 )
 from .history_client import PlayerNotRostered, SeasonHistory
-from .http_client import fetch_text
+from .http_client import fetch_text, league_refused
 from .league_state import down_and_distance, find_team, poll_interval
 from .pending_plays import Landed, PendingPlays, PlaysSchedule, period_end_not_reached, situation_of
 from .plays import (
@@ -89,9 +91,10 @@ CHASE_SECONDS = 5.0
 class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
     """Fetch a league on an adaptive cadence and derive scoring plays.
 
-    Reads Yahoo's anonymous GameChannel tier (:mod:`redzone_client`), which
-    serves private leagues as well as public ones and costs three requests per
-    poll regardless of league size.
+    Reads Yahoo's GameChannel tier (:mod:`redzone_client`), which costs three
+    requests per poll regardless of league size. A public league is read
+    anonymously; a private one needs a member's Yahoo cookie, which is sent
+    with the league seed only (see :mod:`http_client`).
     """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -101,11 +104,15 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
         self._lead = LeadTracker()
         season = entry.data.get(CONF_SEASON)
         self.season = int(season) if season else None
+        cookie = str(entry.data.get(CONF_COOKIE) or "")
+        self._has_cookie = bool(cookie)
 
         session = async_get_clientsession(hass)
 
         async def _fetch(url: str) -> str:
-            body, _ = await fetch_text(session, url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+            body, _ = await fetch_text(
+                session, url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT, cookie=cookie
+            )
             return body or ""
 
         async def _fetch_if_modified(url: str, since: str | None) -> tuple[str | None, str]:
@@ -119,7 +126,11 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
 
         async def _fetch_with(url: str, headers: dict[str, str] | None) -> str:
             body, _ = await fetch_text(
-                session, url, headers={"User-Agent": USER_AGENT, **(headers or {})}, timeout=REQUEST_TIMEOUT
+                session,
+                url,
+                headers={"User-Agent": USER_AGENT, **(headers or {})},
+                timeout=REQUEST_TIMEOUT,
+                cookie=cookie,
             )
             return body or ""
 
@@ -220,6 +231,12 @@ class YahooFantasyCoordinator(DataUpdateCoordinator[LeagueData]):
             # surprise traceback if that ever changes.
             raise UpdateFailed(str(err)) from err
         except YahooWebError as err:
+            if self._has_cookie and league_refused(err):
+                # Yahoo stopped honouring the member's cookie: it expired, or
+                # they signed out. Ask for a fresh one rather than retrying.
+                raise ConfigEntryAuthFailed(
+                    "Yahoo no longer accepts the cookie for this private league; paste a new one"
+                ) from err
             raise UpdateFailed(str(err)) from err
 
         await self._process_plays(data, now)
