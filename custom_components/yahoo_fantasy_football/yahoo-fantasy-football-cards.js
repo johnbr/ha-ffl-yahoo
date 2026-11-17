@@ -512,7 +512,7 @@ function renderNflGame(game, options = {}) {
   const home = game.home || {};
   const awayLead = Number(away.score) > Number(home.score);
   const homeLead = Number(home.score) > Number(away.score);
-  // Gold for the winner once the game is over — the same mark the league
+  // Blue for the winner once the game is over — the same mark the league
   // card puts on a decided matchup. A leader in a running game is only ahead.
   const over = game.state === "post";
 
@@ -640,7 +640,7 @@ function renderNflPlays(plays) {
 }
 
 /**
- * A score's emphasis: bold for the side ahead, and gold once that lead is a
+ * A score's emphasis: bold for the side ahead, and blue once that lead is a
  * result. `final` is the integration's word — true only when neither team
  * has a starter left to play — so a team is never crowned mid-game; a tie
  * has no leader and so nothing to colour.
@@ -770,7 +770,7 @@ function renderMyScore(row, teamId, options = {}) {
   const line = (team) => {
     const ahead = Boolean(row.leader) && row.leader === team.team_id;
     const behind = Boolean(row.leader) && !ahead;
-    // Gold for the winner once the matchup is over — never mid-game.
+    // Blue for the winner once the matchup is over — never mid-game.
     const won = ahead && final;
     const name = `ffl-ms-name${ahead ? " ffl-leader" : ""}${won ? " ffl-won" : ""}`;
     const points = `ffl-ms-pts${won ? " ffl-won" : behind ? " ffl-ms-behind" : ""}`;
@@ -854,7 +854,7 @@ function slotClass(slot) {
 function renderPlayerBlock(player, align) {
   if (!player) return `<div class="ffl-lu-block ffl-lu-${align} ffl-lu-empty"></div>`;
   // A delayed game's points have happened but are neither settled nor
-  // moving: full weight, no gold, no live shading — the class exists so the
+  // moving: full weight, no blue, no live shading — the class exists so the
   // "not yet" lightening of .ffl-p-pre does not apply to a real score.
   const stateCls =
     player.game_state === "post"
@@ -882,7 +882,7 @@ function renderPlayerBlock(player, align) {
   // vs Min" — and the kickoff reads the way the games card prints it, weekday
   // included unless it is today. Once the game is on, the note carries the
   // clock and the score and the kickoff is history. Once it is over there
-  // is no line at all: the gold points already say "done", and how his
+  // is no line at all: the blue points already say "done", and how his
   // club fared ("Final W 26-7 @ Pit") is not what a fantasy lineup is for.
   const game =
     player.game_state === "post"
@@ -2048,10 +2048,10 @@ const CARD_CSS = `
   .ffl-rowproj { font-size: 0.72rem; font-weight: 600; line-height: 1.1; }
   .ffl-score { font-size: 0.9rem; color: var(--secondary-text-color); }
   .ffl-score.ffl-leader { color: var(--primary-text-color); font-weight: 700; }
-  /* A decided result: the winning score in gold, on both cards. One token
-     so a theme can pick its own shade — the default is a yellow that still
-     reads on a light card, where a pure yellow would not. */
-  .ffl-score.ffl-won, .ffl-nfl-won .ffl-nfl-score { color: var(--ffl-winner-color, #fbc02d); }
+  /* A decided result: the winning score in blue, on both cards. One token
+     so a theme can pick its own shade — the default is a bright blue that
+     reads on a light card and a dark one alike. */
+  .ffl-score.ffl-won, .ffl-nfl-won .ffl-nfl-score { color: var(--ffl-winner-color, #2979ff); }
   .ffl-vs { color: var(--secondary-text-color); font-size: 0.8rem; }
 
   .ffl-stale { font-size: 0.75rem; color: var(--warning-color); padding: 4px 6px; }
@@ -2164,12 +2164,12 @@ const CARD_CSS = `
      of the week most of a lineup is yet to play, that greyed out most of the
      card. The kickoff line under the name already says "not yet". */
   .ffl-p-pre .ffl-lu-pts { font-weight: 500; }
-  /* A FINAL score is in the same gold as a decided matchup and a won NFL
+  /* A FINAL score is in the same blue as a decided matchup and a won NFL
      game: one colour for "this number is settled", wherever it appears.
      Weight alone separated a final from a live score, and on a Sunday
      afternoon a lineup is a mix of both. --ffl-final-color lets a theme
-     split the two golds; by default they are one. */
-  .ffl-p-final .ffl-lu-pts { color: var(--ffl-final-color, var(--ffl-winner-color, #fbc02d)); }
+     split the two blues; by default they are one. */
+  .ffl-p-final .ffl-lu-pts { color: var(--ffl-final-color, var(--ffl-winner-color, #2979ff)); }
 
   .ffl-bench summary { cursor: pointer; font-size: 0.75rem; color: var(--ffl-muted); padding: 8px 4px 4px; }
 
@@ -2243,7 +2243,7 @@ const CARD_CSS = `
   /* Starters still to finish: an aside to the score, so it sits close to it. */
   .ffl-ms-left { font-size: 0.8rem; font-weight: 500; color: var(--secondary-text-color); margin-left: -8px; }
   .ffl-ms-name.ffl-won { font-size: 1.02rem; }
-  .ffl-ms-name.ffl-won, .ffl-ms-pts.ffl-won { color: var(--ffl-winner-color, #fbc02d); }
+  .ffl-ms-name.ffl-won, .ffl-ms-pts.ffl-won { color: var(--ffl-winner-color, #2979ff); }
   /* Centred under the two score lines, so it doesn't read as a third team. */
   .ffl-ms-play {
     padding: 1px 6px; border-radius: 6px; cursor: pointer; text-align: center;
