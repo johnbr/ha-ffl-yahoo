@@ -245,7 +245,7 @@ with no heading. Each line has the live projection (green above the pre-game pro
 and the points, with the decimal points lined up. Then, in brackets, comes how many of that team's
 starters still have a game to finish, in progress or yet to kick off. The last play goes underneath
 for three minutes after it scores, and stays while the card is open.
-Once the matchup is over, the projections and the counts drop away and the winner turns gold. Tap the
+Once the matchup is over, the projections and the counts drop away and the winner turns blue. Tap the
 score for both lineups, or the play for the matchup's scoring history.
 
 <img src="https://raw.githubusercontent.com/johnbr/ha-ffl-yahoo/main/docs/images/my-score-card.png" width="400"

@@ -178,7 +178,7 @@ test("a hostile record cannot inject markup", () => {
   assert.ok(!html.includes("<b>x</b>"));
 });
 
-test("the winning score turns gold only once the matchup is decided", () => {
+test("the winning score turns blue only once the matchup is decided", () => {
   // `final` is the integration's word: neither team has a starter left to
   // play. A leader mid-week is only ahead.
   const ahead = renderMatchupRow(ROW);
@@ -312,14 +312,14 @@ test("the score card colours each live projection against the morning's", () => 
   assert.ok(html.includes('<span class="ffl-ms-proj ffl-down">110.50</span>'));
 });
 
-test("the leader is bold and the trailing score is muted, but nobody is gold mid-game", () => {
+test("the leader is bold and the trailing score is muted, but nobody is blue mid-game", () => {
   const html = renderMyScore(LIVE_ROW, "5");
   assert.ok(html.includes('<span class="ffl-ms-name ffl-leader">Tesla</span>'));
   assert.ok(html.includes('<span class="ffl-ms-pts ffl-ms-behind">104.09</span>'));
   assert.ok(!html.includes("ffl-won"));
 });
 
-test("a finished matchup drops the projections and turns the winner gold", () => {
+test("a finished matchup drops the projections and turns the winner blue", () => {
   const html = renderMyScore({ ...LIVE_ROW, final: true }, "5");
   assert.deepStrictEqual(scoreLines(html), [
     ["Your daddy", "104.09"],
@@ -737,11 +737,11 @@ test("a player yet to play keeps a legible name; only the points are lightened, 
   assert.doesNotMatch(CARD_CSS, /\.ffl-p-pre \.ffl-lu-name/);
 });
 
-test("a final score is gold, the same gold as a decided matchup", () => {
+test("a final score is blue, the same blue as a decided matchup", () => {
   // Weight alone did not separate a final from a live score on a Sunday
   // afternoon, when a lineup is a mix of both. Falls back to the winner
   // colour so one token recolours every settled number.
-  assert.match(rule(".ffl-p-final .ffl-lu-pts"), /color:\s*var\(--ffl-final-color, var\(--ffl-winner-color, #fbc02d\)\)/);
+  assert.match(rule(".ffl-p-final .ffl-lu-pts"), /color:\s*var\(--ffl-final-color, var\(--ffl-winner-color, #2979ff\)\)/);
   assert.doesNotMatch(CARD_CSS, /\.ffl-p-live \.ffl-lu-pts \{[^}]*color/);
 });
 
@@ -1331,7 +1331,7 @@ test("a finished game says Final and carries no live situation", () => {
   assert.ok(!html.includes("ffl-nfl-live"), "a final game is not live");
 });
 
-test("a finished game marks the winner's score gold; a live leader is only ahead", () => {
+test("a finished game marks the winner's score blue; a live leader is only ahead", () => {
   // Split on the team div only — `ffl-nfl-teams`, the wrapper, shares the prefix.
   const blocks = (html) => html.split(/<div class="ffl-nfl-team[" ]/).slice(1);
   const live = blocks(renderNflGame(GAME_LIVE));
