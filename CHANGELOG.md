@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.34.0...v0.35.0) (2026-11-17)
+
+
+### Features
+
+* show a decided winner's score in blue instead of gold ([#120](https://github.com/johnbr/ha-ffl-yahoo/issues/120)) ([b44cb2d](https://github.com/johnbr/ha-ffl-yahoo/commit/b44cb2db6d55b8721393658d7f61880ec4ee1e96))
+
 ## [0.34.0](https://github.com/johnbr/ha-ffl-yahoo/compare/v0.33.0...v0.34.0) (2026-11-11)
 
 
